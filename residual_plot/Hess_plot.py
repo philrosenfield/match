@@ -4,7 +4,7 @@ import matplotlib.colors as cl
 import sys
 
 cmdfile_name = sys.argv[1]
-plot_name = 'crater_dart_ssp_hess.png'
+plot_name = sys.argv[2]
 figsize=(8, 8)
 subsize = 0.38
 subx1, suby1 = 0.08, 0.08
