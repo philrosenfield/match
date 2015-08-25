@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as cl
 import sys
-from palettable.colorbrewer.diverging import Spectral_9_r 
 
 cmdfile_name = sys.argv[1]
 plot_name = 'crater_dart_ssp_hess.png'
