@@ -17,19 +17,8 @@ __all__ = ['InputFile', 'InputFile2', 'InputParameters', 'Table', 'ensure_dir',
 
 class InputParameters(object):
     '''
-    need to make a dictionary of all the possible parameters
-        (in the ex: rsp.TrilegalUtils.galaxy_input_dict())
-    need to make a formatted string with dictionary printing
-        (in the ex: rsp.TrilegalUtils.galaxy_input_fmt())
-
-    example
-    import ResolvedStellarPops as rsp
-    inp = rsp.fileIO.input_parameters(default_dict=rsp.TrilegalUtils.galaxy_input_dict())
-    send any replacement params as kwargs.
-    inp.write_params('test', rsp.TrilegalUtils.galaxy_input_fmt())
-    $ cat test
-
-    use print inp to see what current values are in cmd line.
+    A class that adds dictionary keys as attributes made for reading and
+    writing input files.
     '''
     def __init__(self, default_dict=None):
         self.possible_params(default_dict)
