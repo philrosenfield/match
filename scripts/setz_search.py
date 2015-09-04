@@ -116,7 +116,7 @@ def run_grid(phot, fake, mparams, gmin=-1., gmax=-.4, dg=0.05, zdisp=0.05,
         for mparam in match_params:
             scrn = mparam.replace('matchparam', 'scrn')
             nproc, cmd = match_scripts.check_proc(nproc, cmd, max_proc=max_proc)
-            cmd += 'taskset -c %i python -c \"from ResolvedStellarPops.match.utils import strip_header; strip_header(\'%s\')\" & \n' % (nproc, scrn)
+            cmd += 'python -c \"from match.utils import strip_header; strip_header(\'%s\')\" & \n' % (nproc, scrn)
             nproc += 1
             scrns.append(scrn)
         nproc, cmd = match_scripts.reset_proc(nproc, cmd)

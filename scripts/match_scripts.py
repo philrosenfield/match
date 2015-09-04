@@ -76,7 +76,7 @@ def call_stats(outfile, cmd='', nproc=MIN_PROC, nfp_nonsfr=0, max_proc=MAX_PROC)
     nproc += 1
     nproc, cmd = check_proc(nproc, cmd, max_proc=max_proc)
 
-    cmd += 'taskset -c %i python -c \"from ResolvedStellarPops.match.likelihood import match_stats; ' % nproc
+    cmd += 'taskset -c %i python -c \"from match.likelihood import match_stats; ' % nproc
     cmd += 'match_stats(\'%s\', \'%s\', nfp_nonsfr=%i, nmc_runs=0, outfile=\'%s\', dry_run=False, extra=\'%s\')\" & \n' % \
             (sfh_file, cmd_file, nfp_nonsfr, stats_file, extra)
     nproc += 1

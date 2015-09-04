@@ -227,6 +227,13 @@ def cheat_fake(infakefile, outfakefile):
     return
 
 
+def read_ssp_output(filename):
+    colnames = ['Av', 'IMF', 'dmod', 'lage', 'logZ', 'fit', 'sfr', 'sfrperr',
+                'sfrmerr']
+    data = np.genfromtxt(filename, skip_header=10, skip_footer=1, names=colnames)
+    return data.view(np.recarry)
+
+
 def read_binned_sfh(filename):
     '''
     reads the file created using zcombine or HybridMC from match
