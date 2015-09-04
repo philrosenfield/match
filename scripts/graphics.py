@@ -14,6 +14,7 @@ from .fileio import get_files
 
 __all__ = ['add_inner_title', 'forceAspect', 'match_plot', 'pgcmd', 'sfh_plot',
            'read_match_cmd', 'MatchCMD', 'match_diagnostic', 'call_pgcmd']
+plt.style.use('ggplot')
 
 
 def match_diagnostic(param, phot):
@@ -31,10 +32,10 @@ def match_diagnostic(param, phot):
         paramlines = f.readlines()
 
     colmin, colmax = map(float, paramlines[4].split()[3: 5])
-    mag1max, mag1min = map(float, paramlines[5].split()[0: 2])
-    mag2max, mag2min = map(float, paramlines[6].split()[0: 2])
+    mag1min, mag1max = map(float, paramlines[5].split()[0: 2])
+    mag2min, mag2max = map(float, paramlines[6].split()[0: 2])
 
-    ylims = [(mag1min + moff, mag1max - moff), (mag2min + moff, mag2max - moff)]
+    ylims = [(mag1max + moff, mag1min - moff), (mag2max + moff, mag2min - moff)]
 
     filters = paramlines[4].split()[-1].split(',')
     excludes = np.array([paramlines[7].split()], dtype=float)
@@ -49,14 +50,14 @@ def match_diagnostic(param, phot):
              np.array([[colmin, mag2min], [colmin, mag2max], [colmax, mag2max],
                        [colmax, mag2min], [colmin, mag2min]])]
 
-    magcuts = [np.nonzero((mag1 > mag1max) & (mag1 < mag1min)),
-               np.nonzero((mag2 > mag2max) & (mag2 < mag2min))]
+    magcuts, = np.nonzero((mag1 < mag1max) & (mag1 > mag1min) &
+                          (mag2 < mag2max) & (mag2 > mag2min))
 
     fig, axs = plt.subplots(ncols=2, sharex=True, figsize=(12, 6))
 
     for i, ymag in enumerate([mag1, mag2]):
         axs[i].plot(color, ymag, '.')
-        axs[i].plot(color[magcuts[i]], ymag[magcuts[i]], '.')
+        axs[i].plot(color[magcuts], ymag[magcuts], '.')
         axs[i].plot(verts[i][:, 0], verts[i][:, 1])
         axs[i].set_ylabel(r'${}$'.format(filters[i]))
         axs[i].set_xlabel(r'${}-{}$'.format(*filters))

@@ -10,7 +10,8 @@ from astropy.io import fits
 from astropy.table import Table
 
 from .diagnostics import match_diagnostic
-from .utils import match_param_default_dict, match_param_fmt
+from .utils import match_param_default_dict, match_param_fmt, parse_pipeline
+from .fileio import replace_ext
 
 def move_on(ok, msg='0 to move on: '):
     ok = int(raw_input(msg))
@@ -199,17 +200,36 @@ def find_gates(mag1, mag2, param):
     print('wrote %s' % param)
 
 
-def match_param(mag1, mag2, filters, phot, param_kw={}):
+def match_param(mag1, mag2, filters, phot, param, interactive=False, fake=None,
+                comp_frac=0.5, param_kw={}):
     print filters
     p = dict(match_param_default_dict().items() + param_kw.items())
 
-    p['V-Imin'], p['V-Imax'], p['Vmin'], p['Vmax'], p['Imin'], p['Imax'] = \
-        find_match_limits(mag1, mag2)
+    if interactive:
+        p['V-Imin'], p['V-Imax'], p['Vmin'], p['Vmax'], p['Imin'], p['Imax'] = \
+            find_match_limits(mag1, mag2)
+    else:
+        color = mag1 - mag2
+        p['V-Imin'] = np.min(color)
+        p['V-Imax'] = np.max(color)
+        p['Vmin'] = np.min(mag1)
+        p['Imin'] = np.min(mag2)
+        p['Vmax'] = np.max(mag1)
+        p['Imax'] = np.max(mag2)
+        print p['Vmax'], p['Imax']
+        if fake is not None:
+            from ..asts import ASTs
+            ast = ASTs(fake)
+            ast.completeness(interpolate=True)
+            print('Using {} completeness fraction from {}'.format(comp_frac, fake))
+            p['Vmax'], p['Imax'] = ast.get_completeness_fraction(comp_frac)
+            print p['Vmax'], p['Imax']
+
     p['V'] = filters[0]
     p['I'] = filters[1]
-    param = phot.replace('match', 'param')
     with open(param, 'w') as out:
         out.write(match_param_fmt() % p)
+    print('wrote {}'.format(param))
     return param
 
 def match_limits(mag1, mag2, color_only=False, comp1=99., comp2=99.):
@@ -248,14 +268,15 @@ def make_phot(fitsfile, filters):
         photname = photname.replace('_VEGA', '')
         np.savetxt(photname, np.column_stack((tab[filters[0]], tab[filters[1]])),
                    fmt='%.3f')
+        print('wrote {}'.format(photname))
     return photname
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Find color mag limits of CMDs interactively")
 
-    parser.add_argument('-c', '--color_only', action='store_true',
-                        help='skip the magnitude finding')
+    parser.add_argument('-x', '--color_only', action='store_true',
+                        help='with -i skip the magnitude finding')
 
     parser.add_argument('-s', '--slice', type=float, default=99.,
                         help='cut out mags outside of this value')
@@ -264,24 +285,30 @@ if __name__ == "__main__":
                         help='trgb level to run with -t')
 
     parser.add_argument('-e', '--exgates', action='store_true',
-                        help='Find exclude gates instead')
+                        help='with -i find exclude gates')
 
     parser.add_argument('-t', '--extpgates', action='store_true',
-                        help='Find exclude tp-agb instead')
+                        help='with -i find exclude tp-agb')
 
     parser.add_argument('-i', '--interactive', action='store_true',
                         help='find limits interactively')
 
     parser.add_argument('-f', '--filters', type=str, default=None,
-                        help='comma separated filters to make match phot')
+                        help='comma separated fits mag column names to make match phot')
 
-    parser.add_argument('param', type=str, help='match param file')
+    parser.add_argument('-a', '--fake', type=str, default=None,
+                        help='match fake file')
+
+    parser.add_argument('-c', '--comp_frac', type=float, default=None,
+                        help='completeness fraction to use for faint limit')
+
+    parser.add_argument('-p', '--param', type=str, help='match param file')
 
     parser.add_argument('phot', type=str, help='match phot file or fits file')
 
     args = parser.parse_args(sys.argv[1:])
 
-    if args.filters is not None:
+    if args.phot.endswith('fits'):
         filters = args.filters.split(',')
         args.phot = make_phot(args.phot, filters)
 
@@ -290,15 +317,21 @@ if __name__ == "__main__":
     mag1 = mag1[inds]
     mag2 = mag2[inds]
 
-    if args.exgates:
-        find_gates(mag1, mag2, args.param)
+    args.param = args.param or replace_ext(args.phot, '.param')
+    if args.filters is None:
+        target, filters = parse_pipeline(args.phot)
+
+    if not os.path.isfile(args.param):
+        print('Making param file')
+        match_param(mag1, mag2, filters, args.phot, args.param, fake=args.fake,
+                    interactive=args.interactive, comp_frac=args.comp_frac)
 
     if args.interactive:
-        filters = args.filters.replace('_VEGA','').split(',')
-        args.param = match_param(mag1, mag2, filters, args.phot)
+        if args.exgates:
+            find_gates(mag1, mag2, args.param)
 
-    if args.extpgates:
-        filter1 = args.filters.replace('_VEGA','').split(',')[0]
-        exclude_tpagb(args.phot, args.param, filter1=filter1, mtrgb=args.mtrgb)
+        if args.extpgates:
+            filter1 = args.filters.replace('_VEGA','').split(',')[0]
+            exclude_tpagb(args.phot, args.param, filter1=filter1, mtrgb=args.mtrgb)
 
     match_diagnostic(args.param, args.phot)
