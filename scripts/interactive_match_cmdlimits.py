@@ -220,7 +220,7 @@ def match_param(mag1, mag2, filters, phot, param, interactive=False, fake=None,
         if fake is not None:
             from ..asts import ASTs
             ast = ASTs(fake)
-            ast.completeness(interpolate=True)
+            ast.completeness(combined_filters=True, interpolate=True)
             print('Using {} completeness fraction from {}'.format(comp_frac, fake))
             p['Vmax'], p['Imax'] = ast.get_completeness_fraction(comp_frac)
             print p['Vmax'], p['Imax']
