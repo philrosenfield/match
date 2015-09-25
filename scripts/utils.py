@@ -516,6 +516,43 @@ class MatchSFH(object):
         d['fmt'] = '%s \\\\ \n' % (' & '.join(line))
         return d
 
+    def mass_fraction(self, lagei, lagef):
+        """
+        Return the fraction of total mass formed between lagei and lagef.
+        lage[] units can be log yr or yr.
+        Multiply by self.totalSF to obtain the mass formed.
+        """
+        if lagei > 1e6:
+            lagei = np.log10(lagei)
+            print('Warning: converting input age to log age')
+        if lagef > 1e6:
+            lagef = np.log10(lagef)
+            print('Warning: converting input age to log age')
+
+        # min age bin size, will trigger warning if ages requested are
+        # higher than the min binsize.
+        tol = np.min(np.diff(self.data.lagei))
+
+        agebins = (10 ** self.data.lagef - 10 ** self.data.lagei)
+
+        # higher precision than self.totalSF
+        totalSF = np.sum(self.data.sfr * agebins)
+
+        #  find closest age bin to lagei
+        idxi = np.argmin(np.abs(self.data.lagei - lagei))
+        difi = np.abs(self.data.lagei[idxi] - lagei)
+        if difi > tol:
+            print('Warning: input lagei={} not found. Using {}'.format(lagei, self.data.lagei[idxi]))
+
+        #  find closest age bin to lagef
+        idxf = np.argmin(np.abs(self.data.lagef - lagef))
+        dif = np.abs(self.data.lagef[idxf] - lagef)
+        if dif > tol:
+            print('Warning: input lagef={} not found using {}'.format(lagef, self.data.lagef[idxf]))
+
+        fracsfr = np.sum(self.data.sfr[idxi:idxf + 1]  * agebins[idxi:idxf + 1])# +1 to include final bin
+        return fracsfr / totalSF
+
 def match_param_default_dict():
     ''' default params for match param file'''
 
