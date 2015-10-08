@@ -33,12 +33,12 @@ For now, try `python -m match.scripts.calcsfh_parallel.py -h` to see if anything
 This should be a very flexible entry to run all diagnostics on all files with
 expected extensions in a directory. The extensions are currently:
 
-`.cmd` (cmd file that MATCH.calcsfh automatically makes)
-`.sfh` (calcsfh output)
-`.zc` (zcombine output (same format as .sfh)
-`.param` (match input parameter file)
-`.match` (match 2 column photometry)
-`.scrn` (calcsfh console output)
+-`.cmd` (cmd file that MATCH.calcsfh automatically makes)
+-`.sfh` (calcsfh output)
+-`.zc` (zcombine output (same format as .sfh)
+-`.param` (match input parameter file)
+-`.match` (match 2 column photometry)
+-`.scrn` (calcsfh console output)
 
 
 ## fileio.py
@@ -65,5 +65,4 @@ Work in progress. Visualizations and statistics on calcsfh in ssp mode
 
 ## utils.py
 In flux. Right now a few classes like MatchCMD (to read `.cmd` files) and
-MatchSFH (to read `.sfh` `.zc` file) are stored here.
-
+MatchSFH (to read `.sfh` and `.zc` files) are stored here.
