@@ -10,7 +10,10 @@ import numpy as np
 from .fileio import read_ssp_output
 
 __all__ = ['SSP']
-plt.style.use('presentation')
+try:
+    plt.style.use('presentation')
+except:
+    pass
 
 def add_filename_info_to_file(fname, ofile=None):
     """
