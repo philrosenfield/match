@@ -10,8 +10,8 @@ from astropy.io import fits
 from astropy.table import Table
 
 from .diagnostics import match_diagnostic
-from .utils import match_param_default_dict, match_param_fmt, parse_pipeline
-from .fileio import replace_ext
+from .fileio import match_param_default_dict, match_param_fmt
+from .fileio import replace_ext, parse_pipeline
 
 def move_on(ok, msg='0 to move on: '):
     ok = int(raw_input(msg))

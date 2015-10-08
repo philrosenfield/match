@@ -9,11 +9,12 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.patheffects import withStroke
 
-from .utils import MatchSFH, parse_pipeline
-from .fileio import get_files
+from .utils import MatchSFH, MatchCMD
+from .fileio import get_files, parse_pipeline, read_match_cmd
 
 __all__ = ['add_inner_title', 'forceAspect', 'match_plot', 'pgcmd', 'sfh_plot',
-           'read_match_cmd', 'MatchCMD', 'match_diagnostic', 'call_pgcmd']
+           'match_diagnostic', 'call_pgcmd']
+
 plt.style.use('ggplot')
 
 
@@ -220,6 +221,7 @@ def pgcmd(filename=None, cmd=None, labels=None, figname=None, out_dir=None,
     plt.close()
     return grid
 
+
 def sfh_plot(MatchSFH):
     from matplotlib.ticker import NullFormatter
     fig, (ax1, ax2) = plt.subplots(nrows=2)
@@ -231,48 +233,6 @@ def sfh_plot(MatchSFH):
     plt.savefig(figname)
     plt.close()
     print('{} wrote {}'.format(sfh_plot.__name__, figname))
-
-
-class MatchCMD(object):
-    """
-    A quikly made object to read the MATCH CMD file and hold paramters to
-    automatically make plots with the same color scale as other MATCH CMD files.
-    """
-    def __init__(self, filename):
-        self.cmd = read_match_cmd(filename)
-        self.figname = os.path.split(filename)[1] + '.png'
-        labels = ['${\\rm %s}$' % i for i in ('data', 'model', 'diff', 'sig')]
-        labels[1] = '${\\rm %s}$' % self.figname.split('.')[0].replace('_', '\ ')
-        self.labels = labels
-        self.load_match_cmd(filename)
-
-    def load_match_cmd(self, filename):
-        """
-        pgcmd needs hesses and extent. Optional are max_* which set the vmins
-        and vmaxs.
-        """
-        self.nmagbin = len(np.unique(self.cmd['mag']))
-        self.ncolbin = len(np.unique(self.cmd['color']))
-        self.data = self.cmd['Nobs'].reshape(self.nmagbin, self.ncolbin)
-        self.model = self.cmd['Nsim'].reshape(self.nmagbin, self.ncolbin)
-        self.diff = self.cmd['diff'].reshape(self.nmagbin, self.ncolbin)
-        self.sig = self.cmd['sig'].reshape(self.nmagbin, self.ncolbin)
-        self.hesses = [self.data, self.model, self.diff, self.sig]
-        self.extent = [self.cmd['color'][0], self.cmd['color'][-1],
-                       self.cmd['mag'][-1], self.cmd['mag'][0]]
-        self.max_counts = np.nanmax(np.concatenate([self.data, self.model]))
-        self.max_diff = np.nanmax(np.abs(self.diff))
-        self.max_sig = np.nanmax(np.abs(self.sig))
-
-def read_match_cmd(filename):
-    '''
-    reads MATCH .cmd file
-    '''
-    #mc = open(filename, 'r').readlines()
-    # I don't know what the 7th column is, so I call it lixo.
-    names = ['mag', 'color', 'Nobs', 'Nsim', 'diff', 'sig', 'lixo']
-    cmd = np.genfromtxt(filename, skip_header=4, names=names, invalid_raise=False)
-    return cmd
 
 
 def call_pgcmd(filenames, filter1=None, filter2=None, labels=[]):

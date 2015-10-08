@@ -3,66 +3,361 @@ import numpy as np
 import os
 import glob
 import sys
-from pprint import pprint
-import difflib
-from ast import literal_eval
-
 import logging
+logger = logging.getLogger()
 
-__all__ = ['InputFile', 'InputFile2', 'InputParameters', 'Table', 'ensure_dir',
-           'ensure_file', 'get_files', 'get_row', 'item_from_row',
-           'load_input', 'read_table', 'read_tagged_phot', 'readfile',
-           'replace_ext', 'savetxt', 'get_dirs']
+__all__ = ['ensure_file', 'get_files',  'readfile', 'replace_ext', 'savetxt',
+           'match_param_default_dict', 'match_param_fmt', 'process_match_sfh',
+           'read_match_cmd', 'calcsfh_dict', 'make_match_param',
+           'read_ssp_output', 'read_binned_sfh', 'parse_pipeline']
 
-
-class InputParameters(object):
+def read_match_cmd(filename):
     '''
-    A class that adds dictionary keys as attributes made for reading and
-    writing input files.
+    reads MATCH .cmd file
     '''
-    def __init__(self, default_dict=None):
-        self.possible_params(default_dict)
+    #mc = open(filename, 'r').readlines()
+    # I don't know what the 7th column is, so I call it lixo.
+    names = ['mag', 'color', 'Nobs', 'Nsim', 'diff', 'sig', 'lixo']
+    cmd = np.genfromtxt(filename, skip_header=4, names=names, invalid_raise=False)
+    return cmd
 
-    def possible_params(self, default_dict=None):
-        '''
-        assign key as attribute name and value as attribute value from
-        dictionary
-        '''
-        default_dict = default_dict or {}
-        [self.__setattr__(k, v) for k, v in default_dict.items()]
 
-    def update_params(self, new_dict, loud=False):
-        '''only overwrite attributes that already exist from dictionary'''
-        if loud:
-            self.check_keys('not updated', new_dict)
-        [self.__setattr__(k, v) for k, v in new_dict.items() if hasattr(self, k)]
+def parse_pipeline(filename):
+    '''find target and filters from the filename'''
+    name = os.path.split(filename)[1].upper()
 
-    def add_params(self, new_dict, loud=False):
-        '''add or overwrite attributes from dictionary'''
-        if loud:
-            self.check_keys('added', new_dict)
-        [self.__setattr__(k, v) for k, v in new_dict.items()]
+    # filters are assumed to be F???W
+    starts = np.array([m.start() for m in re.finditer('_F', name)])
+    starts += 1
+    if len(starts) == 1:
+        starts = np.append(starts, starts+6)
+    filters = [name[s: s+5] for s in starts]
 
-    def write_params(self, new_file, formatter=None, loud=False):
-        '''write self.__dict__ to new_file with format from formatter'''
-        with open(new_file, 'w') as f:
-            if formatter is not None:
-                f.write(formatter % self.__dict__)
+    # the target name is assumed to be before the filters in the filename
+    pref = name[:starts[0]-1]
+    for t in pref.split('_'):
+        if t == 'IR':
+            continue
+        try:
+            # this could be the proposal ID
+            int(t)
+        except:
+            # a mix of str and int should be the target
+            target = t
+    return target, filters
+
+
+def match_param_default_dict():
+    ''' default params for match param file'''
+
+    dd = {'ddmod': 0.05,
+          'dav': 0.05,
+          'logzmin': -2.3,
+          'logzmax': 0.1,
+          'dlogz': 0.1,
+          'logzmin0': -2.3,
+          'logzmax0': -1.0,
+          'logzmin1': -1.3,
+          'logzmax1': -0.1,
+          'BF': 0.35,
+          'bad0': 1e-6,
+          'bad1': 1e-6,
+          'ncmds': 1,
+          'Vstep': 0.1,
+          'V-Istep': 0.05,
+          'fake_sm': 5,
+          'nexclude_gates': 0,
+          'exclude_gates': '',
+          'ninclude_gates': 0,
+          'include_gates': ''}
+
+    therest = ['imf', 'dmod1', 'dmod2', 'av1', 'av2', 'V-Imin', 'V-Imax', 'V',
+               'I', 'Vmin', 'Vmax', 'Imin', 'Imax']
+    for key in therest:
+        dd[key] = np.nan
+    return dd
+
+
+def match_param_fmt(set_z=False, zinc=True):
+    '''
+    calcsfh parameter format, set up for dan's runs and parsec M<12.
+    NOTE exclude and include gates are strings and must have a space at
+    their beginning.
+    '''
+
+    return '''%(imf)s %(dmod1).3f %(dmod2).3f %(ddmod).3f %(av1).3f %(av2).3f %(dav).3f
+%(logzmin).2f %(logzmax).2f %(dlogz).2f %(logzmin0).2f %(logzmax0).2f %(logzmin1).2f %(logzmax1).2f
+%(BF).2f %(bad0).6f %(bad1).6f
+%(ncmds)i
+%(Vstep).2f %(V-Istep).2f %(fake_sm)i %(V-Imin).2f %(V-Imax).2f %(V)s,%(I)s
+%(Vmin).2f %(Vmax).2f %(V)s
+%(Imin).2f %(Imax).2f %(I)s
+%(nexclude_gates)i%(exclude_gates)s %(ninclude_gates)i%(include_gates)s
+50
+6.60 6.70
+6.70 6.80
+6.80 6.90
+6.90 7.00
+7.00 7.10
+7.10 7.20
+7.20 7.30
+7.30 7.40
+7.40 7.50
+7.50 7.60
+7.60 7.70
+7.70 7.80
+7.80 7.90
+7.90 8.00
+8.00 8.10
+8.10 8.20
+8.20 8.30
+8.30 8.40
+8.40 8.50
+8.50 8.60
+8.60 8.70
+8.70 8.75
+8.75 8.80
+8.80 8.85
+8.85 8.90
+8.90 8.95
+8.95 9.00
+9.00 9.05
+9.05 9.10
+9.10 9.15
+9.15 9.20
+9.20 9.25
+9.25 9.30
+9.30 9.35
+9.35 9.40
+9.40 9.45
+9.45 9.50
+9.50 9.55
+9.55 9.60
+9.60 9.65
+9.65 9.70
+9.70 9.75
+9.75 9.80
+9.80 9.85
+9.85 9.90
+9.90 9.95
+9.95 10.00
+10.00 10.05
+10.05 10.10
+10.10 10.15
+-1 5 -1bg.dat
+-1  1 -1
+'''
+
+
+def process_match_sfh(sfhfile, outfile='processed_sfh.out', sarah_sim=False,
+                      zdisp=0.):
+    '''
+    turn a match sfh output file into a sfr-z table for trilegal.
+
+    todo: add possibility for z-dispersion.
+    '''
+
+    fmt = '%.6g %.6g %.4g %s \n'
+
+    data = read_binned_sfh(sfhfile)
+    sfr = data['sfr']
+    # Trilegal only needs populated time bins, not fixed age array
+    inds, = np.nonzero(sfr > 0)
+    sfr = sfr[inds]
+    to = data['lagei'][inds]
+    tf = data['lagef'][inds]
+    dlogz = data['mh'][inds]
+    half_bin = np.diff(dlogz[0: 2])[0] / 2.
+    if zdisp > 0:
+        zdisp = '%.4g' % (0.02 * 10 ** zdisp)
+    else:
+        zdisp = ''
+
+    # correct age for trilegal isochrones.
+    # with PARSEC V1.1 and V1.2 no need!
+    #tf[tf == 10.15] = 10.13
+
+    with open(outfile, 'w') as out:
+        for i in range(len(to)):
+            if sarah_sim is True:
+                z1 = dlogz[i] - half_bin
+                z2 = dlogz[i] + half_bin
+                sfr[i] /= 2.
             else:
-                for k in sorted(self.__dict__):
-                    f.write('{0: <16} {1}\n'.format(k, str(self.__dict__[k])))
-        if loud:
-            logging.info('wrote {}'.format(new_file))
+                sfr[i] *= 1e3  # sfr is normalized in trilegal
+                # MATCH conversion:
+                z1 = 0.02 * 10 ** (dlogz[i] - half_bin)
+                z2 = 0.02 * 10 ** (dlogz[i] + half_bin)
+            age1a = 1.0 * 10 ** to[i]
+            age1p = 1.0 * 10 ** (to[i] + 0.0001)
+            age2a = 1.0 * 10 ** tf[i]
+            age2p = 1.0 * 10 ** (tf[i] + 0.0001)
 
-    def check_keys(self, msg, new_dict):
-        """ check if new_dict.keys() are already attributes """
-        new_keys = [k for k, v in new_dict.items() if not hasattr(self, k)]
-        logging.info('{}: {}'.format(msg, new_keys))
+            out.write(fmt % (age1a, 0.0, z1, zdisp))
+            out.write(fmt % (age1p, sfr[i], z1, zdisp))
+            out.write(fmt % (age2a, sfr[i], z2, zdisp))
+            out.write(fmt % (age2p, 0.0, z2, zdisp))
+            out.write(fmt % (age1a, 0.0, z2, zdisp))
+            out.write(fmt % (age1p, sfr[i], z2, zdisp))
+            out.write(fmt % (age2a, sfr[i], z1, zdisp))
+            out.write(fmt % (age2p, 0.0, z1, zdisp))
 
-    def __str__(self):
-        '''pprint self.__dict__'''
-        pprint(self.__dict__)
-        return ""
+    print('wrote', outfile)
+    return outfile
+
+
+def calcsfh_dict():
+    '''
+    default dictionary for calcsfh.
+    '''
+    return {'dmod': 10.,
+            'Av': 0.,
+            'filter1': None,
+            'filter2': None,
+            'bright1': None,
+            'faint1': None,
+            'bright2': None,
+            'faint2': None,
+            'color': None,
+            'mag': None,
+            'dmod2': None,
+            'colmin': None,
+            'colmax': None,
+            'Av2': None,
+            'imf': 1.30,
+            'ddmod': 0.050,
+            'dAv': 0.050,
+            'logzmin': -2.3,
+            'logzmax': 0.1,
+            'dlogz': 0.1,
+            'zinc': True,
+            'bf': 0.35,
+            'bad0': 1e-6,
+            'bad1': 1e-6,
+            'Ncmds': 1,
+            'dmag': 0.1,
+            'dcol': 0.05,
+            'fake_sm': 5,
+            'nexclude_gates': 0,
+            'exclude_poly': None,
+            'ncombine_gates': 0,
+            'combine_poly': None,
+            'ntbins': 0,
+            'dobg': -1,
+            'bg_hess': .0,   # neg if it's a .CMD, else it's same fmt as match_phot
+            'smooth': 1,
+            'ilogzmin': -2.3,
+            'ilogzmax': -1.3,
+            'flogzmin': -1.9,
+            'flogzmax': -1.1,
+            'match_bg': ''}
+
+
+def make_match_param(gal, more_gal_kw=None):
+    '''
+    Make param.sfh input file for match
+    see rsp.match_utils.match_param_fmt()
+
+    takes calcsfh search limits to be the photometric limits of the stars in
+    the cmd.
+    gal is assumed to be angst galaxy, so make sure attr dmod, Av, comp50mag1,
+    comp50mag2 are there.
+
+    only set up for acs and wfpc, if other photsystems need to check syntax
+    with match filters.
+
+    All values passed to more_gal_kw overwrite defaults.
+    '''
+
+    more_gal_kw = more_gal_kw or {}
+
+    # load parameters
+    inp = input_parameters(default_dict=match_param_default_dict())
+
+    # add parameteres
+    cmin = gal.color.min()
+    cmax = gal.color.max()
+    vmin = gal.mag1.min()
+    imin = gal.mag2.min()
+
+    if 'acs' in gal.photsys:
+        V = gal.filter1.replace('F', 'WFC')
+        I = gal.filter2.replace('F', 'WFC')
+    elif 'wfpc' in gal.photsys:
+        V = gal.filter1.lower()
+        I = gal.filter2.lower()
+    else:
+        print(gal.photsys, gal.name, gal.filter1, gal.filter2)
+
+    # default doesn't move dmod or av.
+    gal_kw = {'dmod1': gal.dmod, 'dmod2': gal.dmod, 'av1': gal.Av,
+              'av2': gal.Av, 'V': V, 'I': I, 'Vmax': gal.comp50mag1,
+              'Imax': gal.comp50mag2, 'V-Imin': cmin, 'V-Imax': cmax,
+              'Vmin': vmin, 'Imin': imin}
+
+    # combine sources of params
+    phot_kw = dict(match_param_default_dict().items() \
+                   + gal_kw.items() + more_gal_kw.items())
+
+    inp.add_params(phot_kw)
+
+    # write out
+    inp.write_params('param.sfh', match_param_fmt())
+    return inp
+
+
+def read_ssp_output(filename):
+    """
+    Read calcsfh -ssp console output.
+    """
+    if filename.endswith('fdat'):
+        """file with added columns from dAv, COV, etc."""
+        data = readfile(filename, col_key_line=10)
+    else:
+        skip_header = 10
+        skip_footer = 1
+        colnames = ['Av', 'IMF', 'dmod', 'lage', 'logZ', 'fit', 'sfr', 'sfrperr',
+                    'sfrmerr']
+        data = np.genfromtxt(filename, skip_header=skip_header,
+                             skip_footer=skip_footer, names=colnames)
+    bfline, = os.popen('tail -n 1 {}'.format(filename)).readlines()
+    Av, dmod, fit = map(float, bfline.strip().translate(None, '#Bestfit:Av=dmod').split(','))
+    return data, Av, dmod, fit
+
+def read_binned_sfh(filename):
+    '''
+    reads the file created using zcombine or HybridMC from match
+    into a np.recarray.
+
+    NOTE
+    calls genfromtext up to 3 times. There may be a better way to figure out
+    how many background lines/what if there is a header... (it's a small file)
+    '''
+    dtype = [('lagei', '<f8'),
+             ('lagef', '<f8'),
+             ('dmod', '<f8'),
+             ('sfr', '<f8'),
+             ('sfr_errp', '<f8'),
+             ('sfr_errm', '<f8'),
+             ('mh', '<f8'),
+             ('mh_errp', '<f8'),
+             ('mh_errm', '<f8'),
+             ('mh_disp', '<f8'),
+             ('mh_disp_errp', '<f8'),
+             ('mh_disp_errm', '<f8'),
+             ('csfr', '<f8'),
+             ('csfr_errp', '<f8'),
+             ('csfr_errm', '<f8')]
+    try:
+        data = np.genfromtxt(filename, dtype=dtype)
+    except ValueError:
+        try:
+            data = np.genfromtxt(filename, dtype=dtype, skip_header=6,
+                                 skip_footer=1)
+        except ValueError:
+            data = np.genfromtxt(filename, dtype=dtype, skip_header=6,
+                                 skip_footer=2)
+    return data.view(np.recarray)
 
 
 def savetxt(filename, data, fmt='%.4f', header=None, overwrite=False,
@@ -81,95 +376,8 @@ def savetxt(filename, data, fmt='%.4f', header=None, overwrite=False,
         if loud:
             print('wrote', filename)
     else:
-        logging.error('%s exists, not overwriting' % filename)
+        logger.error('%s exists, not overwriting' % filename)
     return
-
-class InputFile(object):
-    '''
-    a class to replace too many kwargs from the input file.
-    does two things:
-    1. sets a default dictionary (see input_defaults) as attributes
-    2. unpacks the dictionary from load_input as attributes
-        (overwrites defaults).
-    '''
-    def __init__(self, filename, default_dict=None):
-        if default_dict is not None:
-            self.set_defaults(default_dict)
-        self.in_dict = load_input(filename)
-        self.unpack_dict()
-
-    def set_defaults(self, in_def):
-        self.unpack_dict(udict=in_def)
-
-    def unpack_dict(self, udict=None):
-        if udict is None:
-            udict = self.in_dict
-        [self.__setattr__(k, v) for k, v in udict.items()]
-
-
-def load_input(filename, comment_char='#', list_sep=','):
-    '''
-    read an input file into a dictionary
-
-    Ignores all lines that start with #
-    each line in the file has format key  value
-    True and False are interpreted as bool
-    converts values to float, string, or list
-    also accepts dictionary with one key and one val
-        e.g: inp_dict      {'key': val1}
-
-    Parameters
-    ----------
-    filename : string
-        filename to parse
-    comment_char : string
-        skip line if it starts with comment_char
-    list_sep : string
-        within a value, if it's a list, split it by this value
-        if it's numeric, it will make a np.array of floats.
-    Returns
-    -------
-    d : dict
-        parsed information from filename
-    '''
-    d = {}
-    with open(filename) as f:
-        # skip comment_char, empty lines, strip out []
-        lines = [l.strip().translate(None, '[]') for l in f.readlines()
-                 if not l.startswith(comment_char) and len(l.strip()) > 0]
-
-    # fill the dict
-    for line in lines:
-        key, val = line.partition(' ')[0::2]
-        d[key] = is_numeric(val.replace(' ', ''))
-
-    # check the values
-    for key in d.keys():
-        # is_numeric already got the floats and ints
-        if type(d[key]) == float or type(d[key]) == int:
-            continue
-        # check for a comma separated list
-        temp = d[key].split(list_sep)
-        if len(temp) > 1:
-            try:
-                # assume list of floats.
-                d[key] = [is_numeric(t) for t in temp]
-            except:
-                d[key] = temp
-        # check for a dictionary
-        elif len(d[key].split(':')) > 1:
-            temp1 = d[key].split(':')
-            d[key] = {is_numeric(temp1[0]): is_numeric(temp1[1])}
-        else:
-            val = temp[0]
-            # check bool
-            true = val.upper().startswith('TRUE')
-            false = val.upper().startswith('FALSE')
-            none =  val.title().startswith('None')
-            if true or false or none:
-                val = literal_eval(val)
-            d[key] = val
-    return d
 
 
 def readfile(filename, col_key_line=0, comment_char='#', string_column=None,
@@ -205,45 +413,6 @@ def readfile(filename, col_key_line=0, comment_char='#', string_column=None,
     return data
 
 
-def get_row(arr, index_key, index):
-    '''
-    send a np.array with dtype.names and choose a column item.
-    For example:
-    $ data.dtype.names
-    ('target', 'opt_trgb', 'nopt_trgb', 'nopt_agb', 'ir_trgb',  'nir_trgb',
-    'nir_agb')
-    # for an array like:
-    ('kkh37', 23.54, 2561.0, 147.0, 21.96, 1729.0, 151.0),
-    get_row(data, 'target', 'kkh37')
-    ('kkh37', 23.54, 2561.0, 147.0, 21.96, 1729.0, 151.0)
-    '''
-    fixed_index = difflib.get_close_matches(index.lower(), arr[index_key])
-    if len(fixed_index) == 0:
-        fixed_index = difflib.get_close_matches(index.upper(), arr[index_key])
-    fixed_index = fixed_index[0]
-    if index.lower() != fixed_index:
-        if index.upper() != fixed_index:
-            logging.warning('using %s instead of %s' % (fixed_index, index))
-    item_key, = np.nonzero(arr[index_key] == fixed_index)
-    return arr[item_key]
-
-
-def item_from_row(arr, index_key, index, column_name):
-    '''
-    send a np.array with dtype.names and choose a column item.
-    For example:
-    $ data.dtype.names
-    ('target', 'opt_trgb', 'nopt_trgb', 'nopt_agb', 'ir_trgb',  'nir_trgb',
-    'nir_agb')
-    # for an array like:
-    ('kkh37', 23.54, 2561.0, 147.0, 21.96, 1729.0, 151.0),
-    $ item_from_row(data, 'target', 'kkh37', 'opt_trgb')
-    23.54
-    '''
-    row = get_row(arr, index_key, index)
-    return row[column_name][0]
-
-
 def replace_ext(filename, ext):
     '''
     input
@@ -272,45 +441,11 @@ def ensure_file(f, mad=True):
     '''
     test = os.path.isfile(f)
     if test is False:
-        logging.warning('{} not found'.format(f))
+        logger.warning('{} not found'.format(f))
         if mad:
             sys.exit()
     return test
 
-
-def ensure_dir(f):
-    '''
-    will make all dirs necessary for input to be an existing directory.
-    if input does not end with '/' it will add it, and then make a directory.
-    '''
-    if not f.endswith('/'):
-        f += '/'
-
-    d = os.path.dirname(f)
-    if not os.path.isdir(d):
-        os.makedirs(d)
-        logging.info('made dirs: {}'.format(d))
-
-
-def get_dirs(src, criteria=None):
-    """
-    return a list of directories in src, optional simple cut by criteria
-
-    Parameters
-    ----------
-    src : str
-        abs path of directory to search in
-    criteria : str
-        simple if criteria in d to select within directories in src
-
-    Returns
-    -------
-    dirs : abs path of directories found
-    """
-    dirs = [os.path.join(src, l) for l in os.listdir(src) if os.path.join(src, l)]
-    if criteria is not None:
-        dirs = [d for d in dirs if criteria in d]
-    return dirs
 
 def get_files(src, search_string):
     '''
@@ -321,7 +456,7 @@ def get_files(src, search_string):
     try:
         files = glob.glob1(src, search_string)
     except IndexError:
-        logging.error('Can''t find %s in %s' % (search_string, src))
+        logger.error('Can''t find %s in %s' % (search_string, src))
         sys.exit(2)
     files = [os.path.join(src, f)
              for f in files if ensure_file(os.path.join(src, f), mad=False)]
