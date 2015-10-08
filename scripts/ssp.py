@@ -9,6 +9,10 @@ from .fileio import read_ssp_output
 __all__ = ['SSP']
 
 def add_filename_info_to_file(fname):
+    """
+    add filename info to the data. E.g, ssp_imf4.85_bf0.3_dav0.0.fdat
+    will add two columns, bf, and dav. See filename_data.
+    """
     import numpy.lib.recfunctions as nlr
     oname = fname.replace('.dat', '.fdat')
     with open(fname, 'r') as inp:
@@ -28,10 +32,28 @@ def add_filename_info_to_file(fname):
 
     data = nlr.append_fields(np.asarray(old_data), names, new_data).data
     np.savetxt(oname, data, fmt='%g', header=''.join(header), footer=footer.strip())
-    print 'wrote', oname
     return data
 
 def filename_data(fname, ext='.dat', skip=1, delimiter='_'):
+    """
+    return a dictionary of key and values from a filename.
+    E.g, ssp_imf4.85_bf0.3_dav0.0.fdat
+    returns bf: 0.3, dav: 0.0
+    Parameters
+    ----------
+    fname : str
+        filename
+    ext : str
+        extension (sub string to remove from the tail)
+    delimiter : str
+        how the keyvals are separated '_' in example above
+    skip : int
+        skip n items (skip=1 skips ssp in the above example)
+
+    Returns
+    -------
+    dict of key and values from filename
+    """
     import re
     keyvals = fname.replace(ext, '').split(delimiter)[skip:]
     d = {}

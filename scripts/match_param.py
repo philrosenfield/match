@@ -20,7 +20,11 @@ def move_on(ok, msg='0 to move on: '):
 
 def exclude_tpagb(phot, param, mtrgb=None, filter1=None):
     from scipy.interpolate import interp1d
-    atab = rsp.angst_tables.angst_data
+    try:
+        atab = rsp.angst_tables.angst_data
+    except:
+        'Must either have ANGST data tables or set mtrgb'
+        sys.exit()
 
     lines = open(param, 'r').readlines()
     dmag, dcol, _, colmin, colmax = map(float, lines[4].split()[:-1])
