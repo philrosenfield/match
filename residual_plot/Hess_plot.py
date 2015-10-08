@@ -54,7 +54,7 @@ def plot_HessD(fig, arr, subx1, suby2, subsize, extent, interpolation,
 cmdfile = open(cmdfile_name, 'r')
 line = cmdfile.readline()
 shape = [int(i) for i in cmdfile.readline().split()]
-line, line = cmdfile.readline(), cmdfile.readline()
+line_col, line_mag = cmdfile.readline(), cmdfile.readline()
 magbins, colbins = np.zeros(shape[0]), np.zeros(shape[1])
 obs_arr, mod_arr = np.zeros(shape), np.zeros(shape)
 res_arr, sig_arr = np.zeros(shape), np.zeros(shape)
@@ -67,6 +67,9 @@ for i in range(shape[0]):
         res_arr[i, j], sig_arr[i, j] = res, sig
     magbins[i] = mag
 cmdfile.close()
+
+xlabel = ' - '.join(line_col.replace('WFC','F').split('-'))
+ylabel = line_mag.replace('WFC','F')
 
 fig = plt.figure(figsize=figsize)
 
