@@ -5,8 +5,8 @@ import sys
 
 from .fileio import get_files
 from .graphics import call_pgcmd, match_diagnostic, sfh_plot
-from .utils import MatchSFH, check_boundaries
-
+from .utils import check_boundaries
+from .sfh import SFH
 
 def main(argv):
     parser = argparse.ArgumentParser(description="Plot match diagnostics")
@@ -53,7 +53,7 @@ def main(argv):
 
     if len(sfh_files) > 0:
         for sfh_file in sfh_files:
-            msfh = MatchSFH(sfh_file)
+            msfh = SFH(sfh_file)
             if len(msfh.data) != 0:
                 sfh_plot(msfh)
                 msfh.plot_csfr()

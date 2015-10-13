@@ -9,14 +9,17 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.patheffects import withStroke
 
-from .utils import MatchSFH, MatchCMD
+from .sfh import SFH
+from .cmd import CMD
 from .fileio import get_files, parse_pipeline, read_match_cmd
 
 __all__ = ['add_inner_title', 'forceAspect', 'match_plot', 'pgcmd', 'sfh_plot',
            'match_diagnostic', 'call_pgcmd']
 
-plt.style.use('ggplot')
-
+try:
+    plt.style.use('ggplot')
+except:
+    pass
 
 def match_diagnostic(param, phot):
     """
@@ -222,14 +225,14 @@ def pgcmd(filename=None, cmd=None, labels=None, figname=None, out_dir=None,
     return grid
 
 
-def sfh_plot(MatchSFH):
+def sfh_plot(SFH):
     from matplotlib.ticker import NullFormatter
     fig, (ax1, ax2) = plt.subplots(nrows=2)
-    MatchSFH.age_plot(ax=ax1)
-    MatchSFH.age_plot(val='mh', convertz=False, ax=ax2)
+    SFH.age_plot(ax=ax1)
+    SFH.age_plot(val='mh', convertz=False, ax=ax2)
     ax1.xaxis.set_major_formatter(NullFormatter())
     plt.subplots_adjust(hspace=0.1)
-    figname = os.path.join(MatchSFH.base, MatchSFH.name + '.png')
+    figname = os.path.join(SFH.base, SFH.name + '.png')
     plt.savefig(figname)
     plt.close()
     print('{} wrote {}'.format(sfh_plot.__name__, figname))
@@ -241,7 +244,7 @@ def call_pgcmd(filenames, filter1=None, filter2=None, labels=[]):
         filenames = [filenames]
 
     for filename in filenames:
-        mcmd = MatchCMD(filename)
+        mcmd = CMD(filename)
         figname = filename + '.png'
         if filter1 is None:
             try:

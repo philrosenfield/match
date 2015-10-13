@@ -10,6 +10,7 @@ import numpy as np
 from .fileio import read_ssp_output
 
 __all__ = ['SSP']
+
 try:
     plt.style.use('presentation')
 except:
@@ -34,7 +35,6 @@ def add_filename_info_to_file(fname, ofile=None):
         data with new columns attached
 
     """
-    import numpy.lib.recfunctions as nlr
     if ofile is None:
         ofile = fname.replace('.dat', '.fdat')
     with open(fname, 'r') as inp:
@@ -52,10 +52,13 @@ def add_filename_info_to_file(fname, ofile=None):
     header.append(h)
     new_data = np.array([np.repeat(v, npts) for v in new_stuff.values()])
 
+    # these three lines could be their own function in fileio
+    import numpy.lib.recfunctions as nlr
     data = nlr.append_fields(np.asarray(old_data), names, new_data).data
     np.savetxt(ofile, data, fmt='%g', header=''.join(header), footer=footer.strip())
     return data
 
+# this function may need to go in fileio
 def filename_data(fname, ext='.dat', skip=1, delimiter='_'):
     """
     return a dictionary of key and values from a filename.

@@ -33,12 +33,12 @@ For now, try `python -m match.scripts.calcsfh_parallel.py -h` to see if anything
 This should be a very flexible entry to run all diagnostics on all files with
 expected extensions in a directory. The extensions are currently:
 
--`.cmd` (cmd file that MATCH.calcsfh automatically makes)
--`.sfh` (calcsfh output)
--`.zc` (zcombine output (same format as .sfh)
--`.param` (match input parameter file)
--`.match` (match 2 column photometry)
--`.scrn` (calcsfh console output)
+- `.cmd` (cmd file that MATCH.calcsfh automatically makes)
+- `.sfh` (calcsfh output)
+- `.zc` (zcombine output (same format as .sfh)
+- `.param` (match input parameter file)
+- `.match` (match 2 column photometry)
+- `.scrn` (calcsfh console output)
 
 
 ## fileio.py
@@ -46,12 +46,16 @@ utilities for opening, reading, writing files. The most useful is the `*_fmt()`
 named functions. Those are the default files formates and any dictionary with
 the correct keys can fill those values. It's a simple way to automatically write
 parameter files. An example can be seen in `match.scripts.match_params.match_param`
+TO DO: Make this a folder and separate functions. For example, all templates should be in their own file or together in a file.
 
 ## graphics.py
 utilities for visualizing match outputs.
 
 ## likelihood.py
 Work in progress.
+It needs a main function but if using in ipython or calling from another python script, one useful thing could be to use Andy's stats code.
+In match_stats, you send the sfh solution file and the .cmd file and match_stats will caclulate the nonzero sfh bins, just send the DOF (see the doc string or match README)
+
 
 ## match_param.py
 semi-automatic way to make match pararameter files.
@@ -64,5 +68,10 @@ filters passed must exist exactly in the fits file.
 Work in progress. Visualizations and statistics on calcsfh in ssp mode
 
 ## utils.py
-In flux. Right now a few classes like MatchCMD (to read `.cmd` files) and
-MatchSFH (to read `.sfh` and `.zc` files) are stored here.
+In flux. I think will be obsolete soon.
+
+## cmd.py
+CMD: was utils.MatchCMD (to read `.cmd` files)
+
+## sfh.py
+SFH: was utils.MatchSFH (to read `.sfh` and `.zc` files)

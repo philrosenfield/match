@@ -206,6 +206,48 @@ def process_match_sfh(sfhfile, outfile='processed_sfh.out', sarah_sim=False,
     return outfile
 
 
+def make_matchfake(fname):
+    """
+    make four-column Vin, Iin, Vdiff, Idiff artificial stars
+
+    made to work with pipeline fake.fits files with 3 filters, should work
+    for two but not tested
+    assumes _F*W_F*W_ etc in the file name label the filters.
+    """
+    try:
+        tbl = Table.read(fname, format='fits')
+    except:
+        logger.error('problem with {}'.format(fname))
+        return
+    filters = [f for f in fname.split('_') if f.startswith('F')]
+    pref = fname.split('F')[0]
+    sufx = fname.split('W')[-1].replace('fits', 'matchfake')
+    for i in range(len(filters)-1):
+        mag1in_col = 'MAG{}IN'.format(i+1)
+        mag2in_col = 'MAG{}IN'.format(len(filters))
+
+        if mag1in_col == mag2in_col:
+            continue
+
+        mag1out_col = 'MAG{}OUT'.format(i+1)
+        mag2out_col = 'MAG{}OUT'.format(len(filters))
+
+        try:
+            mag1in = tbl[mag1in_col]
+            mag2in = tbl[mag2in_col]
+            mag1diff = tbl[mag1in_col] - tbl[mag1out_col]
+            mag2diff = tbl[mag2in_col] - tbl[mag2out_col]
+        except:
+            logger.error('problem with column formats in {}'.format(fname))
+            return
+
+        fout = pref + '{}_{}'.format(filters[i],filters[-1]) + sufx
+        np.savetxt(fout, np.column_stack((mag1in, mag2in, mag1diff, mag2diff)),
+                   fmt='%.4f')
+        logger.info('wrote {}'.format(fout))
+    return
+
+
 def calcsfh_dict():
     '''
     default dictionary for calcsfh.
