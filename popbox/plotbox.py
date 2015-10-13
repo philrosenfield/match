@@ -98,7 +98,7 @@ plt.ylabel('SFR (10$^{{{0}}}$ M$_{{\odot}}$ /yr)'.format(np.int(np.log10(scalefa
 
 plt.subplot(337)
 #plt.ylim(0.1, -2.3)
-plt.ylim(metal.min()-0.1, metal.max())
+plt.ylim(metal.max(), metal.min()-0.1)
 plt.xlim(14.9, 0.9)
 
 
