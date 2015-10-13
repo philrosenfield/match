@@ -131,7 +131,7 @@ class SSP(object):
 
     def _getmarginals(self):
         """get the values to marginalize over that exist in the data"""
-        marg = np.array(['Av', 'IMF', 'dmod', 'lage', 'logZ', 'dav', 'cov', 'bf'])
+        marg = np.array(['Av', 'IMF', 'dmod', 'lage', 'logZ', 'dav', 'ov', 'bf'])
         inds = [i for i, m in enumerate(marg) if self._haskey(m)]
         return marg[inds]
 
@@ -247,7 +247,7 @@ def key2label(string):
                'lage': r'$\log\ \rm{Age\ (yr)}$',
                'logZ': r'$\log\ \rm{Z}$',
                'fit': r'$\rm{Fit\ Parameter}$',
-               'COV': r'$\Lambda_c$',
+               'OV': r'$\Lambda_c$',
                'chi2': r'$\chi^2$',
                'bf': r'$\rm{Binary\ Fraction}$',
                'dav': r'$dA_V$'}
