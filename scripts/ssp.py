@@ -55,16 +55,17 @@ def add_filename_info_to_file(fname, ofile=None):
     # these three lines could be their own function in fileio
     import numpy.lib.recfunctions as nlr
     data = nlr.append_fields(np.asarray(old_data), names, new_data).data
-    np.savetxt(ofile, data, fmt='%g', header=''.join(header), footer=footer.strip())
-    return data
+    np.savetxt(ofile, data, fmt='%g', header=''.join(header),
+               footer=footer.strip())
+    return ofile, data
 
 # this function may need to go in fileio
-def filename_data(fname, ext='.dat', skip=1, delimiter='_'):
+def filename_data(fname, ext='.dat', skip=1, delimiter='_', exclude='imf'):
     """
     return a dictionary of key and values from a filename.
     E.g, ssp_imf4.85_bf0.3_dav0.0.fdat
     returns bf: 0.3, dav: 0.0
-    imf is excluded because it's already included in the file.
+    NB: imf is excluded because it's already included in the file.
 
     Parameters
     ----------
@@ -80,6 +81,9 @@ def filename_data(fname, ext='.dat', skip=1, delimiter='_'):
     skip : int
         skip n items (skip=1 skips ssp in the above example)
 
+    exclude : str
+        do not include this key/value in the file (default: 'imf')
+
     Returns
     -------
     dict of key and values from filename
@@ -92,14 +96,14 @@ def filename_data(fname, ext='.dat', skip=1, delimiter='_'):
         neg = ''
         if '-' in keyval:
             neg = '-'
-        if kv[0] == 'imf':
+        if kv[0].lower() == exclude.lower():
             continue
         d[kv[0]] = float(neg + '.'.join(kv[1:]))
     return d
 
 
 class SSP(object):
-    def __init__(self, filenames, base=os.getcwd()):
+    def __init__(self, filenames=None, base=os.getcwd(), data=None):
         """
         filenames are the calcsfh -ssp terminal or console output.
         They do not need to be stripped of their header or footer or
@@ -109,16 +113,21 @@ class SSP(object):
         self.data = []
         self.name = []
         self.base = []
+        if data is None:
+            [self.loaddata(f) for f in filenames]
+        else:
+            [self.loaddata(filenames[i], data=data[i]) for i in range(len(filenames))]
 
-        [self.loaddata(f) for f in filenames]
         self.all_data = np.concatenate(self.data)
         # via Dan Weisz:
         self.absprob = np.exp(0.5 * (self.all_data['fit'].min() \
                                             - self.all_data['fit']))
 
-    def loaddata(self, filename):
+    def loaddata(self, filename, data=None):
         """Load the data and other book keeping information"""
-        data, _, _, fit = read_ssp_output(filename)
+        if data is None:
+            data = read_ssp_output(filename)[0]
+
         base, name = os.path.split(filename)
 
         # so far marginalize needs this concatenated. Not sure if
@@ -131,7 +140,8 @@ class SSP(object):
 
     def _getmarginals(self):
         """get the values to marginalize over that exist in the data"""
-        marg = np.array(['Av', 'IMF', 'dmod', 'lage', 'logZ', 'dav', 'ov', 'bf'])
+        marg = np.array(['Av', 'IMF', 'dmod', 'lage', 'logZ', 'dav', 'ov',
+                         'bf'])
         inds = [i for i, m in enumerate(marg) if self._haskey(m)]
         return marg[inds]
 
@@ -149,7 +159,8 @@ class SSP(object):
         assert self._haskey(attr), '{} not found'.format(attr)
         vals = np.unique(self.all_data[attr])
         dbins = np.digitize(self.all_data[attr], vals, right=True)
-        probs = np.array([np.sum(self.absprob[dbins==i]) for i in np.unique(dbins)])
+        probs = np.array([np.sum(self.absprob[dbins==i])
+                          for i in np.unique(dbins)])
         probs /= probs.sum()
         return vals, probs
 
@@ -166,15 +177,19 @@ class SSP(object):
         vs = []
         vs2 = []
         for i, j in itertools.product(np.unique(dbins), np.unique(dbins2)):
-            inds = list(set(np.nonzero(dbins == i)[0]) & set(np.nonzero(dbins2 == j)[0]))
+            inds = list(set(np.nonzero(dbins == i)[0]) &
+                        set(np.nonzero(dbins2 == j)[0]))
             probs.append(np.sum(self.absprob[inds]))
             vs.append(vals[i])
             vs2.append(vals2[j])
         probs = np.array(probs) / np.sum(probs)
         return vs, vs2, probs
 
-    def pdf_plot(self, attr, ax=None):
+    def pdf_plot(self, attr, ax=None, sub=''):
         """Plot prob vs marginalized attr"""
+        if len(sub) > 0:
+            sub = '_' + sub
+
         if ax is None:
             fig, ax = plt.subplots()
 
@@ -185,12 +200,17 @@ class SSP(object):
 
         ax.set_xlabel(key2label(attr))
         ax.set_ylabel('Probability')
-        plt.savefig('{}_{}.png'.format(self.name[0].split('_')[0], attr))
+        # probably need to make this a conditional if ax is passed...
+        plt.savefig('{}_{}{}.png'.format(self.name[0].split('_')[0], attr, sub))
+        plt.close()
         return ax
 
 
-    def pdf_plot2d(self, attr, attr2, ax=None):
+    def pdf_plot2d(self, attr, attr2, ax=None, sub=''):
         """Plot prob vs marginalized attr and attr2"""
+        if len(sub) > 0:
+            sub = '_' + sub
+
         if ax is None:
             fig, ax = plt.subplots()
 
@@ -212,10 +232,13 @@ class SSP(object):
         ax.set_xlabel(key2label(attr))
         ax.set_ylabel(key2label(attr2))
         l.set_label('Probability')
-        plt.savefig('{}_{}_{}.png'.format(self.name[0].split('_')[0], attr, attr2))
+        # probably need to make this a conditional if ax is passed...
+        plt.savefig('{}_{}_{}{}.png'.format(self.name[0].split('_')[0],
+                                          attr, attr2, sub))
+        plt.close()
         return ax
 
-    def pdf_plots2d(self, marginals='default'):
+    def pdf_plots2d(self, marginals='default', sub=''):
         """Call pdf_plot2d for a list of attr and attr2"""
         if marginals=='default':
             marg = self._getmarginals()
@@ -223,19 +246,20 @@ class SSP(object):
             marg = marginals
 
         for i, j in itertools.product(marg, marg):
+            # e.g., skip Av vs Av and Av vs IMF if already plotted IMF vs Av
             if i >= j:
                 continue
-            self.pdf_plot2d(i, j)
+            self.pdf_plot2d(i, j, sub=sub)
         return
 
-    def pdf_plots(self, marginals='default'):
+    def pdf_plots(self, marginals='default', sub=''):
         """Call pdf_plot for a list of attr"""
         if marginals=='default':
             marg = self._getmarginals()
         else:
             marg = marginals
 
-        [self.pdf_plot(i) for i in marg]
+        [self.pdf_plot(i, sub=sub) for i in marg]
         return
 
 
@@ -247,7 +271,7 @@ def key2label(string):
                'lage': r'$\log\ \rm{Age\ (yr)}$',
                'logZ': r'$\log\ \rm{Z}$',
                'fit': r'$\rm{Fit\ Parameter}$',
-               'OV': r'$\Lambda_c$',
+               'ov': r'$\Lambda_c$',
                'chi2': r'$\chi^2$',
                'bf': r'$\rm{Binary\ Fraction}$',
                'dav': r'$dA_V$'}
@@ -257,10 +281,16 @@ def key2label(string):
 
 
 def main(argv):
-    parser = argparse.ArgumentParser(description="Plot match ssp output")
+    """
+    Main function for ssp.py plot or reformat ssp output.
 
-    parser.add_argument('-r', '--format', action='store_true',
-                        help='reformat the files to have the data in the filename part of the file')
+    e.g., Reformat and then plot a OV=0.30 run:
+    python -m dweisz.match.scripts.ssp -fot --sub=ov0.30 *ov0.30.dat
+    """
+    parser = argparse.ArgumentParser(description="Plot or reformat MATCH.calcsfh -ssp output")
+
+    parser.add_argument('-f', '--format', action='store_true',
+                        help='reformat the files so data in the filename are columns in the file')
 
     parser.add_argument('-o', '--oned', action='store_true',
                         help='make val vs prob plots')
@@ -268,21 +298,34 @@ def main(argv):
     parser.add_argument('-t', '--twod', action='store_true',
                         help='make val vs val vs prob plots')
 
+    parser.add_argument('-s', '--sub', type=str, default='',
+                        help='add substring to figure names')
+
     parser.add_argument('fnames', nargs='*', type=str,
                         help='ssp output(s) or formated output(s)')
 
+    parser.add_argument('-l', '--list', action='store_true',
+                        help='fnames is a file with a list of files to read')
+
     args = parser.parse_args(argv)
 
+    if args.list:
+        args.fnames = [l.strip() for l in open(args.fnames[0], 'r').readlines()]
+
     if args.format:
-        [add_filename_info_to_file(fname) for fname in args.fnames]
+        fnames, data = zip(*[add_filename_info_to_file(fname) for fname in args.fnames])
+        if args.oned or args.twod:
+            data = list(data)
+            fnames = list(fnames)
+            ssp = SSP(filenames=fnames, data=data)
     else:
-        ssp = SSP(args.fnames)
+        ssp = SSP(filenames=args.fnames)
 
-        if args.oned:
-            ssp.pdf_plots()
+    if args.oned:
+        ssp.pdf_plots(sub=args.sub)
 
-        if args.twod:
-            ssp.pdf_plots2d()
+    if args.twod:
+        ssp.pdf_plots2d(sub=args.sub)
 
 
 if __name__ == "__main__":

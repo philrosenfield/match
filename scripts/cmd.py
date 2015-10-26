@@ -1,6 +1,8 @@
 """Class for reading the output.cmd file from calcsfh"""
 import os
-from .fileio import load_match_cmd
+import numpy as np
+
+from .fileio import read_match_cmd
 
 __all__ = ['CMD']
 

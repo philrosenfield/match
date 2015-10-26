@@ -100,12 +100,12 @@ def ast_correct_starpop(sgal, fake_file=None, outfile=None, overwrite=False,
 
     correct_kw = dict({'dxy': (0.2, 0.15)}.items() + correct_kw.items())
     cor_mag1, cor_mag2 = ast.correct(mag1, mag2, **correct_kw)
-    names = [fmt.format(ast.filter1), fmt.format(ast.filter2)]
-    data = [cor_mag1, cor_mag2]
-    sgal.add_data(names, data)
+    for name, data in zip([fmt.format(ast.filter1), fmt.format(ast.filter2)],
+                          [cor_mag1, cor_mag2]):
+        sgal.add_data(name, data)
 
-    if outfile is not None:
-        sgal.write_data(outfile, overwrite=overwrite, hdf5=hdf5)
+        if outfile is not None:
+            sgal.write_data(outfile, overwrite=overwrite, hdf5=hdf5)
 
     if diag_plot:
         from ..fileio.fileIO import replace_ext

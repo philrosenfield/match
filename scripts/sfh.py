@@ -10,15 +10,14 @@ from .fileio import read_binned_sfh
 logger = logging.getLogger()
 
 
-
 class SFH(object):
     '''
     load the match sfh solution as a class with attributes set by the
     best fits from the sfh file.
     '''
-    def __init__(self, filename):
+    def __init__(self, filename, hmc_file=None):
         self.base, self.name = os.path.split(filename)
-        self.data = read_binned_sfh(filename)
+        self.data = read_binned_sfh(filename, hmc_file)
         self.load_match_header(filename)
 
     def load_match_header(self, filename):
@@ -117,6 +116,10 @@ class SFH(object):
     def age_plot(self, val='sfr', ax=None, plt_kw={}, errors=True,
                  convertz=False, xlabel=None, ylabel=None,
                  sfr_offset=1e3):
+        def float2sci(num):
+            """mpl has a better way of doing this now..."""
+            return r'$%s}$' % ('%.0E' % num).replace('E', '0').replace('-0', '^{-').replace('+0', '^{').replace('O', '0')
+
         plt_kw = dict({'lw': 3, 'color': 'black'}.items() + plt_kw.items())
         eplt_kw = plt_kw.copy()
         eplt_kw.update({'linestyle': 'None'})
@@ -147,7 +150,7 @@ class SFH(object):
                 if convertz:
                     ylabel = r'$Z$'
         else:
-            ylabel = r'$SFR\ %s (\rm{M_\odot/yr})$' % \
+            ylabel = r'$SFR\ %s\ (\rm{M_\odot/yr})$' % \
                      float2sci(1./sfr_offset).replace('$','')
             vals = sfrs
             rvals = rsfrs
@@ -292,5 +295,7 @@ class SFH(object):
             logger.warning('input lagef={} not found using {}'.format(lagef, self.data.lagef[idxf]))
 
         fracsfr = np.sum(self.data.sfr[idxi:idxf + 1]  * agebins[idxi:idxf + 1])# +1 to include final bin
-        return fracsfr / totalSF
+        fracsfr_errp = np.sum(self.data.sfr_errp[idxi:idxf + 1]  * agebins[idxi:idxf + 1])# +1 to include final bin
+        fracsfr_errm = np.sum(self.data.sfr_errm[idxi:idxf + 1]  * agebins[idxi:idxf + 1])# +1 to include final bin
 
+        return fracsfr / totalSF, fracsfr_errp / totalSF, fracsfr_errm / totalSF

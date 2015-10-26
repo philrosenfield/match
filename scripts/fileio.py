@@ -313,10 +313,13 @@ def read_ssp_output(filename):
     Av, dmod, fit = map(float, bfline.strip().translate(None, '#Bestfit:Av=dmod').split(','))
     return data, Av, dmod, fit
 
-def read_binned_sfh(filename):
+def read_binned_sfh(filename, hmc_file=None):
     '''
     reads the file created using zcombine or HybridMC from match
     into a np.recarray.
+
+    If hmc_file is not None, will overwrite error columns in file name with
+    those from the hmc_file.
 
     NOTE
     calls genfromtext up to 3 times. There may be a better way to figure out
@@ -337,15 +340,25 @@ def read_binned_sfh(filename):
              ('csfr', '<f8'),
              ('csfr_errp', '<f8'),
              ('csfr_errm', '<f8')]
-    try:
-        data = np.genfromtxt(filename, dtype=dtype)
-    except ValueError:
+    def _loaddata(filename, dtype):
         try:
-            data = np.genfromtxt(filename, dtype=dtype, skip_header=6,
-                                 skip_footer=1)
+            data = np.genfromtxt(filename, dtype=dtype)
         except ValueError:
-            data = np.genfromtxt(filename, dtype=dtype, skip_header=6,
-                                 skip_footer=2)
+            try:
+                data = np.genfromtxt(filename, dtype=dtype, skip_header=6,
+                                     skip_footer=1)
+            except ValueError:
+                data = np.genfromtxt(filename, dtype=dtype, skip_header=6,
+                                     skip_footer=2)
+        return data
+
+    data = _loaddata(filename, dtype)
+    if hmc_file is not None:
+        hmc_data = _loaddata(hmc_file, dtype)
+        for attr in hmc_data.dtype.names:
+            if 'err' in attr:
+                data[attr] = hmc_data[attr]
+
     return data.view(np.recarray)
 
 
