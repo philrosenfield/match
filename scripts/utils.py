@@ -11,7 +11,6 @@ logger = logging.getLogger()
 
 from astropy.table import Table
 from .fileio import read_match_cmd, read_binned_sfh
-#from .. import graphics
 
 
 __all__ = ['check_boundaries', 'strip_header', 'convertz']

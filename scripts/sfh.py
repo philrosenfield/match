@@ -5,7 +5,8 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-from .fileio import read_binned_sfh
+from .fileio import read_binned_sfh, parse_pipeline
+from .utils import convertz
 
 logger = logging.getLogger()
 
@@ -171,15 +172,16 @@ class SFH(object):
         return ax
 
     def plot_csfr(self, ax=None, errors=True, plt_kw={}, fill_between_kw={},
-                  xlim=(13.4, -0.01), ylim=(-0.01, 1.01)):
+                  xlim=(10 ** (10.15-9), 10 **(6.5-9)), ylim=(-0.01, 1.01)):
         '''cumulative sfr plot from match'''
         one_off = False
         if ax is None:
-            fig, ax = plt.subplots(figsize=(8, 6))
-            plt.subplots_adjust(right=0.95, left=0.1, bottom=0.11, top=0.95)
+            fig, ax = plt.subplots(figsize=(8, 8))
+            plt.subplots_adjust(right=0.95, left=0.1, bottom=0.1, top=0.95)
+            ax.tick_params(direction='in')
             one_off = True
 
-        fill_between_kw = dict({'alpha': 0.2, 'color': 'gray'}.items() \
+        fill_between_kw = dict({'alpha': 1, 'color': 'gray'}.items() \
                                + fill_between_kw.items())
 
         plt_kw = dict({'lw': 3}.items() + plt_kw.items())
@@ -187,7 +189,7 @@ class SFH(object):
         lages, (csfh, csfh_errm, csfh_errp) = self.plot_bins(val='csfr',
                                                              err=True)
         age = 10 ** (lages - 9.)
-
+        #age = lages
         age = np.append(age, age[-1])
         csfh = np.append(csfh, 0)
         csfh_errm = np.append(csfh_errm, 0)
@@ -201,10 +203,11 @@ class SFH(object):
 
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
-
+        #ax.set_xscale('log')
+        #ax.xaxis.set_major_locator(LogNLocator)
         if one_off:
-            ax.set_xlabel('$\\rm{Time\ (Gyr)}$', fontsize=20)
-            ax.set_ylabel('$\\rm{Culmulative\ SF}$', fontsize=20)
+            ax.set_xlabel('$\\rm{Star\ Formation\ Time\ (Gyr)}$', fontsize=20)
+            ax.set_ylabel('$\\rm{Culmulative\ Star\ Formation}$', fontsize=20)
             plt.legend(loc=0, frameon=False)
             if 'label' in plt_kw.keys():
                 outfile = '{}_csfr.png'.format(plt_kw['label'].replace('$', '').lower())
@@ -214,7 +217,7 @@ class SFH(object):
             print('wrote {}'.format(outfile))
         return ax
 
-    def param_table(self, angst=True, agesplit=[1., 3.], target='',
+    def param_table(self, angst=True, agesplit=[1e9, 3e9], target='',
                     filters=['','']):
         d = {'bestfit': self.bestfit, 'Av': self.Av, 'dmod': self.dmod}
 
@@ -235,30 +238,62 @@ class SFH(object):
 
         d['filters'] = ','.join(filters)
 
-        iyoung = np.argmin(abs(agesplit[0] - 10 **(self.data.lagef - 8)))
-        iinter = np.argmin(abs(agesplit[1] - 10 **(self.data.lagef - 8)))
-
-        sf = self.data['sfr'] * \
-            (10 ** self.data['lagef'] - 10 ** self.data['lagei'])
-        fcsf = np.cumsum(sf)/np.sum(sf)
-
-        d['fyoung'] = 100 * fcsf[iyoung]
-        d['finter'] = 100 * fcsf[iinter] - fcsf[iyoung]
+        fyoung, fyoung_errp, fyoung_errm = self.mass_fraction(0, agesplit[0])
+        finter, finter_errp, finter_errm = self.mass_fraction(agesplit[0], agesplit[1])
 
         # logZ = 0 if there is no SF, that will add error to mean Fe/H
+        iyoung = self.nearest_age(agesplit[0], i=False)
+        iinter = self.nearest_age(agesplit[1], i=False)
+
         iyoungs, = np.nonzero(self.data.mh[:iyoung + 1] != 0)
         iinters, = np.nonzero(self.data.mh[:iinter + 1] != 0)
         iinters = list(set(iinters) - set(iyoungs))
 
-        d['feh_young'] = convertz(z=0.02 * 10 ** np.mean(self.data.mh[iyoungs]))[-2]
-        d['feh_inter'] = convertz(z=0.02 * 10 ** np.mean(self.data.mh[iinters]))[-2]
+        feh_young = convertz(z=0.02 * 10 ** np.mean(self.data.mh[iyoungs]))[-2]
+        feh_inter = convertz(z=0.02 * 10 ** np.mean(self.data.mh[iinters]))[-2]
+        feh_young_errp = convertz(z=0.02 * 10 ** quadriture(self.data.mh_errp[iyoungs]))[-2]
+        feh_young_errm = convertz(z=0.02 * 10 ** quadriture(self.data.mh_errm[iyoungs]))[-2]
+        feh_inter_errp = convertz(z=0.02 * 10 ** quadriture(self.data.mh_errp[iinters]))[-2]
+        feh_inter_errm = convertz(z=0.02 * 10 ** quadriture(self.data.mh_errm[iinters]))[-2]
+
+        maf = '${0: .2f}^{{+{1: .2f}}}_{{-{2: .2f}}}$'
+
+        d['fyoung'], d['finter'] = [maf.format(v, p, m)
+                                    for v,p,m in zip([fyoung, finter],
+                                                     [fyoung_errp, finter_errp],
+                                                     [fyoung_errm, finter_errm])]
+        d['feh_young'], d['feh_inter'] = [maf.format(v, p, m)
+                                          for v,p,m in zip([feh_young, feh_inter],
+                                                           [feh_young_errp, feh_inter_errp],
+                                                           [feh_young_errm, feh_inter_errm])]
 
         line = ['{target}', '{filters}', '{Av: .2f}', '{dmod: .2f}',
-                '{fyoung: .2f}', '{feh_young: .2f}', '{finter: .2f}',
-                '{feh_inter: .2f}', '{bestfit: .1f}']
+                '{fyoung}', '{feh_young}','{finter}',
+                '{feh_inter}', '{bestfit: .1f}']
 
         d['fmt'] = '%s \\\\ \n' % (' & '.join(line))
         return d
+
+    def nearest_age(self, lage, i=True):
+        if lage > 10.15:
+            lage = np.log10(lage)
+            logger.warning('converting input age to log age')
+
+        age_arr = self.data.lagef
+        msg = 'lagef'
+        if i:
+            age_arr = self.data.lagei
+            msg = 'lagei'
+        # min age bin size, will trigger warning if ages requested are
+        # higher than the min binsize.
+        tol = np.min(np.diff(age_arr))
+
+        #  find closest age bin to lage
+        idx = np.argmin(np.abs(age_arr - lage))
+        difi = np.abs(age_arr[idx] - lage)
+        if difi > tol:
+            logger.warning('input {}={} not found. Using {}'.format(msg, lage, age_arr[idx]))
+        return idx
 
     def mass_fraction(self, lagei, lagef):
         """
@@ -266,36 +301,21 @@ class SFH(object):
         lage[] units can be log yr or yr.
         Multiply by self.totalSF to obtain the mass formed.
         """
-        if lagei > 1e6:
-            lagei = np.log10(lagei)
-            logger.warning('converting input age to log age')
-        if lagef > 1e6:
-            lagef = np.log10(lagef)
-            logger.warning('converting input age to log age')
-
-        # min age bin size, will trigger warning if ages requested are
-        # higher than the min binsize.
-        tol = np.min(np.diff(self.data.lagei))
-
         agebins = (10 ** self.data.lagef - 10 ** self.data.lagei)
+        if lagef-lagei < np.min(np.diff(self.data.lagei)):
+            logger.error('Age difference smaller than bin sizes (or negative)')
+            return 0, 0, 0
 
         # higher precision than self.totalSF
         totalSF = np.sum(self.data.sfr * agebins)
+        idxi = self.nearest_age(lagei)
+        idxf = self.nearest_age(lagef, i=False) + 1 # +1 is to include final bin
 
-        #  find closest age bin to lagei
-        idxi = np.argmin(np.abs(self.data.lagei - lagei))
-        difi = np.abs(self.data.lagei[idxi] - lagei)
-        if difi > tol:
-            logger.warning('input lagei={} not found. Using {}'.format(lagei, self.data.lagei[idxi]))
+        fracsfr = np.sum(self.data.sfr[idxi:idxf] * agebins[idxi:idxf]) / totalSF
+        fracsfr_errp = quadriture(self.data.sfr_errp[idxi:idxf] * agebins[idxi:idxf]) / totalSF
+        fracsfr_errm = quadriture(self.data.sfr_errm[idxi:idxf] * agebins[idxi:idxf]) / totalSF
 
-        #  find closest age bin to lagef
-        idxf = np.argmin(np.abs(self.data.lagef - lagef))
-        dif = np.abs(self.data.lagef[idxf] - lagef)
-        if dif > tol:
-            logger.warning('input lagef={} not found using {}'.format(lagef, self.data.lagef[idxf]))
+        return fracsfr, fracsfr_errp, fracsfr_errm
 
-        fracsfr = np.sum(self.data.sfr[idxi:idxf + 1]  * agebins[idxi:idxf + 1])# +1 to include final bin
-        fracsfr_errp = np.sum(self.data.sfr_errp[idxi:idxf + 1]  * agebins[idxi:idxf + 1])# +1 to include final bin
-        fracsfr_errm = np.sum(self.data.sfr_errm[idxi:idxf + 1]  * agebins[idxi:idxf + 1])# +1 to include final bin
-
-        return fracsfr / totalSF, fracsfr_errp / totalSF, fracsfr_errm / totalSF
+def quadriture(x):
+    return np.sqrt(np.sum(x * x))

@@ -1,6 +1,7 @@
 from __future__ import print_function
 import numpy as np
 import os
+import re
 import glob
 import sys
 import logging
@@ -10,6 +11,55 @@ __all__ = ['ensure_file', 'get_files',  'readfile', 'replace_ext', 'savetxt',
            'match_param_default_dict', 'match_param_fmt', 'process_match_sfh',
            'read_match_cmd', 'calcsfh_dict', 'make_match_param',
            'read_ssp_output', 'read_binned_sfh', 'parse_pipeline']
+
+
+def read_fake(filename):
+    """
+    Read in the file produced with fake (or fake -full)
+    """
+    colnames = ['mag1', 'mag2', 'mass', 'Mbol', 'logTe', 'logg', 'logZ', 'CO', 'Av', 'age']
+    try:
+        data = np.genfromtxt(filename, names=colnames)
+    except ValueError:
+        # -full not run, just a 2 column file
+        data = np.genfromtxt(filename, names=colnames[:2])
+    return data
+
+
+def read_calcsfh_param(filename):
+    """
+    Read the calcsfh parameter file into a dictionary.
+    NB:
+    Exclude gates line is just a string 'gates'
+    Anything after the time bins are read in as a string. 'footer'
+    """
+    lines = open(filename).readlines()
+    d = {}
+    try:
+        d['dmod0'], d['dmod1'], d['ddmod'], d['av0'], d['av1'], d['dav'] = np.array(lines[0].split(), dtype=float)
+    except:
+        d['imf'], d['dmod0'], d['dmod1'], d['ddmod'], d['av0'], d['av1'], d['dav'] = np.array(lines[0].split(), dtype=float)
+    try:
+        d['logzmin'], d['logzmax'], d['dlogz'], d['logzmin0'], d['logzmax0'], d['logzmin1'], d['logzmax1'] = np.array(lines[1].split(), dtype=float)
+    except:
+        d['logzmin'], d['logzmax'], d['dlogz'] = np.array(lines[1].split(), dtype=float)
+
+    d['BF'], d['bad0'], d['bad1'] = np.array(lines[2].split(), dtype=float)
+    d['ncmds'] = int(lines[3].strip())
+    Vstep, VIstep, fake_sm, VImin, VImax, filters = lines[4].strip().split()
+    d['V'], d['I'] = filters.split(',')
+    d['Vstep'], d['VIstep'], d['fake_sm'], d['VImin'], d['VImax'] = map(float, [Vstep, VIstep, fake_sm, VImin, VImax])
+    Vmin, Vmax, d['V'] = lines[5].strip().split()
+    Imin, Imax, d['I'] = lines[6].strip().split()
+    d['Vmin'], d['Vmax'], d['Imin'], d['Imax'] = map(float, [Vmin, Vmax, Imin, Imax])
+    # fuck it.
+    d['gates'] = lines[7].strip()
+    d['ntbins'] = int(lines[8].strip())
+    d['to'], d['tf'] = np.array([l.strip().split() for l in lines[9:] if not l.startswith('-')], dtype=float).T
+    d['footer'] = ''.join([l for l in lines[8:] if l.startswith('-')])
+    return d
+
+
 
 def read_match_cmd(filename):
     '''
@@ -77,6 +127,32 @@ def match_param_default_dict():
         dd[key] = np.nan
     return dd
 
+
+def fake_param_fmt(power_law_imf=False, fake=True):
+    """
+    I donno... without Ntbins and age binning I think this is stupid.
+    Does not allow for -diskav or -mag or anything besides trying to reproduce
+    the cmds used in calcsfh.
+
+    IMF (m-M)o Av Zspread BF dmag_min
+    Vstep V-Istep fake_sm V-Imin V-Imax V,I  (per CMD)
+    Vmin Vmax V                              (per filter)
+    Imin Imax I                              (per filter)
+
+    NOT INCLUDED:
+    Ntbins
+      To Tf SFR Z ^see below^ (for each time bin)
+
+    FROM README :
+        dmag_min is the minimum good output-input magnitude in the
+        fake star results; usually -0.75 (the recovered star is twice as bright
+        as the input star) is a good value (-1.50 would match identically the
+        value used by calcsfh).
+    """
+    return ['%(dmod).3f %(av).3f %(Zspread).3f %(BF).3f %(dmag_min).3f',
+            '%(Vstep).2f %(VIstep).2f %(fake_sm)i %(VImin).2f %(VImax).2f %(V)s,%(I)s',
+            '%(Vmin).2f %(Vmax).2f %(V)s',
+            '%(Imin).2f %(Imax).2f %(I)s']
 
 def match_param_fmt(set_z=False, zinc=True):
     '''
