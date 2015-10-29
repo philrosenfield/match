@@ -3,6 +3,7 @@ import os
 import numpy as np
 
 from .fileio import read_match_cmd
+from .config import EXT
 
 __all__ = ['CMD']
 
@@ -13,7 +14,7 @@ class CMD(object):
     """
     def __init__(self, filename):
         self.cmd = read_match_cmd(filename)
-        self.figname = os.path.split(filename)[1] + '.png'
+        self.figname = os.path.split(filename)[1] + EXT
         labels = ['${\\rm %s}$' % i for i in ('data', 'model', 'diff', 'sig')]
         labels[1] = '${\\rm %s}$' % self.figname.split('.')[0].replace('_', '\ ')
         self.labels = labels

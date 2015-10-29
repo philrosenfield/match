@@ -4,6 +4,7 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
+from .config import EXT
 
 from mpl_toolkits.axes_grid1 import ImageGrid
 from matplotlib.offsetbox import AnchoredText
@@ -72,8 +73,8 @@ def match_diagnostic(param, phot):
         # mag2 = mag1 - color
         axs[1].plot(exgverts[:, 0] , exgverts[:, 1] - exgverts[:, 0])
 
-    plt.savefig(param + '.png')
-    print('wrote', param + '.png')
+    plt.savefig(param + EXT)
+    print('wrote', param + EXT)
     plt.close()
     return axs
 
@@ -232,7 +233,7 @@ def sfh_plot(SFH):
     SFH.age_plot(val='mh', convertz=False, ax=ax2)
     ax1.xaxis.set_major_formatter(NullFormatter())
     plt.subplots_adjust(hspace=0.1)
-    figname = os.path.join(SFH.base, SFH.name + '.png')
+    figname = os.path.join(SFH.base, SFH.name + EXT)
     plt.savefig(figname)
     plt.close()
     print('{} wrote {}'.format(sfh_plot.__name__, figname))
@@ -245,7 +246,7 @@ def call_pgcmd(filenames, filter1=None, filter2=None, labels=[]):
 
     for filename in filenames:
         mcmd = CMD(filename)
-        figname = filename + '.png'
+        figname = filename + EXT
         if filter1 is None:
             try:
                 target, [filter1, filter2] = parse_pipeline(filename)

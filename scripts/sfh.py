@@ -5,6 +5,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
+from .config import EXT
 from .fileio import read_binned_sfh, parse_pipeline
 from .utils import convertz
 
@@ -210,9 +211,9 @@ class SFH(object):
             ax.set_ylabel('$\\rm{Culmulative\ Star\ Formation}$', fontsize=20)
             plt.legend(loc=0, frameon=False)
             if 'label' in plt_kw.keys():
-                outfile = '{}_csfr.png'.format(plt_kw['label'].replace('$', '').lower())
+                outfile = '{}_csfr'.format(plt_kw['label'].replace('$', '').lower(), EXT)
             else:
-                outfile = '{}_csfr.png'.format(os.path.join(self.base, self.name))
+                outfile = '{}_csfr{}'.format(os.path.join(self.base, self.name, EXT))
             plt.savefig(outfile)
             print('wrote {}'.format(outfile))
         return ax

@@ -9,7 +9,7 @@ import sys
 
 import matplotlib.pylab as plt
 import numpy as np
-
+from .config import EXT
 from scipy.interpolate import interp1d
 from .utils import parse_pipeline
 
@@ -119,7 +119,7 @@ def ast_correct_starpop(sgal, fake_file=None, outfile=None, overwrite=False,
         axs[1].plot(mag2[rec], mag2diff[rec], '.', **plt_kw)
         if 'label' in plt_kw.keys():
             [ax.legend(loc=0, frameon=False) for ax in axs]
-        plt.savefig(replace_ext(outfile, '_ast_correction.png'))
+        plt.savefig(replace_ext(outfile, '_ast_correction{}'.format(EXT)))
     return cor_mag1, cor_mag2
 
 
@@ -582,8 +582,8 @@ def main(argv):
         print('{0:20s} {1:.4f} {2:.4f}'.format(ast.target, comp1, comp2))
 
         if args.makeplots:
-            comp_name = os.path.join(ast.base, ast.name + '_comp.png')
-            ast_name = os.path.join(ast.base, ast.name + '_ast.png')
+            comp_name = os.path.join(ast.base, ast.name + '_comp{}'.format(EXT)
+            ast_name = os.path.join(ast.base, ast.name + '_ast{}'.format(EXT))
 
             ax = ast.completeness_plot()
             if args.plot_fracs is not None:

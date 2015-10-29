@@ -7,6 +7,7 @@ import sys
 import matplotlib.pylab as plt
 import numpy as np
 
+from .config import EXT
 from .fileio import read_ssp_output
 
 __all__ = ['SSP']
@@ -201,7 +202,7 @@ class SSP(object):
         ax.set_xlabel(key2label(attr))
         ax.set_ylabel('Probability')
         # probably need to make this a conditional if ax is passed...
-        plt.savefig('{}_{}{}.png'.format(self.name[0].split('_')[0], attr, sub))
+        plt.savefig('{}_{}{}{}'.format(self.name[0].split('_')[0], attr, sub, EXT))
         plt.close()
         return ax
 
@@ -233,8 +234,8 @@ class SSP(object):
         ax.set_ylabel(key2label(attr2))
         l.set_label('Probability')
         # probably need to make this a conditional if ax is passed...
-        plt.savefig('{}_{}_{}{}.png'.format(self.name[0].split('_')[0],
-                                          attr, attr2, sub))
+        plt.savefig('{}_{}_{}{}{}'.format(self.name[0].split('_')[0],
+                                          attr, attr2, sub, EXT))
         plt.close()
         return ax
 
