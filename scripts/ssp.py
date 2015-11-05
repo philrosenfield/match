@@ -120,9 +120,91 @@ class SSP(object):
             [self.loaddata(filenames[i], data=data[i]) for i in range(len(filenames))]
 
         self.all_data = np.concatenate(self.data)
+        self.ibest = np.argmin(self.all_data['fit'])
+        self.bestfit = np.array([self.all_data[np.argmin(self.all_data['fit'])]],
+                                dtype=self.all_data.dtype)
         # via Dan Weisz:
         self.absprob = np.exp(0.5 * (self.all_data['fit'].min() \
                                             - self.all_data['fit']))
+
+    def bestline(self):
+        line = ''
+        for k, v in dict(zip(self.all_data.dtype.names, *self.bestfit)).items():
+            line += '{}: {} '.format(k, v)
+        return line
+
+
+    def boundries(self, stitched_col=None):
+        """
+        Print the min, max and best fit values
+        Parameters
+        stitched_col : str
+            split the output for unique values of stitched_col (e.g., 'ov')
+        Returns
+        msg : str
+            multiline message with format value, min, best, max.
+        """
+        if not hasattr(self, 'bestfit'):
+            self.load_bestfits(stitched_col=stitched_col)
+        bestfits = [self.bestfits]
+
+        if stitched_col is not None:
+            bestfits = self.bestfits
+
+        msg = '# value min best max\n'
+        fmt = '{} {} {} {}\n'
+
+        for bestfit in bestfits:
+            # not necessarily self.ibest because of stitched_col
+            bestofbest = np.array(bestfit[np.argmin(bestfit['fit'])],
+                                  dtype=self.all_data.dtype)
+            if stitched_col is not None:
+                msg += '# {}\n'.format(np.unique(bestfit[stitched_col]))
+
+            for val in self.all_data.dtype.names:
+                msg += fmt.format(val, np.min(bestfit[val]), bestofbest[val], np.max(bestfit[val]))
+        return msg
+
+
+    def bestfile(self, ind=None):
+        """
+        Not sure why I did this much work...
+        if fmt == 'default':
+            fmt = 'ssp_imf{IMF:.2f}_bf{bf:.1f}_dav{dav:.1f}_ov{ov:.2f}.fdat'
+        if line == 'best':
+            line = self.bestfit
+        elif type(line) == int:
+            line = self.all_data[line]
+        else:
+            assert len(line) == len(self.all_data.dtype.names), \
+                'Either line=best, some int, or an actual line of self.data or self.all_data'
+        return fmt.format(**dict(zip(self.all_data.dtype.names, *line)))
+        """
+        ind = ind or self.ibest
+        return os.path.join(np.array(self.base)[ind], np.array(self.name)[ind])
+
+    def load_bestfits(self, stitched_col=None):
+        """
+        cull the best fit in each ssp
+        Parameters
+        stitched_col : str
+            an attribute like OV that was not varied during a MATCH run
+            will separate bestfits on unique values of stitched_col
+
+        Returns
+        self.bestfits : array
+            array of the min fit from each self.data. If stitch_col is not None,
+            array is split for each unique value of stitched_col
+        """
+        self.bestfits = np.array([self.data[i][np.argmin(self.data[i]['fit'])]
+                        for i in range(len(self.data))], dtype=self.data[0].dtype)
+
+        if stitched_col is not None:
+            usc, inds = np.unique(self.bestfit, return_inverse=True)
+            self.bestfits = np.array([self.bestfits[inds==i]
+                                      for i in np.unique(inds)])
+
+        return
 
     def loaddata(self, filename, data=None):
         """Load the data and other book keeping information"""
@@ -131,11 +213,8 @@ class SSP(object):
 
         base, name = os.path.split(filename)
 
-        # so far marginalize needs this concatenated. Not sure if
-        # a list of arrays is useful.
         self.data.append(data)
 
-        # book keeping
         self.name.append(name)
         self.base.append(base)
 
@@ -311,7 +390,7 @@ def main(argv):
     args = parser.parse_args(argv)
 
     if args.list:
-        args.fnames = [l.strip() for l in open(args.fnames[0], 'r').readlines()]
+        args.fnames = map(str.strip, open(args.fnames[0], 'r').readlines())
 
     if args.format:
         fnames, data = zip(*[add_filename_info_to_file(fname) for fname in args.fnames])
@@ -321,6 +400,7 @@ def main(argv):
             ssp = SSP(filenames=fnames, data=data)
     else:
         ssp = SSP(filenames=args.fnames)
+        print(ssp.bestline())
 
     if args.oned:
         ssp.pdf_plots(sub=args.sub)

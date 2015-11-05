@@ -1,3 +1,7 @@
+"""
+Make a match param file
+Note -- will have to edit the param file by hand to insert dmod and Av.
+"""
 #!/usr/bin/env python
 import argparse
 import matplotlib.pylab as plt
@@ -18,13 +22,8 @@ def move_on(ok, msg='0 to move on: '):
     time.sleep(1)
     return ok
 
-def exclude_tpagb(phot, param, mtrgb=None, filter1=None):
+def exclude_tpagb(phot, param, mtrgb):
     from scipy.interpolate import interp1d
-    try:
-        atab = rsp.angst_tables.angst_data
-    except:
-        'Must either have ANGST data tables or set mtrgb'
-        sys.exit()
 
     lines = open(param, 'r').readlines()
     dmag, dcol, _, colmin, colmax = map(float, lines[4].split()[:-1])
@@ -36,13 +35,7 @@ def exclude_tpagb(phot, param, mtrgb=None, filter1=None):
     # choose color cut
     mincol = find_match_limits(mag1, mag2, color_only=True)[0]
 
-    if mtrgb is None:
-        target, f1, filter2 = param.upper().split('.')[0].split('_')
-        if filter1 is None:
-            filter1 = f1
-        mtrgb = atab.get_tab5_trgb_av_dmod(target, filters=[filter1, filter2])[0]
-
-    xarr, yarr = put_a_line_on_it(mtrgb, consty=False, filter1=filter1)
+    xarr, yarr = put_a_line_on_it(mtrgb, consty=False, filter1=True)
     f = interp1d(xarr, yarr)
     faintlim1 = f(mincol)
     faintlim2 = f(maxcol)
@@ -80,7 +73,7 @@ def put_a_line_on_it(val, npts=100, consty=True, ax=None,
         # e.g, f814w vs f555-f814; val is f555
         new_xarr = val - yarr
         # e.g, f555w vs f555-f814; val is f814
-        if filter1 is not None:
+        if filter1 is True:
             yarr = xarr + val
             new_xarr = xarr
 
@@ -222,7 +215,7 @@ def match_param(mag1, mag2, filters, phot, param, interactive=False, fake=None,
         p['Imax'] = np.max(mag2)
         print p['Vmax'], p['Imax']
         if fake is not None:
-            from ..asts import ASTs
+            from .asts import ASTs
             ast = ASTs(fake)
             ast.completeness(combined_filters=True, interpolate=True)
             print('Using {} completeness fraction from {}'.format(comp_frac, fake))
@@ -286,13 +279,13 @@ if __name__ == "__main__":
                         help='cut out mags outside of this value')
 
     parser.add_argument('-m', '--mtrgb', type=float, default=None,
-                        help='trgb level to run with -t')
+                        help='trgb magnitude (run with -t)')
 
     parser.add_argument('-e', '--exgates', action='store_true',
-                        help='with -i find exclude gates')
+                        help='find exclude gates (will force -i')
 
     parser.add_argument('-t', '--extpgates', action='store_true',
-                        help='with -i find exclude tp-agb')
+                        help='with -m exclude tp-agb (will force -i)')
 
     parser.add_argument('-i', '--interactive', action='store_true',
                         help='find limits interactively')
@@ -304,9 +297,9 @@ if __name__ == "__main__":
                         help='match fake file')
 
     parser.add_argument('-c', '--comp_frac', type=float, default=None,
-                        help='completeness fraction to use for faint limit')
+                        help='completeness fraction to use for faint limit (run with --fake=)')
 
-    parser.add_argument('-p', '--param', type=str, help='match param file')
+    parser.add_argument('-p', '--param', type=str, help='match param file if existing')
 
     parser.add_argument('phot', type=str, help='match phot file or fits file')
 
@@ -330,12 +323,10 @@ if __name__ == "__main__":
         match_param(mag1, mag2, filters, args.phot, args.param, fake=args.fake,
                     interactive=args.interactive, comp_frac=args.comp_frac)
 
-    if args.interactive:
-        if args.exgates:
-            find_gates(mag1, mag2, args.param)
+    if args.exgates:
+        find_gates(mag1, mag2, args.param)
 
-        if args.extpgates:
-            filter1 = args.filters.replace('_VEGA','').split(',')[0]
-            exclude_tpagb(args.phot, args.param, filter1=filter1, mtrgb=args.mtrgb)
+    if args.extpgates:
+        exclude_tpagb(args.phot, args.param, args.mtrgb)
 
     match_diagnostic(args.param, args.phot)

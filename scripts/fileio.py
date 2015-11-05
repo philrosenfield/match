@@ -381,10 +381,16 @@ def read_ssp_output(filename):
     else:
         skip_header = 10
         skip_footer = 1
-        colnames = ['Av', 'IMF', 'dmod', 'lage', 'logZ', 'fit', 'sfr', 'sfrperr',
-                    'sfrmerr']
-        data = np.genfromtxt(filename, skip_header=skip_header,
-                             skip_footer=skip_footer, names=colnames)
+        colnames = ['Av', 'IMF', 'dmod', 'lage', 'logZ', 'fit', 'sfr', 'bg1',
+                    'bg2']
+        try:
+            data = np.genfromtxt(filename, skip_header=skip_header,
+                                 skip_footer=skip_footer, names=colnames)
+        except:
+            # no bg?
+            data = np.genfromtxt(filename, skip_header=skip_header,
+                                 skip_footer=skip_footer, names=colnames[:-2])
+
     bfline, = os.popen('tail -n 1 {}'.format(filename)).readlines()
     Av, dmod, fit = map(float, bfline.strip().translate(None, '#Bestfit:Av=dmod').split(','))
     return data, Av, dmod, fit

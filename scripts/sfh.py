@@ -213,7 +213,7 @@ class SFH(object):
             if 'label' in plt_kw.keys():
                 outfile = '{}_csfr'.format(plt_kw['label'].replace('$', '').lower(), EXT)
             else:
-                outfile = '{}_csfr{}'.format(os.path.join(self.base, self.name, EXT))
+                outfile = '{}_csfr{}'.format(os.path.join(self.base, self.name), EXT)
             plt.savefig(outfile)
             print('wrote {}'.format(outfile))
         return ax

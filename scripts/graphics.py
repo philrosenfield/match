@@ -18,7 +18,7 @@ __all__ = ['add_inner_title', 'forceAspect', 'match_plot', 'pgcmd', 'sfh_plot',
            'match_diagnostic', 'call_pgcmd']
 
 try:
-    plt.style.use('ggplot')
+    plt.style.use('presentation')
 except:
     pass
 
@@ -135,6 +135,7 @@ def match_plot(ZS, extent, labels=["Data", "Model", "Diff", "Sig"],
                     vmin = -1 * max_diff
                     vmax = max_diff
             colors = cm.RdBu
+            colors = plt.cm.get_cmap('binary_r', 11)
         else:
             # first row: make white 0, but will be on the left of color bar
             # scale color bar same for data and model.
@@ -147,6 +148,10 @@ def match_plot(ZS, extent, labels=["Data", "Model", "Diff", "Sig"],
                 colors = cm.Blues
             if i == 1:
                 colors = cm.Reds
+            colors = plt.cm.get_cmap('binary_r', 11)
+        vmin=None
+        vmax=None
+
         im = ax.imshow(z, origin='upper', extent=extent, interpolation="nearest",
                        cmap=colors, vmin=vmin, vmax=vmax)
         ax.cax.colorbar(im)
@@ -177,7 +182,7 @@ def forceAspect(ax, aspect=1):
 
 def pgcmd(filename=None, cmd=None, labels=None, figname=None, out_dir=None,
           axis_labels='default', filter1=None, filter2=None, max_diff=None,
-          max_counts=None, max_sig=None):
+          max_counts=None, max_sig=None, logcounts=True, yfilter=None):
     '''
     produces the image that pgcmd.pro makes
     '''
@@ -196,6 +201,9 @@ def pgcmd(filename=None, cmd=None, labels=None, figname=None, out_dir=None,
         hesses = cmd.hesses
         extent = cmd.extent
 
+    if logcounts:
+        hesses[0] = np.log10(hesses[0])
+        hesses[1] = np.log10(hesses[1])
     if axis_labels.lower() == 'default':
         if filter1 is None or filter2 is None:
             filter1 = ''
@@ -213,7 +221,7 @@ def pgcmd(filename=None, cmd=None, labels=None, figname=None, out_dir=None,
 
     [ax.set_xlabel('$%s-%s$' % (filter1, filter2), fontsize=20)
      for ax in grid.axes_row[1]]
-    [ax.set_ylabel('$%s$' % filter2, fontsize=20) for ax in grid.axes_column[0]]
+    [ax.set_ylabel('$%s$' % yfilter, fontsize=20) for ax in grid.axes_column[0]]
     grid.axes_all[0].xaxis.label.set_visible(True)
 
     if figname is not None:
@@ -254,8 +262,9 @@ def call_pgcmd(filenames, filter1=None, filter2=None, labels=[]):
                 if not 'W' in filter1:
                     filter1 = 'V'
                     filter2 = 'I'
+                yfilter = filter1
             except:
                 pass
 
-        pgcmd(cmd=mcmd, filter1=filter1, filter2=filter2, labels=labels,
-              figname=figname)
+        pgcmd(cmd=mcmd, filter1=filter1, filter2=filter2, yfilter=yfilter,
+              labels=labels, figname=figname)

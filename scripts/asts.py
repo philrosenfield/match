@@ -11,7 +11,7 @@ import matplotlib.pylab as plt
 import numpy as np
 from .config import EXT
 from scipy.interpolate import interp1d
-from .utils import parse_pipeline
+from .fileio import parse_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -582,7 +582,7 @@ def main(argv):
         print('{0:20s} {1:.4f} {2:.4f}'.format(ast.target, comp1, comp2))
 
         if args.makeplots:
-            comp_name = os.path.join(ast.base, ast.name + '_comp{}'.format(EXT)
+            comp_name = os.path.join(ast.base, ast.name + '_comp{}'.format(EXT))
             ast_name = os.path.join(ast.base, ast.name + '_ast{}'.format(EXT))
 
             ax = ast.completeness_plot()
