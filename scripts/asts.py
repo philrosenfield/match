@@ -125,7 +125,8 @@ def ast_correct_starpop(sgal, fake_file=None, outfile=None, overwrite=False,
 
 class ASTs(object):
     '''class for reading and using artificial stars'''
-    def __init__(self, filename, filter1=None, filter2=None, filt_extra=''):
+    def __init__(self, filename, filter1=None, filter2=None, target=None,
+                 filt_extra=''):
         '''
         if filename has 'match' in it will assume this is a matchfake file.
         if filename has .fits extention will assume it's a binary fits table.
@@ -134,8 +135,10 @@ class ASTs(object):
         self.filter1 = filter1
         self.filter2 = filter2
         self.filt_extra = filt_extra
+        self.target = target
 
-        self.target, filters = parse_pipeline(filename)
+        if filter1 is None or filter2 is None:
+            self.target, filters = parse_pipeline(filename)
 
         try:
             self.filter1, self.filter2 = filters
