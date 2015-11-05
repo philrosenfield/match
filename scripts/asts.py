@@ -139,7 +139,6 @@ class ASTs(object):
 
         if filter1 is None or filter2 is None:
             self.target, filters = parse_pipeline(filename)
-
             try:
                 self.filter1, self.filter2 = filters
             except:
@@ -536,7 +535,7 @@ class ASTs(object):
                 label=r'${}$'.format(self.filter2))
 
         if comp_fracs is not None:
-            self.add_complines()
+            self.add_complines(comp_fracs)
         ax.set_xlabel(r'${{\rm mag}}$', fontsize=20)
         ax.set_ylabel(r'${{\rm Completeness\ Fraction}}$', fontsize=20)
         plt.legend(loc='lower left', frameon=False)
