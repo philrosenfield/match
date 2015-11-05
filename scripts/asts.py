@@ -522,7 +522,17 @@ class ASTs(object):
         return axs
 
     def completeness_plot(self, ax=None, comp_fracs=None):
-        """Make a plot of completeness vs mag"""
+        """Make a plot of completeness vs mag
+        Parameters
+        ----------
+        ax : mpl.Axes instance
+            to over plot
+        comp_fracs : list
+            completeness fraction to over plot
+        Returns
+        -------
+        ax : mpl.Axes instance
+        """
         assert hasattr(self, 'fcomp1'), \
             'need to run completeness with interpolate=True'
 
@@ -535,7 +545,7 @@ class ASTs(object):
                 label=r'${}$'.format(self.filter2))
 
         if comp_fracs is not None:
-            self.add_complines(comp_fracs)
+            self.add_complines(ax, *comp_fracs)
         ax.set_xlabel(r'${{\rm mag}}$', fontsize=20)
         ax.set_ylabel(r'${{\rm Completeness\ Fraction}}$', fontsize=20)
         plt.legend(loc='lower left', frameon=False)
