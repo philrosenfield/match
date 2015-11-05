@@ -140,10 +140,10 @@ class ASTs(object):
         if filter1 is None or filter2 is None:
             self.target, filters = parse_pipeline(filename)
 
-        try:
-            self.filter1, self.filter2 = filters
-        except:
-            self.filter1, self.filter2, self.filter3 = filters
+            try:
+                self.filter1, self.filter2 = filters
+            except:
+                self.filter1, self.filter2, self.filter3 = filters
         self.read_file(filename)
 
     def recovered(self, threshold=9.99):
