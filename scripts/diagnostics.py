@@ -33,7 +33,7 @@ def main(argv):
     else:
         cmd_names = [n for n in args.name if n.endswith('cmd')]
         sfh_files = [n for n in args.name if n.endswith('sfh')]
-        sfh_files.extend([n for n in args.name if n.endswith('zc')])
+        sfh_files.extend([n for n in args.name if 'zc' in n])
         params = [n for n in args.name if n.endswith('param')]
         phots = [n for n in args.name if n.endswith('match')]
         scrns = [n for n in args.name if n.endswith('scrn')]

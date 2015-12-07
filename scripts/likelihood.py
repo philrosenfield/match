@@ -1,6 +1,8 @@
 """ Likelihood used in MATCH """
 import numpy as np
 from .utils import read_binned_sfh
+import sys
+import argparse
 
 def stellar_prob(obs, model, normalize=False):
     '''
@@ -51,7 +53,7 @@ def match_stats(sfh_file, match_cmd_file, nfp_nonsfr=5, nmc_runs=10000,
     run match/bin/stats on a match_cmd_file. Calculates the non-zero sfr bins
     in sfh_file.
     '''
-    stats_exe = '$HOME/research/match2.5/bin/stats'
+    stats_exe = '$HOME/match2.5/bin/stats'
     sfr_data = read_binned_sfh(sfh_file)
     inds, = np.nonzero(sfr_data.sfr)
 
@@ -88,3 +90,28 @@ def read_match_stats(statsfile):
         key, val = line.split(':')
         stats[''.join(key.replace('^', '').split())] = float(val)
     return stats
+
+def main(argv):
+    parser = argparse.ArgumentParser(description="run match stats")
+
+    parser.add_argument('-n', '--nmc_runs', type=int, default=10000,
+                        help='number of MC runs')
+
+    parser.add_argument('-f', '--nfp_nonsfr', type=int, default=5,
+                        help='non-sfr free parameters')
+
+    parser.add_argument('-o', '--outfile', type=str, default='cmd_stats.dat',
+                        help='output file')
+
+    parser.add_argument('sfh_file', type=str, help='match sfh file')
+
+    parser.add_argument('match_cmd_file', type=str,
+                        help='match cmd grid')
+
+    args = parser.parse_args(argv)
+
+    match_stats(args.sfh_file, args.match_cmd_file, nfp_nonsfr=args.nfp_nonsfr,
+                nmc_runs=args.nmc_runs, outfile=args.outfile)
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

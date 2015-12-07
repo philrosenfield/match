@@ -7,8 +7,9 @@ import sys
 import matplotlib.pylab as plt
 import numpy as np
 
-from .config import EXT
+from .config import EXT, match_base
 from .fileio import read_ssp_output
+from .utils import strip_header
 
 __all__ = ['SSP']
 
@@ -101,6 +102,18 @@ def filename_data(fname, ext='.dat', skip=1, delimiter='_', exclude='imf'):
             continue
         d[kv[0]] = float(neg + '.'.join(kv[1:]))
     return d
+
+def sspcombine(fname, dry_run=True, outfile=None):
+    sspname = strip_header(fname)
+    if outfile is None:
+        outfile = '> {}.stats'.format(fname)
+    else:
+        outfile = '>> {}'.format(outfile)
+    cmd = '{} {} {}'.format(os.path.join(match_base, 'bin/sspcombine'), sspname, outfile)
+    if not dry_run:
+        print('excecuting: {}'.format(cmd))
+        os.system(cmd)
+    return cmd
 
 
 class SSP(object):
@@ -381,11 +394,14 @@ def main(argv):
     parser.add_argument('-s', '--sub', type=str, default='',
                         help='add substring to figure names')
 
-    parser.add_argument('fnames', nargs='*', type=str,
-                        help='ssp output(s) or formated output(s)')
-
     parser.add_argument('-l', '--list', action='store_true',
                         help='fnames is a file with a list of files to read')
+
+    parser.add_argument('-c', '--sspcombine', action='store_true',
+                        help='run sspcombine on the file(s) (and exit)')
+
+    parser.add_argument('fnames', nargs='*', type=str,
+                        help='ssp output(s) or formated output(s)')
 
     args = parser.parse_args(argv)
 
@@ -398,6 +414,9 @@ def main(argv):
             data = list(data)
             fnames = list(fnames)
             ssp = SSP(filenames=fnames, data=data)
+    elif args.sspcombine:
+        [sspcombine(f, dry_run=False) for f in args.fnames]
+        sys.exit(0)
     else:
         ssp = SSP(filenames=args.fnames)
         print(ssp.bestline())

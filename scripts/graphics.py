@@ -247,8 +247,8 @@ def sfh_plot(SFH):
     print('{} wrote {}'.format(sfh_plot.__name__, figname))
 
 
-def call_pgcmd(filenames, filter1=None, filter2=None, labels=[]):
-
+def call_pgcmd(filenames, filter1=None, filter2=None, yfilter=None, labels=[]):
+    yfilter = yfilter or filter1
     if type(filenames) is not list:
         filenames = [filenames]
 

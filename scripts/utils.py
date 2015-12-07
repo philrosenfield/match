@@ -114,6 +114,7 @@ def strip_header(ssp_file, skip_header=10):
     with open(ssp_file, 'r') as infile:
         lines = [l.strip() for l in infile.readlines()]
     np.savetxt(outfile, np.array(lines[skip_header:], dtype=str), fmt='%s')
+    return outfile
 
 
 def cheat_fake(infakefile, outfakefile):

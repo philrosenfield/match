@@ -427,11 +427,16 @@ def read_binned_sfh(filename, hmc_file=None):
             data = np.genfromtxt(filename, dtype=dtype)
         except ValueError:
             try:
-                data = np.genfromtxt(filename, dtype=dtype, skip_header=6,
-                                     skip_footer=1)
+                # zcmerge file
+                data = np.genfromtxt(filename, dtype=dtype, skip_header=1)
             except ValueError:
-                data = np.genfromtxt(filename, dtype=dtype, skip_header=6,
-                                     skip_footer=2)
+                # background footers
+                try:
+                    data = np.genfromtxt(filename, dtype=dtype, skip_header=6,
+                                         skip_footer=1)
+                except ValueError:
+                    data = np.genfromtxt(filename, dtype=dtype, skip_header=6,
+                                         skip_footer=2)
         return data
 
     data = _loaddata(filename, dtype)

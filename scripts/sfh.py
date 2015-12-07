@@ -57,25 +57,32 @@ class SFH(object):
 
         self.header = lines[0:6]
         self.footer = lines[-1]
-        bestfit, fout = self.header[0].replace(' ', '').split('=')[1].split('(')
-        self.bestfit = float(bestfit)
-        self.match_out = fout.split(')')[0]
-
         try:
-            iline = self.header.index('Best fit:\n') + 1
-        except ValueError:
-            print('Need Best fit line to assign attributes')
-            raise ValueError
+            bestfit, fout = self.header[0].replace(' ', '').split('=')[1].split('(')
+            self.bestfit = float(bestfit)
+            self.match_out = fout.split(')')[0]
 
-        line = self.header[iline].strip().replace(' ', '').split(',')
-        for l in line:
-            key, attrs = l.split('=')
-            attr, pmattr = attrs.split('+')
-            pattr, mattr = pmattr.split('-')
+            try:
+                iline = self.header.index('Best fit:\n') + 1
+            except ValueError:
+                print('Need Best fit line to assign attributes')
+                raise ValueError
+
+            line = self.header[iline].strip().replace(' ', '').split(',')
+            for l in line:
+                key, attrs = l.split('=')
+                attr, pmattr = attrs.split('+')
+                pattr, mattr = pmattr.split('-')
+                set_value_err_attr(key, attr, pattr, mattr)
+            # the final line has totalSF
+            key, attr, pattr, mattr = self.header[-1].strip().split()
             set_value_err_attr(key, attr, pattr, mattr)
-        # the final line has totalSF
-        key, attr, pattr, mattr = self.header[-1].strip().split()
-        set_value_err_attr(key, attr, pattr, mattr)
+        except:
+            # zcmerge files: the first line has totalSF
+            self.header = lines[0]
+            self.footer = ''
+            key, attr, pattr, mattr = self.header.strip().split()
+            set_value_err_attr(key, attr, pattr, mattr)
 
         self.flag = None
         if np.sum(np.diff(self.data.mh)) == 0:
@@ -270,7 +277,7 @@ class SFH(object):
 
         line = ['{target}', '{filters}', '{Av: .2f}', '{dmod: .2f}',
                 '{fyoung}', '{feh_young}','{finter}',
-                '{feh_inter}', '{bestfit: .1f}']
+                '{feh_inter}']#, '{bestfit: .1f}']
 
         d['fmt'] = '%s \\\\ \n' % (' & '.join(line))
         return d
