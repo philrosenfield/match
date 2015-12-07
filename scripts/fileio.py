@@ -441,6 +441,7 @@ def read_binned_sfh(filename, hmc_file=None):
 
     data = _loaddata(filename, dtype)
     if hmc_file is not None:
+        # overwrite errors
         hmc_data = _loaddata(hmc_file, dtype)
         for attr in hmc_data.dtype.names:
             if 'err' in attr:

@@ -17,10 +17,13 @@ class SFH(object):
     load the match sfh solution as a class with attributes set by the
     best fits from the sfh file.
     '''
-    def __init__(self, filename, hmc_file=None):
+    def __init__(self, filename, hmc_file=None, meta_file=None):
         self.base, self.name = os.path.split(filename)
         self.data = read_binned_sfh(filename, hmc_file)
-        self.load_match_header(filename)
+
+        if meta_file is None:
+            meta_file = filename
+        self.load_match_header(meta_file)
 
     def load_match_header(self, filename):
         '''
