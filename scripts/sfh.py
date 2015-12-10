@@ -18,6 +18,17 @@ class SFH(object):
     best fits from the sfh file.
     '''
     def __init__(self, filename, hmc_file=None, meta_file=None):
+        """
+        Parameters
+        ----------
+        filename : str
+            data file
+        hmc_file : str
+            data file from which to overwite uncertainties
+        meta_file : str
+            data file to only read bestfit line.
+
+        """
         self.base, self.name = os.path.split(filename)
         self.data = read_binned_sfh(filename, hmc_file)
 

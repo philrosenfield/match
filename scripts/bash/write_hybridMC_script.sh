@@ -10,10 +10,10 @@
 ###
 
 # locations:
-hybridMC="$HOME/research/match2.5/bin/hybridMC"
-zcombine="$HOME/research/match2.5/bin/zcombine"
+hybridMC="$HOME/match2.5/bin/hybridMC"
+zcombine="$HOME/match2.5/bin/zcombine"
 
-# if unix and want to run parallel this sets a command for each processor. 
+# if unix and want to run parallel this sets a command for each processor.
 # I then will edit the output to increase from 0 to however many processors I want.
 preCMD="nice -n +19 taskset -c 0"
 
@@ -24,13 +24,13 @@ zcflags="-unweighted -medbest -jeffreys"
 # assumes extension is .sfh (could make it input command with *$1)
 ext=".sfh"
 for l in $(ls *$ext)
-do 
+do
 p=${l/$ext}
 echo "$preCMD $hybridMC $p.out.dat $p.mcmc $hmcflags > $p.mcmc.scrn &"
 done
 
 for l in $(ls *$ext)
-do 
+do
 p=${l/$ext}
 echo "$preCMD $zcombine $p.mcmc $zcflags -best=$p.sfh > $p.mcmc.zc &"
 done

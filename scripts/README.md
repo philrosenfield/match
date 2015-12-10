@@ -35,7 +35,8 @@ expected extensions in a directory. The extensions are currently:
 
 - `.cmd` (cmd file that MATCH.calcsfh automatically makes)
 - `.sfh` (calcsfh output)
-- `.zc` (zcombine output (same format as .sfh)
+- `.zc` (zcombine output (same format as .sfh))
+- `.zc.dat` (zcmerge output (same format as .sfh with a different header))
 - `.param` (match input parameter file)
 - `.match` (match 2 column photometry)
 - `.scrn` (calcsfh console output)
@@ -52,26 +53,36 @@ TO DO: Make this a folder and separate functions. For example, all templates sho
 utilities for visualizing match outputs.
 
 ## likelihood.py
-Work in progress.
-It needs a main function but if using in ipython or calling from another python script, one useful thing could be to use Andy's stats code.
-In match_stats, you send the sfh solution file and the .cmd file and match_stats will caclulate the nonzero sfh bins, just send the DOF (see the doc string or match README)
+stellar_prob is a work in progress, lots of dumb warnings are thrown due to order of operations.
+
+
+With main or run from command line: a call to MATCH `stats`.
 
 
 ## match_param.py
-semi-automatic way to make match pararameter files.
+semi-automatic way to make `calcsfh` pararameter files.
 Click on a cmd to set mag limits, or use completeness fraction, also can make
 basic exclude gates.
 It's set to read fits tables or match photometery. If it's a fits table, the
 filters passed must exist exactly in the fits file.
 
 ## ssp.py
-Work in progress. Visualizations and statistics on calcsfh in ssp mode
+Work in progress. Visualizations and statistics on `calcsfh` in `ssp` mode
 
 ## utils.py
 In flux. I think will be obsolete soon.
 
 ## cmd.py
-CMD: was utils.MatchCMD (to read `.cmd` files)
+CMD: was utils.MatchCMD (to read `.cmd` files, an automatic product from `calcsfh`)
 
 ## sfh.py
-SFH: was utils.MatchSFH (to read `.sfh` and `.zc` files)
+SFH: was utils.MatchSFH (to read `calcsfh` terminal output, `zcombine` and `zcmerge` output files)
+
+## bash
+Here are scripts to run MATCH
+
+### write_hybridMC_script.sh
+Used to run many hybridMC calls on all sfh files in a directory
+
+### theworks.sh
+Run all MATCH programs after a calcsfh (with mcdata flag) run
