@@ -1,5 +1,7 @@
 from __future__ import print_function
+import argparse
 import logging
+import sys
 import os
 
 import numpy as np
@@ -95,8 +97,12 @@ class SFH(object):
             # zcmerge files: the first line has totalSF
             self.header = lines[0]
             self.footer = ''
-            key, attr, pattr, mattr = self.header.strip().split()
-            set_value_err_attr(key, attr, pattr, mattr)
+            try:
+                key, attr, pattr, mattr = self.header.strip().split()
+                set_value_err_attr(key, attr, pattr, mattr)
+            except:
+                # no header
+                pass
 
         self.flag = None
         if np.sum(np.diff(self.data.mh)) == 0:
@@ -253,10 +259,12 @@ class SFH(object):
              r'\multicolumn{{2}}{{c}}{{${0}-{1}\rm{{Gyr}}$}} & \\ \hline'
              '\n'.format(*agesplit))
 
+        d['target'] = target
         if angst:
-            d['target'], filters = parse_pipeline(self.name)
-        else:
-            d['target'] = target
+            try:
+                d['target'], filters = parse_pipeline(self.name)
+            except:
+                pass
 
         d['filters'] = ','.join(filters)
 
@@ -339,5 +347,43 @@ class SFH(object):
 
         return fracsfr, fracsfr_errp, fracsfr_errm
 
+    def sfh_plot(self):
+        from matplotlib.ticker import NullFormatter
+        fig, (ax1, ax2) = plt.subplots(nrows=2)
+        self.age_plot(ax=ax1)
+        self.age_plot(val='mh', convertz=False, ax=ax2)
+        ax1.xaxis.set_major_formatter(NullFormatter())
+        plt.subplots_adjust(hspace=0.1)
+        figname = os.path.join(self.base, self.name + EXT)
+        print('wrote {}'.format(figname))
+        plt.savefig(figname)
+        plt.close()
+        
+
+
 def quadriture(x):
     return np.sqrt(np.sum(x * x))
+
+
+def main(argv):
+    """
+    Main function for sfh.py plot sfh output from calcsfh, zcombine, or zcmerge
+    """
+    parser = argparse.ArgumentParser(description="Plot match sfh")
+
+    parser.add_argument('sfh_files', nargs='*', type=str,
+                        help='ssp output(s) or formated output(s)')
+
+    args = parser.parse_args(argv)
+
+
+    for sfh_file in args.sfh_files:
+        msfh = SFH(sfh_file)
+        if len(msfh.data) != 0:
+            msfh.sfh_plot()
+            msfh.plot_csfr()
+            d = msfh.param_table()
+            print(d['fmt'].format(**d))
+    
+if __name__ == '__main__':
+    main(sys.argv[1:])

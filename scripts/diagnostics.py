@@ -4,7 +4,7 @@ import os
 import sys
 
 from .fileio import get_files
-from .graphics import call_pgcmd, match_diagnostic, sfh_plot
+from .graphics import call_pgcmd, match_diagnostic
 from .utils import check_boundaries
 from .sfh import SFH
 
@@ -55,7 +55,7 @@ def main(argv):
         for sfh_file in sfh_files:
             msfh = SFH(sfh_file)
             if len(msfh.data) != 0:
-                sfh_plot(msfh)
+                msfh.sfh_plot()
                 msfh.plot_csfr()
 
     [match_diagnostic(params[i], phots[i]) for i in range(len(phots))]

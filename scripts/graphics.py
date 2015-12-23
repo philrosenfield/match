@@ -234,18 +234,6 @@ def pgcmd(filename=None, cmd=None, labels=None, figname=None, out_dir=None,
     return grid
 
 
-def sfh_plot(SFH):
-    from matplotlib.ticker import NullFormatter
-    fig, (ax1, ax2) = plt.subplots(nrows=2)
-    SFH.age_plot(ax=ax1)
-    SFH.age_plot(val='mh', convertz=False, ax=ax2)
-    ax1.xaxis.set_major_formatter(NullFormatter())
-    plt.subplots_adjust(hspace=0.1)
-    figname = os.path.join(SFH.base, SFH.name + EXT)
-    plt.savefig(figname)
-    plt.close()
-    print('{} wrote {}'.format(sfh_plot.__name__, figname))
-
 
 def call_pgcmd(filenames, filter1=None, filter2=None, yfilter=None, labels=[]):
     yfilter = yfilter or filter1
