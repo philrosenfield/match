@@ -200,7 +200,8 @@ class SFH(object):
         return ax
 
     def plot_csfr(self, ax=None, errors=True, plt_kw={}, fill_between_kw={},
-                  xlim=(10 ** (10.15-9), 10 **(6.5-9)), ylim=(-0.01, 1.01)):
+                  xlim=(10 ** (10.15-9), 10 **(6.5-9)), ylim=(-0.01, 1.01),
+                  data=True):
         '''cumulative sfr plot from match'''
         one_off = False
         if ax is None:
@@ -226,8 +227,8 @@ class SFH(object):
         if errors:
             ax.fill_between(age, csfh - csfh_errm, csfh + csfh_errp,
                             **fill_between_kw)
-
-        ax.plot(age, csfh, **plt_kw)
+        if data:
+            ax.plot(age, csfh, **plt_kw)
 
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
