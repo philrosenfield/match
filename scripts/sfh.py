@@ -247,7 +247,11 @@ class SFH(object):
 
     def param_table(self, angst=True, agesplit=[1e9, 3e9], target='',
                     filters=['','']):
-        d = {'bestfit': self.bestfit, 'Av': self.Av, 'dmod': self.dmod}
+        try:
+            d = {'bestfit': self.bestfit, 'Av': self.Av, 'dmod': self.dmod}
+        except:
+            print('No bestfit info')
+            d = {'bestfit': np.nan, 'Av': np.nan, 'dmod': np.nan}
 
         d['header'] = \
             (r'Galaxy & Optical Filters & A$_V$ & $(m\!-\!M)_0$ &'
