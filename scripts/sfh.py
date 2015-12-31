@@ -246,6 +246,13 @@ class SFH(object):
             print('wrote {}'.format(outfile))
         return ax
 
+    def sf_weighted_metallicity(self):
+        agebins = (10 ** self.data.lagef - 10 ** self.data.lagei)
+        totalSF = np.sum(self.data.sfr * agebins)
+        fracsf = (self.data.sfr * agebins) / totalSF
+        feh = np.array([convertz(z=0.02 * 10 ** m)[-2] for m in self.data.mh])
+        return np.sum(fracsf * feh)
+
     def param_table(self, angst=True, agesplit=[1e9, 3e9], target='',
                     filters=['','']):
         try:
@@ -363,7 +370,6 @@ class SFH(object):
         print('wrote {}'.format(figname))
         plt.savefig(figname)
         plt.close()
-        
 
 
 def quadriture(x):
@@ -389,6 +395,6 @@ def main(argv):
             msfh.plot_csfr()
             d = msfh.param_table()
             print(d['fmt'].format(**d))
-    
+
 if __name__ == '__main__':
     main(sys.argv[1:])
