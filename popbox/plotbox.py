@@ -2,7 +2,7 @@ import numpy as np
 import pylab as plt
 import mpl_toolkits.axisartist as AA
 from mpl_toolkits.axes_grid1 import host_subplot
-import brewer2mpl
+#import brewer2mpl
 from matplotlib.font_manager import FontProperties
 from matplotlib import rc
 rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
