@@ -375,9 +375,9 @@ def read_ssp_output(filename):
     """
     Read calcsfh -ssp console output.
     """
-    if filename.endswith('fdat'):
+    if filename.endswith('fdat') or filename.endswith('fscrn'):
         """file with added columns from dAv, COV, etc."""
-        data = readfile(filename, col_key_line=10)
+        data = readfile(filename, commented_header=True)
     else:
         skip_header = 10
         skip_footer = 1
@@ -471,12 +471,17 @@ def savetxt(filename, data, fmt='%.4f', header=None, overwrite=False,
 
 
 def readfile(filename, col_key_line=0, comment_char='#', string_column=None,
-             string_length=16, only_keys=None, delimiter=' '):
+             string_length=16, only_keys=None, delimiter=' ', commented_header=False):
     '''
     reads a file as a np array, uses the comment char and col_key_line
     to get the name of the columns.
     '''
-    if col_key_line == 0:
+    if commented_header:
+        with open(filename, 'r') as f:
+            lines = f.readlines()
+        header = [l for l in lines[:-10] if l.startswith(comment_char)]
+        col_keys = header[-1].replace(comment_char, '').strip().translate(None, '/[]-').split()
+    elif col_key_line == 0:
         with open(filename, 'r') as f:
             line = f.readline()
         col_keys = line.replace(comment_char, '').strip().translate(None, '/[]-').split()

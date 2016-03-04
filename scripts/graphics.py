@@ -1,6 +1,6 @@
 from __future__ import print_function
 import os
-#import matplotlib as mpl
+from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
@@ -21,6 +21,34 @@ try:
     plt.style.use('presentation')
 except:
     pass
+
+
+def stitch_cmap(cmap1, cmap2, stitch_frac=0.5, dfrac=0.001):
+    '''
+    Code adapted from Dr. Adrienne Stilp
+    Stitch two color maps together:
+        cmap1 from 0 and stitch_frac
+        and
+        cmap2 from stitch_frac to 1
+        with dfrac spacing inbetween
+
+    ex: stitch black to white to white to red:
+    stitched = stitch_cmap(cm.Greys_r, cm.Reds, stitch_frac=0.525, dfrac=0.05)
+    '''
+    def left(seg):
+        return [(i * (stitch_frac - dfrac), j, k) for i, j, k in seg]
+
+    def right(seg):
+        frac = stitch_frac + dfrac
+        return [(i * (1 - frac) + frac, j, k) for i, j, k in seg]
+
+    def new_seg(color):
+        return left(cmap1._segmentdata[color]) + right(cmap2._segmentdata[color])
+
+    rgb = ['blue', 'red', 'green']
+    return LinearSegmentedColormap('_'.join((cmap1.name, cmap2.name)),
+                                   dict([(key, new_seg(key)) for key in rgb]),
+                                   1024)
 
 def match_diagnostic(param, phot):
     """
@@ -89,6 +117,7 @@ def add_inner_title(ax, title, loc, size=None, **kwargs):
                         frameon=False, **kwargs)
     ax.add_artist(anct)
     anct.txt._text.set_path_effects([withStroke(foreground="w", linewidth=3)])
+    anct.patch.set_alpha(0.5)
     return anct
 
 
@@ -97,87 +126,44 @@ def match_plot(ZS, extent, labels=["Data", "Model", "Diff", "Sig"],
     '''
     ex ZS = [h[2],sh[2],diff_cmd,resid]
     '''
-    max_diff = kwargs.get('max_diff')
-    max_counts = kwargs.get('max_counts')
-    max_sig = kwargs.get('max_sig')
-
     fig = plt.figure(figsize=(9, 9))
     defaults = {'nrows_ncols': (2, 2),
-                'direction': "row",
                 'axes_pad': .7,
-                'add_all': True,
                 'label_mode': "all",
                 'share_all': True,
                 'cbar_location': "top",
                 'cbar_mode': "each",
                 'cbar_size': "7%",
-                'cbar_pad': "2%",
-                'aspect': 'square'}
+                'cbar_pad': "2%"}
 
     imagegrid_kw = dict(defaults.items() + imagegrid_kw.items())
-
     grid = ImageGrid(fig, 111, **imagegrid_kw)
-
-    # scale color bar data and model the same
 
     for i, (ax, z) in enumerate(zip(grid, ZS)):
         if i > 1:
             zz = z[np.isfinite(z)]
-            vmin = -1. * np.max(np.abs(zz))
-            vmax = np.max(np.abs(zz))
-            # second row: make 0 on the color bar white
-            if i == 3:
-                if max_sig is not None:
-                    vmin = -1 * max_sig
-                    vmax = max_sig
-            if i == 2:
-                if max_diff is not None:
-                    vmin = -1 * max_diff
-                    vmax = max_diff
-            colors = cm.RdBu
-            colors = plt.cm.get_cmap('binary_r', 11)
+            # stitch to make a diverging color map with white set to 0.0
+            frac = np.abs(np.min(zz)) / (np.abs(np.min(zz)) + np.abs(np.max(zz)))
+            colors = stitch_cmap(cm.Reds_r, cm.Blues, stitch_frac=frac, dfrac=0.05)
+            #colors = plt.cm.get_cmap('binary', 11)
         else:
             # first row: make white 0, but will be on the left of color bar
-            # scale color bar same for data and model.
-            vmin = 0
-            if max_counts is None:
-                vmax = np.nanmax(ZS[0:2])
-            else:
-                vmax = max_counts
             if i == 0:
-                colors = cm.Blues
-            if i == 1:
                 colors = cm.Reds
-            colors = plt.cm.get_cmap('binary_r', 11)
-        vmin=None
-        vmax=None
+            if i == 1:
+                colors = cm.Blues
+            #colors = plt.cm.get_cmap('binary', 11)
 
-        im = ax.imshow(z, origin='upper', extent=extent, interpolation="nearest",
-                       cmap=colors, vmin=vmin, vmax=vmax)
+        aspect = abs((extent[1] - extent[0]) / (extent[3] - extent[2]))
+        im = ax.imshow(z, origin='upper', extent=extent, aspect=aspect,
+                       interpolation="nearest", cmap=colors)
         ax.cax.colorbar(im)
-        forceAspect(ax, aspect=1)
+        t = add_inner_title(ax, labels[i], loc=1)
 
-    # crop limits to possible data boundary
-    ylim = (extent[2], extent[3])
-    xlim = (extent[0], extent[1])
-    for ax in grid:
-        ax.set_xlim(*xlim)
-        ax.set_ylim(*ylim)
-        ax.xaxis.label.set_visible(True)
-        ax.yaxis.label.set_visible(True)
-
-    for ax, im_title in zip(grid, labels):
-        t = add_inner_title(ax, im_title, loc=1)
-        t.patch.set_alpha(0.5)
+    ax.set_xlim(extent[0], extent[1])
+    ax.set_ylim(extent[2], extent[3])
 
     return grid
-
-
-def forceAspect(ax, aspect=1):
-    im = ax.get_images()
-    extent = im[0].get_extent()
-    ax.set_aspect(abs((extent[1] - extent[0]) /
-                      (extent[3] - extent[2])) / aspect)
 
 
 def pgcmd(filename=None, cmd=None, labels=None, figname=None, out_dir=None,
@@ -235,7 +221,7 @@ def pgcmd(filename=None, cmd=None, labels=None, figname=None, out_dir=None,
 
 
 
-def call_pgcmd(filenames, filter1=None, filter2=None, yfilter=None, labels=[]):
+def call_pgcmd(filenames, filter1=None, filter2=None, yfilter=None, labels=[], **kw):
     yfilter = yfilter or filter1
     if type(filenames) is not list:
         filenames = [filenames]
@@ -255,4 +241,4 @@ def call_pgcmd(filenames, filter1=None, filter2=None, yfilter=None, labels=[]):
                 pass
 
         pgcmd(cmd=mcmd, filter1=filter1, filter2=filter2, yfilter=yfilter,
-              labels=labels, figname=figname)
+              labels=labels, figname=figname, **kw)

@@ -18,7 +18,7 @@ try:
 except:
     pass
 
-def add_filename_info_to_file(fname, ofile=None):
+def add_filename_info_to_file(fname, ofile=None, ext='.dat'):
     """
     add filename info to the data.
     E.g, ssp_imf4.85_bf0.3_dav0.0.dat
@@ -38,12 +38,13 @@ def add_filename_info_to_file(fname, ofile=None):
 
     """
     if ofile is None:
-        ofile = fname.replace('.dat', '.fdat')
+        ofile = fname.replace(ext, '.f{}'.format(ext.replace('.','')))
     with open(fname, 'r') as inp:
         lines = inp.readlines()
 
     header = lines[:10]
-    h = 'Av IMF dmod lage logZ fit sfr sfrperr sfrmerr '
+    #h = 'Av IMF dmod lage logZ fit sfr sfrperr sfrmerr '
+    h = 'Av IMF dmod lage logZ fit sfr '
     footer = lines[-1].strip()
 
     old_data, av, dmod, fit = read_ssp_output(fname)
@@ -62,7 +63,7 @@ def add_filename_info_to_file(fname, ofile=None):
     return ofile, data
 
 # this function may need to go in fileio
-def filename_data(fname, ext='.dat', skip=1, delimiter='_', exclude='imf'):
+def filename_data(fname, ext='.dat', skip=2, delimiter='_', exclude='imf'):
     """
     return a dictionary of key and values from a filename.
     E.g, ssp_imf4.85_bf0.3_dav0.0.fdat
@@ -100,7 +101,11 @@ def filename_data(fname, ext='.dat', skip=1, delimiter='_', exclude='imf'):
             neg = '-'
         if kv[0].lower() == exclude.lower():
             continue
-        d[kv[0]] = float(neg + '.'.join(kv[1:]))
+        try:
+            d[kv[0]] = float(neg + '.'.join(kv[1:]))
+        except ValueError, e:
+            #print e
+            pass
     return d
 
 def sspcombine(fname, dry_run=True, outfile=None):
@@ -409,7 +414,7 @@ def main(argv):
         args.fnames = map(str.strip, open(args.fnames[0], 'r').readlines())
 
     if args.format:
-        fnames, data = zip(*[add_filename_info_to_file(fname) for fname in args.fnames])
+        fnames, data = zip(*[add_filename_info_to_file(fname, ext='.scrn') for fname in args.fnames])
         if args.oned or args.twod:
             data = list(data)
             fnames = list(fnames)
@@ -418,6 +423,7 @@ def main(argv):
         [sspcombine(f, dry_run=False) for f in args.fnames]
         sys.exit(0)
     else:
+        import pdb; pdb.set_trace()
         ssp = SSP(filenames=args.fnames)
         print(ssp.bestline())
 

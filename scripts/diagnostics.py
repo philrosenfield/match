@@ -49,7 +49,7 @@ def main(argv):
 
     labels = ['${\\rm %s}$' % i for i in ('data', 'model', 'diff', 'sig')]
 
-    call_pgcmd(cmd_names, filter1, filter2, labels=labels)
+    call_pgcmd(cmd_names, filter1, filter2, labels=labels, logcounts=False)
 
     if len(sfh_files) > 0:
         for sfh_file in sfh_files:
