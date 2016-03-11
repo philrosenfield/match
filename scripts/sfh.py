@@ -215,11 +215,17 @@ class SFH(object):
 
         plt_kw = dict({'lw': 3}.items() + plt_kw.items())
 
-        lages, (csfh, csfh_errm, csfh_errp) = self.plot_bins(val='csfr',
-                                                             err=True)
+        #lages, (csfh, csfh_errm, csfh_errp) = self.plot_bins(val='csfr',
+        #                                                     err=True)
+
+        lages = self.data['lagei']
+        csfh = self.data['csfr']
+        csfh_errm = self.data['csfr_errm']
+        csfh_errp = self.data['csfr_errp']
+
         age = 10 ** (lages - 9.)
         #age = lages
-        age = np.append(age, age[-1])
+        age = np.append(age, 10 ** (self.data['lagef'][-1] - 9))
         csfh = np.append(csfh, 0)
         csfh_errm = np.append(csfh_errm, 0)
         csfh_errp = np.append(csfh_errp, 0)
