@@ -156,6 +156,15 @@ class SFH(object):
         lages, sfrs = self.plot_bins(offset=sfr_offset)
         rlages, (rsfrs, sfr_merrs, sfr_perrs) = self.plot_bins(err=True,
                                                                offset=sfr_offset)
+        import pdb; pdb.set_trace()
+        rlages = np.append(self.data['lagei'], self.data['lagef'][-1])
+        rlages = rlages[:-1] + np.diff(rlages) / 2.
+        rsfrs = self.data['sfr'] * sfr_offset
+        rsfr_merrs = self.data['sfr_errm'] * sfr_offset
+        rsfr_perrs = self.data['sfr_errp'] * sfr_offset
+
+        lages = 10 ** (lages - 9.)
+        rlages = 10 ** (rlages - 9.)
 
         if val != 'sfr':
             lages, vals = self.plot_bins(val=val, convertz=convertz)
@@ -183,8 +192,8 @@ class SFH(object):
                      float2sci(1./sfr_offset).replace('$','')
             vals = sfrs
             rvals = rsfrs
-            val_merrs = sfr_merrs
-            val_perrs = sfr_perrs
+            val_merrs = rsfr_merrs
+            val_perrs = rsfr_perrs
         if ax is None:
             fig, ax = plt.subplots()
             xlabel = r'$\log Age\ \rm{(yr)}$'

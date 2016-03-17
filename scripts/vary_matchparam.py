@@ -7,7 +7,8 @@ import numpy as np
 calcsfh="$HOME/match2.6/bin/calcsfh"
 
 def getflags(dav=0.0, sub=None, imf=None):
-    flag = "-PARSEC -ssp -full -dAvy=0.0 -dAv={:.2f}".format(dav)
+    # flag = "-PARSEC -ssp -full -dAvy=0.0 -dAv={:.2f}".format(dav)
+    flag = "-PARSEC -ssp -dAvy=0.0 -dAv={:.2f}".format(dav)
     if sub is not None:
         flag += "  -sub={}".format(sub)
     if imf is not None:
@@ -17,6 +18,7 @@ def getflags(dav=0.0, sub=None, imf=None):
     return flag
 
 def vary_matchparam(param_file, imfarr, bfarr):
+    new_names = []
     lines = open(param_file).readlines()
 
     for imf, bf in itertools.product(imfarr, bfarr):
@@ -41,8 +43,8 @@ def vary_matchparam(param_file, imfarr, bfarr):
        with open(new_name, 'w') as outp:
           outp.write(''.join(lines))
           print 'wrote {}'.format(new_name)
-    return new_name
-
+       new_names.append(new_name)
+    return new_names
 
 def main(argv):
     """
@@ -83,20 +85,22 @@ def main(argv):
     imfarr = np.arange(*map(float, args.imf.split(',')))
     bfarr = np.arange(*map(float, args.bf.split(',')))
     davarr = np.arange(*map(float, args.dav.split(',')))
+    line = ''
 
     subs = args.sub.replace(' ','').split(',')
+    n = 0
     for sub in subs:
-        n = 0
         for dav in davarr:
-            n += 1
-            param = vary_matchparam(args.param_file, imfarr, bfarr)
-            out = '.'.join([param.split('.')[:-1], '{}_ssp.out'.format(sub)])
-            scrn = '.'.join([param.split('.')[:-1], '{}_ssp.scrn'.format(sub)])
-            flags = getflags(dav, sub)
-            line += ' '.join([calsfh, param, args.phot, args.fake, out, flags, '>', scrn, '&']) + '\n'
-            if n == args.nproc:
-                line += 'wait \n'
-                n = 0
+            params = vary_matchparam(args.param_file, imfarr, bfarr)
+            for param in params:
+                n += 1
+	        out = '.'.join(np.concatenate([param.split('.')[:-1], ['{}_ssp.out'.format(sub)]]))
+                scrn = '.'.join(np.concatenate([param.split('.')[:-1], ['{}_ssp.scrn'.format(sub)]]))
+                flags = getflags(dav, sub)
+                line += ' '.join([calcsfh, param, args.phot, args.fake, out, flags, '>', scrn, '&']) + '\n'
+                if n == args.nproc:
+                    line += 'wait \n'
+                    n = 0
 
     with open(args.outfile, 'w') as outp:
         outp.write(line)
