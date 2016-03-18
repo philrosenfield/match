@@ -103,8 +103,9 @@ def filename_data(fname, ext='.dat', skip=2, delimiter='_', exclude='imf'):
             continue
         try:
             d[kv[0]] = float(neg + '.'.join(kv[1:]))
-        except ValueError, e:
+        except ValueError:
             #print e
+            print(sys.exc_info()[0])
             pass
     return d
 
