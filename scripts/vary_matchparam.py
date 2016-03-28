@@ -7,8 +7,8 @@ import numpy as np
 calcsfh="$HOME/match2.6/bin/calcsfh"
 
 def getflags(dav=0.0, sub=None, imf=None):
-    # flag = "-PARSEC -ssp -full -dAvy=0.0 -dAv={:.2f}".format(dav)
-    flag = "-PARSEC -ssp -dAvy=0.0 -dAv={:.2f}".format(dav)
+    flag = "-PARSEC -ssp -full -dAvy=0.0 -dAv={:.2f}".format(dav)
+    #flag = "-PARSEC -ssp -dAvy=0.0 -full"
     if sub is not None:
         flag += "  -sub={}".format(sub)
     if imf is not None:
@@ -26,13 +26,13 @@ def vary_matchparam(param_file, imfarr, bfarr):
        if len(imfline) == 6:
           imfline.insert(0, '{}'.format(imf))
        elif len(imfline) > 6 :
-          imfline[0] = '{:.1f}'.format(imf)
+          imfline[0] = '{:.2f}'.format(imf)
 
        newimfline = ' '.join(imfline) + '\n'
        lines[0] = newimfline
 
        bfline = lines[2].split()
-       bfline[0] = '{:.1f}'.format(bf)
+       bfline[0] = '{:.2f}'.format(bf)
 
        newbfline = ' '.join(bfline) + '\n'
        lines[2] = newbfline
@@ -82,9 +82,18 @@ def main(argv):
 
     args = parser.parse_args(argv)
 
-    imfarr = np.arange(*map(float, args.imf.split(',')))
-    bfarr = np.arange(*map(float, args.bf.split(',')))
-    davarr = np.arange(*map(float, args.dav.split(',')))
+    if ',' in args.imf:
+        imfarr = np.arange(*map(float, args.imf.split(',')))
+    else:
+        imfarr = [1.35]
+    if ',' in args.bf:
+        bfarr = np.arange(*map(float, args.bf.split(',')))
+    else:
+         bfarr = [0.0]
+    if ',' in args.dav:
+        davarr = np.arange(*map(float, args.dav.split(',')))
+    else:
+        davarr = [0.0]
     line = ''
 
     subs = args.sub.replace(' ','').split(',')
@@ -94,8 +103,10 @@ def main(argv):
             params = vary_matchparam(args.param_file, imfarr, bfarr)
             for param in params:
                 n += 1
-	        out = '.'.join(np.concatenate([param.split('.')[:-1], ['{}_ssp.out'.format(sub)]]))
-                scrn = '.'.join(np.concatenate([param.split('.')[:-1], ['{}_ssp.scrn'.format(sub)]]))
+                out = '_'.join(np.concatenate([['.'.join(param.split('.')[:-1])],
+                                               ['dav{}_{}_ssp.out'.format(dav, sub)]]))
+                scrn = '_'.join(np.concatenate([['.'.join(param.split('.')[:-1])],
+                                               ['dav{}_{}_ssp.scrn'.format(dav, sub)]]))
                 flags = getflags(dav, sub)
                 line += ' '.join([calcsfh, param, args.phot, args.fake, out, flags, '>', scrn, '&']) + '\n'
                 if n == args.nproc:
