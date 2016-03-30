@@ -110,7 +110,7 @@ class SSP(object):
             # compute linear probabilites
             # sum over probabilites for each unique grid value
             prob = np.zeros(unq_x)
-            for i, ix in enumerate(vals_x):
+            for i, ix in enumerate(unq_x):
                 prob[i] = np.sum(self.absprob[x == ix])
             vals = unq_x
 
