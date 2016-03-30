@@ -131,6 +131,9 @@ class SSP(object):
         vals, prob, _ = self.marginalize(attr, attr2=attr2)
 
         if attr2 is None:
+            if len(vals) == 1:
+                print('{} not varied.'.format(attr))
+                return -1
             ax.hist(vals, weights=prob, bins=31, histtype='step',
                     lw=4, color='k')
             ax.set_ylabel(r'$\rm{Probability}$')
