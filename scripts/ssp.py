@@ -9,7 +9,7 @@ import matplotlib.pylab as plt
 import numpy as np
 
 from .config import EXT, match_base
-from .fileio import read_ssp_output
+from .fileio import filename_data, add_filename_info_to_file
 from .utils import strip_header
 
 __all__ = ['SSP']
@@ -18,6 +18,7 @@ try:
     plt.style.use('presentation')
 except:
     pass
+
 
 def combine_files(fnames, outfile='combined_files.csv'):
     all_data = pd.DataFrame()
@@ -29,108 +30,14 @@ def combine_files(fnames, outfile='combined_files.csv'):
     return
 
 
-def add_filename_info_to_file(fname):
-    """
-    add filename info to the data.
-    E.g, ssp_imf4.85_bf0.3_dav0.0.dat
-    will add two columns, bf, and dav. See filename_data.
-    Parameters
-    ----------
-    fname : str
-        name of the file
-
-    ofile : str
-        output file or  will write to file substiting fname's .dat with .fdat
-
-    Returns
-    -------
-    data : np.array
-        data with new columns attached
-
-    """
-    def getheader(infile):
-        idx = -1
-        with open(infile) as inp:
-            while True:
-                l = inp.readline()
-                try:
-                    idx += 1
-                    map(float, l.strip().split())
-                    return idx
-                except:
-                    pass
-
-    ihead = getheader(fname)
-    names = 'Av IMF dmod lage logZ fit sfr'.split()
-    df = pd.read_table(fname, names=names, delim_whitespace=True,
-                       skiprows=ihead)
-    ibest, = np.where(df['Av'] == 'Best')[0]
-    av, dmod, fit = map(float, [d.replace(',','').split('=')[1]
-                                for d in df.iloc[ibest].values
-                                if type(d) == str and '=' in d])
-    df = df.dropna(axis=0).copy(deep=True)
-
-
-    new_stuff = filename_data(fname)
-    for name, val in new_stuff.items():
-        df[name] = val
-
-    return df
-
-# this function may need to go in fileio
-def filename_data(fname, ext='.dat', skip=2, delimiter='_', exclude='imf'):
-    """
-    return a dictionary of key and values from a filename.
-    E.g, ssp_imf4.85_bf0.3_dav0.0.fdat
-    returns bf: 0.3, dav: 0.0
-    NB: imf is excluded because it's already included in the file.
-
-    Parameters
-    ----------
-    fname : str
-        filename
-
-    ext : str
-        extension (sub string to remove from the tail)
-
-    delimiter : str
-        how the keyvals are separated '_' in example above
-
-    skip : int
-        skip n items (skip=1 skips ssp in the above example)
-
-    exclude : str
-        do not include this key/value in the file (default: 'imf')
-
-    Returns
-    -------
-    dict of key and values from filename
-    """
-    import re
-    keyvals = fname.replace(ext, '').split(delimiter)[skip:]
-    d = {}
-    for keyval in keyvals:
-        kv = re.findall(r'\d+|[a-z]+', keyval)
-        neg = ''
-        if '-' in keyval:
-            neg = '-'
-        if kv[0].lower() == exclude.lower():
-            continue
-        try:
-            d[kv[0]] = float(neg + '.'.join(kv[1:]))
-        except ValueError:
-            #print e
-            #print(sys.exc_info()[1])
-            pass
-    return d
-
 def sspcombine(fname, dry_run=True, outfile=None):
     sspname = strip_header(fname)
     if outfile is None:
         outfile = '> {}.stats'.format(fname)
     else:
         outfile = '>> {}'.format(outfile)
-    cmd = '{} {} {}'.format(os.path.join(match_base, 'bin/sspcombine'), sspname, outfile)
+    cmd = '{} {} {}'.format(os.path.join(match_base, 'bin/sspcombine'),
+                            sspname, outfile)
     if not dry_run:
         print('excecuting: {}'.format(cmd))
         os.system(cmd)
@@ -143,9 +50,7 @@ class SSP(object):
         filenames are the calcsfh -ssp terminal or console output.
         They do not need to be stripped of their header or footer or
         be concatenated as is typical in MATCH useage.
-        See .fileio.read_ssp_output.
         """
-
         self.base, self.name = os.path.split(filename)
         if data is None:
             data = pd.read_csv(filename)
@@ -153,106 +58,13 @@ class SSP(object):
         if filterby is not None:
             for k, v in filterby.items():
                 data = data[data[k] == v].copy(deep=True)
+        
         self.data = data
 
         self.ibest = np.argmin(self.data['fit'])
-        #self.bestfit = np.array([self.all_data[np.argmin(self.all_data['fit'])]],
-        #                        dtype=self.all_data.dtype)
-        # via Dan Weisz:
+
         self.absprob = \
             np.exp(0.5 * (self.data['fit'].min() - self.data['fit']))
-
-    #def bestline(self):
-    #    line = ''
-    #    for k, v in dict(zip(self.all_data.dtype.names, *self.bestfit)).items():
-    #        line += '{}: {} '.format(k, v)
-    #    return line
-
-
-    def boundries(self, stitched_col=None):
-        """
-        Print the min, max and best fit values
-        Parameters
-        stitched_col : str
-            split the output for unique values of stitched_col (e.g., 'ov')
-        Returns
-        msg : str
-            multiline message with format value, min, best, max.
-        """
-        print(self.data.describe())
-        #if not hasattr(self, 'bestfit'):
-        #    self.load_bestfits(stitched_col=stitched_col)
-        #bestfits = [self.bestfits]
-
-        #if stitched_col is not None:
-        #    bestfits = self.bestfits
-
-        #msg = '# value min best max\n'
-        #fmt = '{} {} {} {}\n'
-
-        #for bestfit in bestfits:
-        #    # not necessarily self.ibest because of stitched_col
-        #    bestofbest = np.array(bestfit[np.argmin(bestfit['fit'])],
-        #                          dtype=self.all_data.dtype)
-        #    if stitched_col is not None:
-        #        msg += '# {}\n'.format(np.unique(bestfit[stitched_col]))
-        #
-        #    for val in self.all_data.dtype.names:
-        #        msg += fmt.format(val, np.min(bestfit[val]), bestofbest[val], np.max(bestfit[val]))
-        return #msg
-
-
-    #def bestfile(self, ind=None):
-    #    """
-    #    Not sure why I did this much work...
-    #    if fmt == 'default':
-    #        fmt = 'ssp_imf{IMF:.2f}_bf{bf:.1f}_dav{dav:.1f}_ov{ov:.2f}.fdat'
-    #    if line == 'best':
-    #        line = self.bestfit
-    #    elif type(line) == int:
-    #        line = self.all_data[line]
-    #    else:
-    #        assert len(line) == len(self.all_data.dtype.names), \
-    #            'Either line=best, some int, or an actual line of self.data or self.all_data'
-    #    return fmt.format(**dict(zip(self.all_data.dtype.names, *line)))
-    #    """
-    #    ind = ind or self.ibest
-    #    return os.path.join(np.array(self.base)[ind], np.array(self.name)[ind])
-
-    #def load_bestfits(self, stitched_col=None):
-    #    """
-    #    cull the best fit in each ssp
-    #    Parameters
-    #    stitched_col : str
-    #        an attribute like OV that was not varied during a MATCH run
-    #        will separate bestfits on unique values of stitched_col
-    #
-    #    Returns
-    #    self.bestfits : array
-    #        array of the min fit from each self.data. If stitch_col is not None,
-    #        array is split for each unique value of stitched_col
-    #    """
-    #    self.bestfits = np.array([self.data[i][np.argmin(self.data[i]['fit'])]
-    #                    for i in range(len(self.data))], dtype=self.data[0].dtype)
-
-    #    if stitched_col is not None:
-    #        usc, inds = np.unique(self.bestfit, return_inverse=True)
-    #        self.bestfits = np.array([self.bestfits[inds==i]
-    #                                  for i in np.unique(inds)])
-
-    #    return
-
-    #def loaddata(self, filename, data=None):
-    #    """Load the data and other book keeping information"""
-    #    if data is None:
-    #        data = read_ssp_output(filename)[0]
-
-    #    base, name = os.path.split(filename)
-
-    #    self.data.append(data)
-
-    #    self.name.append(name)
-    #    self.base.append(base)
 
     def _getmarginals(self):
         """get the values to marginalize over that exist in the data"""
@@ -269,114 +81,102 @@ class SSP(object):
             ecode = False
         return ecode
 
-    def marginalize(self, attr):
+    def marginalize(self, attr, attr2=None):
         """Find the best fit for each unique value of attr"""
         assert self._haskey(attr), '{} not found'.format(attr)
-        vals = np.unique(self.data[attr])
-        dbins = np.digitize(self.data[attr].values, vals, right=True)
-        probs = np.array([np.sum(self.absprob[dbins==i])
-                          for i in np.unique(dbins)])
-        probs /= probs.sum()
-        return vals, probs
+        x = self.data[attr]
+        unq_x = np.unique(x)
+        
+        size = len(unq_x)
+        prob = np.zeros(size)
+        vals_x = np.zeros(size)
+        
+        if attr2 is not None:
+            assert self._haskey(attr2), '{} not found'.format(attr)
+            y = self.data[attr2]
+            unq_y = np.unique(y)
 
-    def marginalize_2d(self, attr, attr2):
-        """Find the best fit for each set of unique values of attr and attr2"""
-        assert self._haskey(attr), '{} not found'.format(attr)
-        assert self._haskey(attr2), '{} not found'.format(attr)
-        vals = np.unique(self.data[attr])
-        dbins = np.digitize(self.data[attr], vals, right=True)
+            size = len(unq_x) * len(unq_y)
+            prob = np.zeros(size)
+            vals_x = np.zeros(size)
+            vals_y = np.zeros(size)
+        
+            k = 0
+            for ix in unq_x:
+                for iy in unq_y:
+                    inds, = np.nonzero((x == ix) & (y == iy))
+                    prob[k] = np.sum(self.absprob.iloc[inds])
+                    vals_x[k] = ix
+                    vals_y[k] = iy
+                    k += 1
+            vals = [vals_x, vals_y]
+        else:
+            # compute linear probabilites
+            # sum over probabilites for each unique grid value
+            for i, ix in enumerate(vals_x):
+                prob[i] = np.sum(self.absprob.iloc[x == ix])
+        
+        prob /= prob.sum()
+        return vals, prob, np.log(prob)
 
-        vals2 = np.unique(self.data[attr2])
-        dbins2 = np.digitize(self.data[attr2], vals2, right=True)
-        probs = []
-        vs = []
-        vs2 = []
-        for i, j in itertools.product(np.unique(dbins), np.unique(dbins2)):
-            inds = list(set(np.nonzero(dbins == i)[0]) &
-                        set(np.nonzero(dbins2 == j)[0]))
-            probs.append(np.sum(self.absprob[inds]))
-            vs.append(vals[i])
-            vs2.append(vals2[j])
-        probs = np.array(probs) / np.sum(probs)
-        return vs, vs2, probs
 
-    def pdf_plot(self, attr, ax=None, sub=''):
+    def pdf_plot(self, attr, attr2=None, ax=None, sub=''):
         """Plot prob vs marginalized attr"""
+        save = False
         if len(sub) > 0:
             sub = '_' + sub
 
         if ax is None:
             fig, ax = plt.subplots()
+            save = True
 
-        vals, probs = self.marginalize(attr)
-        best = np.argmax(probs)
+        vals, prob, _ = self.marginalize(attr, attr2=attr2)
 
-        c = ax.plot(vals, np.array(probs), linestyle='steps-mid')
+        if attr2 is None:
+            ax.hist(vals, weights=prob, bins=31, histtype='step',
+                    lw=4, color='k')
+            ax.set_ylabel(r'$\rm{Probability}$')
+            ptype = 'marginal'
+        else:
+            [vals, vals2] = vals
 
+            h, xe, ye = np.histogram2d(vals, vals2, weights=prob)
+            c = plt.imshow(h.T, origin='low', interpolation='nearest',
+                           extent=[xe[0], xe[-1], ye[0], ye[-1]],
+                           cmap=plt.cm.Blues, aspect='auto')
+
+            cb = plt.colorbar(c)
+            cb.set_label(r'$\rm{Probability}$')
+            ax.set_ylabel(key2label(attr2))
+            ptype = 'joint'
         ax.set_xlabel(key2label(attr))
-        ax.set_ylabel('Probability')
-        # probably need to make this a conditional if ax is passed...
-        plt.savefig('{}_{}{}{}'.format(self.name.split('_')[0], attr, sub, EXT))
-        plt.close()
+        
+        if save:
+            outname ='{}_{}{}_{}_gamma{}'.format(self.name.split('_')[0],
+                                                 attr, sub, ptye, EXT)
+            plt.savefig(outname, bbox_inches='tight')
+            plt.close()
         return ax
+    
 
-
-    def pdf_plot2d(self, attr, attr2, ax=None, sub=''):
-        """Plot prob vs marginalized attr and attr2"""
-        if len(sub) > 0:
-            sub = '_' + sub
-
-        if ax is None:
-            fig, ax = plt.subplots()
-
-        vs, vs2, probs = self.marginalize_2d(attr, attr2)
-        best = np.argmax(probs)
-        vals = np.unique(vs)
-        vals2 = np.unique(vs2)
-
-        #P = np.array(probs).reshape(len(vals), len(vals2))
-        # I don't know why this fails sometimes e.g, IMF vs Av or logZ
-        #ax.contour(vals, vals2, P, 20, cmap=plt.cm.Blues_r)
-        # really ugly, slow, and silly way to do this:
-        c = ax.scatter(vs, vs2, c=probs, cmap=plt.cm.Blues, s=1000, marker='s')
-        ax.axhline(vs2[best], color='w')
-        ax.axvline(vs[best], color='w')
-        ax.plot(vs[best], vs2[best], 'o', color='w')
-
-        l = plt.colorbar(c)
-        ax.set_xlabel(key2label(attr))
-        ax.set_ylabel(key2label(attr2))
-        l.set_label('Probability')
-        # probably need to make this a conditional if ax is passed...
-        plt.savefig('{}_{}_{}{}{}'.format(self.name.split('_')[0],
-                                          attr, attr2, sub, EXT))
-        plt.close()
-        return ax
-
-    def pdf_plots2d(self, marginals='default', sub=''):
+    def pdf_plots(self, marginals='default', sub='', twod=False):
         """Call pdf_plot2d for a list of attr and attr2"""
         if marginals=='default':
             marg = self._getmarginals()
         else:
             marg = marginals
 
-        for i, j in itertools.product(marg, marg):
-            # e.g., skip Av vs Av and Av vs IMF if already plotted IMF vs Av
-            if i >= j:
-                continue
-            self.pdf_plot2d(i, j, sub=sub)
-        return
-
-    def pdf_plots(self, marginals='default', sub=''):
-        """Call pdf_plot for a list of attr"""
-        if marginals=='default':
-            marg = self._getmarginals()
+        if twod:
+            for i, j in itertools.product(marg, marg):
+                # e.g., skip Av vs Av and Av vs IMF if already plotted IMF vs Av
+                if i >= j:
+                    continue
+                             
+                self.pdf_plot(i, attr2=j, sub=sub)
         else:
-            marg = marginals
-
-        [self.pdf_plot(i, sub=sub) for i in marg]
+            [self.pdf_plot(i, sub=sub) for i in marg]
+        
         return
-
 
 def key2label(string):
     """latex labels for different strings"""
@@ -394,18 +194,17 @@ def key2label(string):
         return def_fmt.format(string)
     return convert[string]
 
-
 def main(argv):
     """
     Main function for ssp.py plot or reformat ssp output.
 
     e.g., Reformat and then plot a OV=0.30 run:
-    python -m dweisz.match.scripts.ssp -fot --sub=ov0.30 *ov0.30.dat
+    python -m match.scripts.ssp -fot --sub=ov0.30 *scrn
     """
-    parser = argparse.ArgumentParser(description="Plot or reformat MATCH.calcsfh -ssp output")
+    parser = argparse.ArgumentParser(description="Plot or reformat calcsfh -ssp output")
 
     parser.add_argument('-f', '--format', action='store_true',
-                        help='reformat the files so data in the filename are columns in the file')
+                        help='combine the files including data in the filename')
 
     parser.add_argument('-o', '--oned', action='store_true',
                         help='make val vs prob plots')
@@ -430,25 +229,25 @@ def main(argv):
     if args.list:
         args.fnames = map(str.strip, open(args.fnames[0], 'r').readlines())
 
+    filtdict = {}
+    if args.sub is not '':
+        filtdict = filename_data(args.sub, skip=0)
+
     if args.format:
-        fnames, data = zip(*[add_filename_info_to_file(fname, ext='.scrn') for fname in args.fnames])
-        if args.oned or args.twod:
-            data = list(data)
-            fnames = list(fnames)
-            ssp = SSP(filenames=fnames, data=data)
+        fname = combine_files(args.fnames)        
     elif args.sspcombine:
         [sspcombine(f, dry_run=False) for f in args.fnames]
         sys.exit(0)
     else:
-        filtdict = filename_data(args.sub, skip=0)
-        ssp = SSP(filename=args.fnames[0], filterby=filtdict)
-        #print(ssp.bestline())
+        fname = args.fnames[0]
+
+    ssp = SSP(filename=fname, filterby=filtdict)
 
     if args.oned:
         ssp.pdf_plots(sub=args.sub)
 
     if args.twod:
-        ssp.pdf_plots2d(sub=args.sub)
+        ssp.pdf_plots(sub=args.sub, twod=args.twod)
 
 
 if __name__ == "__main__":

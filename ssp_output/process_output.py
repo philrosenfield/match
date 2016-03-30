@@ -100,9 +100,9 @@ def translate(string):
     return r'${}$'.format(string)
 
 def read_ssp_output(filename):
-    colnames = ['Av', 'IMF', 'dmod', 'lage', 'logZ', 'fit', 'sfr', 'sfrperr',
-                'sfrmerr']
-    return np.genfromtxt(filename, skip_header=10, skip_footer=1, names=colnames)
+    colnames = ['Av', 'IMF', 'dmod', 'lage', 'logZ', 'fit', 'sfr']#, 'sfrperr',
+                #'sfrmerr']
+    return np.genfromtxt(filename, skip_header=11, skip_footer=1, names=colnames)
 
 
 def plot_config():

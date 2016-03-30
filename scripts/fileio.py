@@ -7,10 +7,108 @@ import sys
 import logging
 logger = logging.getLogger()
 
-__all__ = ['ensure_file', 'get_files',  'readfile', 'replace_ext', 'savetxt',
-           'match_param_default_dict', 'match_param_fmt', 'process_match_sfh',
-           'read_match_cmd', 'calcsfh_dict', 'make_match_param',
-           'read_ssp_output', 'read_binned_sfh', 'parse_pipeline']
+__all__ = ['ensure_file', 'get_files', 'filename_data', 'readfile', 'replace_ext',
+           'savetxt', 'match_param_default_dict', 'match_param_fmt',
+           'process_match_sfh', 'read_match_cmd', 'calcsfh_dict',
+           'make_match_param', 'read_ssp_output', 'read_binned_sfh',
+           'parse_pipeline', 'add_filename_info_to_file']
+
+
+def add_filename_info_to_file(fname):
+    """
+    add filename info to the data.
+    E.g, ssp_imf4.85_bf0.3_dav0.0.dat
+    will add two columns, bf, and dav. See filename_data.
+    Parameters
+    ----------
+    fname : str
+        name of the file
+
+    ofile : str
+        output file or  will write to file substiting fname's .dat with .fdat
+
+    Returns
+    -------
+    data : np.array
+        data with new columns attached
+
+    """
+    def getheader(infile):
+        idx = -1
+        with open(infile) as inp:
+            while True:
+                l = inp.readline()
+                try:
+                    idx += 1
+                    map(float, l.strip().split())
+                    return idx
+                except:
+                    pass
+
+    ihead = getheader(fname)
+    names = 'Av IMF dmod lage logZ fit sfr'.split()
+    df = pd.read_table(fname, names=names, delim_whitespace=True,
+                       skiprows=ihead)
+    ibest, = np.where(df['Av'] == 'Best')[0]
+    av, dmod, fit = map(float, [d.replace(',','').split('=')[1]
+                                for d in df.iloc[ibest].values
+                                if type(d) == str and '=' in d])
+    df = df.dropna(axis=0).copy(deep=True)
+
+
+    new_stuff = filename_data(fname)
+    for name, val in new_stuff.items():
+        df[name] = val
+
+    return df
+
+
+
+def filename_data(fname, ext='.dat', skip=2, delimiter='_', exclude='imf'):
+    """
+    return a dictionary of key and values from a filename.
+    E.g, ssp_imf4.85_bf0.3_dav0.0.fdat
+    returns bf: 0.3, dav: 0.0
+    NB: imf is excluded because it's already included in the file.
+
+    Parameters
+    ----------
+    fname : str
+        filename
+
+    ext : str
+        extension (sub string to remove from the tail)
+
+    delimiter : str
+        how the keyvals are separated '_' in example above
+
+    skip : int
+        skip n items (skip=1 skips ssp in the above example)
+
+    exclude : str
+        do not include this key/value in the file (default: 'imf')
+
+    Returns
+    -------
+    dict of key and values from filename
+    """
+    import re
+    keyvals = fname.replace(ext, '').split(delimiter)[skip:]
+    d = {}
+    for keyval in keyvals:
+        kv = re.findall(r'\d+|[a-z]+', keyval)
+        neg = ''
+        if '-' in keyval:
+            neg = '-'
+        if kv[0].lower() == exclude.lower():
+            continue
+        try:
+            d[kv[0]] = float(neg + '.'.join(kv[1:]))
+        except ValueError:
+            #print e
+            #print(sys.exc_info()[1])
+            pass
+    return d
 
 
 def read_fake(filename):
