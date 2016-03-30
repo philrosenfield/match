@@ -114,7 +114,7 @@ class SSP(object):
             # compute linear probabilites
             # sum over probabilites for each unique grid value
             for i, ix in enumerate(vals_x):
-                prob[i] = np.sum(self.absprob.iloc[x == ix])
+                prob[i] = np.sum(self.absprob[x == ix])
         
         prob /= prob.sum()
         return vals, prob, np.log(prob)
