@@ -87,10 +87,6 @@ class SSP(object):
         x = self.data[attr]
         unq_x = np.unique(x)
         
-        size = len(unq_x)
-        prob = np.zeros(size)
-        vals_x = np.zeros(size)
-        
         if attr2 is not None:
             assert self._haskey(attr2), '{} not found'.format(attr)
             y = self.data[attr2]
@@ -113,9 +109,10 @@ class SSP(object):
         else:
             # compute linear probabilites
             # sum over probabilites for each unique grid value
+            prob = np.zeros(unq_x)
             for i, ix in enumerate(vals_x):
                 prob[i] = np.sum(self.absprob[x == ix])
-            vals = vals_x
+            vals = unq_x
 
         prob /= prob.sum()
         return vals, prob, np.log(prob)
