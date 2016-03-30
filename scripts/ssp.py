@@ -154,7 +154,7 @@ class SSP(object):
         
         if save:
             outname ='{}_{}{}_{}_gamma{}'.format(self.name.split('_')[0],
-                                                 attr, sub, ptye, EXT)
+                                                 attr, sub, ptype, EXT)
             plt.savefig(outname, bbox_inches='tight')
             plt.close()
         return ax
