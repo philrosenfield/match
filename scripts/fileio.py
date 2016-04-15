@@ -5,6 +5,7 @@ import re
 import glob
 import sys
 import logging
+import pandas as pd
 logger = logging.getLogger()
 
 __all__ = ['ensure_file', 'get_files', 'filename_data', 'readfile', 'replace_ext',
@@ -49,11 +50,16 @@ def add_filename_info_to_file(fname):
     names = 'Av IMF dmod lage logZ fit sfr'.split()
     df = pd.read_table(fname, names=names, delim_whitespace=True,
                        skiprows=ihead)
-    ibest, = np.where(df['Av'] == 'Best')[0]
-    av, dmod, fit = map(float, [d.replace(',','').split('=')[1]
-                                for d in df.iloc[ibest].values
-                                if type(d) == str and '=' in d])
-    df = df.dropna(axis=0).copy(deep=True)
+    try:
+        ibest, = np.where(df['Av'] == 'Best')[0]
+    except:
+        print(infile)
+        print(sys.exc_info()[1])
+        raise
+    #av, dmod, fit = map(float, [d.replace(',','').split('=')[1]
+    #                            for d in df.iloc[ibest].values
+    #                            if type(d) == str and '=' in d])
+    df = df.iloc[:ibest].copy(deep=True)
 
 
     new_stuff = filename_data(fname)

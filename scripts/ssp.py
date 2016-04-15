@@ -11,6 +11,8 @@ import numpy as np
 from .config import EXT, match_base
 from .fileio import filename_data, add_filename_info_to_file
 from .utils import strip_header
+from .config import EXT
+
 
 __all__ = ['SSP']
 
@@ -27,6 +29,34 @@ def combine_files(fnames, outfile='combined_files.csv'):
         all_data = all_data.append(df, ignore_index=True)
 
     all_data.to_csv(outfile)
+    return outfile
+
+def make_pgcmd(cmdfns):
+    from .cmd import CMD
+    from .graphics import pgcmd
+
+    if type(cmdfns) is not list:
+        cmdfns = [cmdfns]
+
+    fits = [float(open(cmdfn).readline().split()[0]) for cmdfn in cmdfns]
+    icmd = np.argsort(fits)
+    for j, i in enumerate(icmd):
+        cmdfn = np.array(cmdfns)[i]
+        mcmd = CMD(cmdfn)
+        filter1 = 'V'
+        filter2 = 'I'
+        yfilter = filter1
+        jstr = ('{}'.format(j)).zfill(4)
+        figname = '{}{}{}'.format(cmdfn, jstr, EXT)
+        labels = ["Data", "fit={}".format(fits[i]), "Diff", "Sig"]
+        try:
+            target, [filter1, filter2] = parse_pipeline(filename)
+            yfilter = filter1
+        except:
+            pass
+
+        pgcmd(cmd=mcmd, filter1=filter1, filter2=filter2, yfilter=yfilter,
+              labels=labels, figname=figname)
     return
 
 
@@ -58,7 +88,7 @@ class SSP(object):
         if filterby is not None:
             for k, v in filterby.items():
                 data = data[data[k] == v].copy(deep=True)
-        
+
         self.data = data
 
         self.ibest = np.argmin(self.data['fit'])
@@ -86,7 +116,7 @@ class SSP(object):
         assert self._haskey(attr), '{} not found'.format(attr)
         x = self.data[attr]
         unq_x = np.unique(x)
-        
+
         if attr2 is not None:
             assert self._haskey(attr2), '{} not found'.format(attr)
             y = self.data[attr2]
@@ -96,7 +126,7 @@ class SSP(object):
             prob = np.zeros(size)
             vals_x = np.zeros(size)
             vals_y = np.zeros(size)
-        
+
             k = 0
             for ix in unq_x:
                 for iy in unq_y:
@@ -142,7 +172,7 @@ class SSP(object):
             [vals, vals2] = vals
 
             h, xe, ye = np.histogram2d(vals, vals2, weights=prob)
-            c = plt.imshow(h.T, origin='low', interpolation='nearest',
+            c = plt.imshow(h.T, origin='low', interpolation='None',
                            extent=[xe[0], xe[-1], ye[0], ye[-1]],
                            cmap=plt.cm.Blues, aspect='auto')
 
@@ -151,14 +181,14 @@ class SSP(object):
             ax.set_ylabel(key2label(attr2))
             ptype = 'joint'
         ax.set_xlabel(key2label(attr))
-        
+
         if save:
-            outname ='{}_{}{}_{}_gamma{}'.format(self.name.split('_')[0],
+            outname ='{}_{}{}_{}_gamma{}'.format(self.name.replace('.csv',''),
                                                  attr, sub, ptype, EXT)
             plt.savefig(outname, bbox_inches='tight')
             plt.close()
         return ax
-    
+
 
     def pdf_plots(self, marginals='default', sub='', twod=False):
         """Call pdf_plot2d for a list of attr and attr2"""
@@ -172,11 +202,11 @@ class SSP(object):
                 # e.g., skip Av vs Av and Av vs IMF if already plotted IMF vs Av
                 if i >= j:
                     continue
-                             
+
                 self.pdf_plot(i, attr2=j, sub=sub)
         else:
             [self.pdf_plot(i, sub=sub) for i in marg]
-        
+
         return
 
 def key2label(string):
@@ -207,11 +237,14 @@ def main(argv):
     parser.add_argument('-f', '--format', action='store_true',
                         help='combine the files including data in the filename')
 
-    parser.add_argument('-o', '--oned', action='store_true',
+    parser.add_argument('-d', '--oned', action='store_true',
                         help='make val vs prob plots')
 
     parser.add_argument('-t', '--twod', action='store_true',
                         help='make val vs val vs prob plots')
+
+    parser.add_argument('-o', '--outfile', type=str, default='combined_files.csv',
+                        help='if -f file name to write to')
 
     parser.add_argument('-s', '--sub', type=str, default='',
                         help='add substring to figure names')
@@ -222,6 +255,9 @@ def main(argv):
     parser.add_argument('-c', '--sspcombine', action='store_true',
                         help='run sspcombine on the file(s) (and exit)')
 
+    parser.add_argument('-p', '--plotcmd', action='store_true',
+                        help='run pgcmd (need .out.cmd file)')
+
     parser.add_argument('fnames', nargs='*', type=str,
                         help='ssp output(s) or formated output(s)')
 
@@ -230,12 +266,15 @@ def main(argv):
     if args.list:
         args.fnames = map(str.strip, open(args.fnames[0], 'r').readlines())
 
+    if args.plotcmd:
+        make_pgcmd(args.fnames)
+
     filtdict = {}
     if args.sub is not '':
         filtdict = filename_data(args.sub, skip=0)
 
     if args.format:
-        fname = combine_files(args.fnames)        
+        fname = combine_files(args.fnames, outfile=args.outfile)
     elif args.sspcombine:
         [sspcombine(f, dry_run=False) for f in args.fnames]
         sys.exit(0)
