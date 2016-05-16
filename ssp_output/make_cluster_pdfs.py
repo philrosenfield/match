@@ -16,7 +16,7 @@ columns in sspfile:
 9 - dAv
 '''
 
-#from __future__ import print_function
+from __future__ import print_function
 import numpy as np
 import pylab as plt
 import pdb
@@ -70,7 +70,7 @@ def main():
     
     #
 
-    data = np.genfromtxt(name, skip_header=11, skip_footer=1)
+    data = np.genfromtxt(name)
 
     res = makepdfs(data[:,1], data[:,5])
     plt.close('all')
