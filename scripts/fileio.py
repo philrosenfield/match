@@ -50,15 +50,16 @@ def add_filename_info_to_file(fname):
     names = 'Av IMF dmod lage logZ fit sfr'.split()
     df = pd.read_table(fname, names=names, delim_whitespace=True,
                        skiprows=ihead)
+    print(fname)
     try:
         ibest, = np.where(df['Av'] == 'Best')[0]
     except:
-        print(infile)
+        print(fname)
         print(sys.exc_info()[1])
         raise
     #av, dmod, fit = map(float, [d.replace(',','').split('=')[1]
     #                            for d in df.iloc[ibest].values
-    #                            if type(d) == str and '=' in d])
+    #d                            if type(d) == str and '=' in d])
     df = df.iloc[:ibest].copy(deep=True)
 
 

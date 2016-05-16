@@ -258,10 +258,16 @@ def main(argv):
     parser.add_argument('-p', '--plotcmd', action='store_true',
                         help='run pgcmd (need .out.cmd file)')
 
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='invoke pdb')
+
     parser.add_argument('fnames', nargs='*', type=str,
                         help='ssp output(s) or formated output(s)')
 
     args = parser.parse_args(argv)
+
+    if args.verbose:
+        import pdb; pdb.set_trace()
 
     if args.list:
         args.fnames = map(str.strip, open(args.fnames[0], 'r').readlines())
