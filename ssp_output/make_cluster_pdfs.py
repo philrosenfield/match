@@ -70,7 +70,7 @@ def main():
     
     #
 
-    data = np.genfromtxt(name)
+    data = np.loadfromtxt(name)
 
     res = makepdfs(data[:,1], data[:,5])
     plt.close('all')
