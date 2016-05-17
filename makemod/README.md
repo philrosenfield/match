@@ -1,3 +1,21 @@
+# Getting Started
+* With a new download of the source, put new tracks in <code>MIST/raw</code>
+* Just to be safe delete MIST/makemod (the binary executable) if it exists.
+* In <code>match2.6/:</code> 
+
+   make
+
+If this fails, you will need to edit the Makefile (follow Andy’s comments on what to comment out).
+
+* (be sure MIST/data/ is empty)
+* <code> cd MIST; ./makemod </code>
+(It’s tempting to do <code>./makemod > makemod.out</code> but that doesn’t save all the print statements, I’ve been lazy and copying and pasting the terminal output and saving the file as makemod.out)
+* If all goes well,
+* <code>cd ../; ./bin/calcbinmod -MIST</code>
+* <code>./bin/ascii2binmod -MIST</code>
+
+and you’re ready to go.
+
 # What to do to add MIST models to MATCH:
 ## "Cannonical set"
 1. put the new set of tracks in <code>MIST/raw/</code>
