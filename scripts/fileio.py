@@ -5,6 +5,9 @@ import re
 import glob
 import sys
 import logging
+
+import pandas as pd
+
 logger = logging.getLogger()
 
 __all__ = ['ensure_file', 'get_files',  'readfile', 'replace_ext', 'savetxt',
@@ -388,8 +391,12 @@ def read_ssp_output(filename):
                                  skip_footer=skip_footer, names=colnames)
         except:
             # no bg?
-            data = np.genfromtxt(filename, skip_header=skip_header,
-                                 skip_footer=skip_footer, names=colnames[:-2])
+            try:
+                data = np.genfromtxt(filename, skip_header=skip_header,
+                                     skip_footer=skip_footer, names=colnames[:-2])
+            except:
+                print('can not load file: {}'.format(filename))
+                return np.array([]), np.nan, np.nan, np.nan
 
     bfline, = os.popen('tail -n 1 {}'.format(filename)).readlines()
     Av, dmod, fit = map(float, bfline.strip().translate(None, '#Bestfit:Av=dmod').split(','))
