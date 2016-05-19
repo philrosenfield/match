@@ -1,4 +1,14 @@
+from __future__ import print_function
+import numpy as np
+import pylab as plt
+import pdb
+import seaborn as sns
+import sys
+import glob
+
 ''' Takes the output from a MATCH SSP run and produces various margainlized distributions '''
+
+
 
 ''' 
 > python make_cluster_pdfs.py <sspfilename>
@@ -16,13 +26,6 @@ columns in sspfile:
 9 - dAv
 '''
 
-from __future__ import print_function
-import numpy as np
-import pylab as plt
-import pdb
-import seaborn as sns
-import sys
-import glob
 
 # cat syn02.all | awk '$2==av {x+=exp(0.5*(187-$6))} END {print x}' av=5.05 -- Andy's 1d marginalization using AWK
 
