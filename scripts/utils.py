@@ -73,6 +73,8 @@ def check_boundaries(param, scrn):
     scrn : match console output (saved as a file)
     """
     def betweenie(val, upper, lower, retval=0, msg=''):
+        if upper == lower:
+            msg += 'value unchanging'
         if val >= upper:
             msg += 'extend boundary higher, %f >= %f\n' % (val, upper)
             retval += 1
@@ -94,8 +96,12 @@ def check_boundaries(param, scrn):
 
         # parse param
         pars = open(param).readline()
-        dmod0, dmod1, ddmod, av0, av1, dav = np.array(pars.split(), dtype=float)
-
+        try:
+            dmod0, dmod1, ddmod, av0, av1, dav = np.array(pars.split(), dtype=float)
+        except:
+            imf, dmod0, dmod1, ddmod, av0, av1, dav = np.array(pars.split(), dtype=float)
+            #print(sys.exc_info()[1], param)
+            #raise
         retval, msg = betweenie(dmod, dmod1, dmod0, msg=msg)
         retval, msg = betweenie(av, av1, av0, retval=retval, msg=msg)
 
