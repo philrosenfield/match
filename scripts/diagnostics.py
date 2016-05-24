@@ -17,6 +17,9 @@ def main(argv):
     parser.add_argument('-d', '--directory', type=str, default=os.getcwd(),
                         help='specify directory')
 
+    parser.add_argument('-l', '--logcounts', action="store_true",
+                        help='pgcmd with logcounts')
+
     parser.add_argument('-n', '--name', nargs='*', type=str, help='match cmd, sfh, zc\
                         file(s)')
 
@@ -49,7 +52,7 @@ def main(argv):
 
     labels = ['${\\rm %s}$' % i for i in ('data', 'model', 'diff', 'sig')]
 
-    call_pgcmd(cmd_names, filter1, filter2, labels=labels, logcounts=False)
+    call_pgcmd(cmd_names, filter1, filter2, labels=labels, logcounts=args.logcounts)
 
     if len(sfh_files) > 0:
         for sfh_file in sfh_files:

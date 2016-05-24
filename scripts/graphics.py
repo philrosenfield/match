@@ -201,6 +201,7 @@ def pgcmd(filename=None, cmd=None, labels=None, figname=None, out_dir=None,
         hesses = [data, model, diff, sig]
         extent = [cmd['color'][0], cmd['color'][-1],
                   cmd['mag'][-1], cmd['mag'][0]]
+
     else:
         hesses = cmd.hesses
         extent = cmd.extent
@@ -227,6 +228,13 @@ def pgcmd(filename=None, cmd=None, labels=None, figname=None, out_dir=None,
      for ax in grid.axes_row[1]]
     [ax.set_ylabel('$%s$' % yfilter, fontsize=20) for ax in grid.axes_column[0]]
     grid.axes_all[0].xaxis.label.set_visible(True)
+
+    ugates = np.unique(cmd.cmd['gate'])
+    if len(ugates) > 1:
+        dinds = np.digitize(cmd.cmd['gate'], bins=np.unique(cmd.cmd['gate']), right=True)
+        [grid.axes_all[0].plot(cmd.cmd['color'][dinds==i], cmd.cmd['mag'][dinds==i], '.', alpha=0.3)
+         for i in range(len(dinds)) if i > 0]
+
 
     if figname is not None:
         if out_dir is not None:

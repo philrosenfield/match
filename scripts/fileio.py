@@ -170,9 +170,7 @@ def read_match_cmd(filename):
     '''
     reads MATCH .cmd file
     '''
-    #mc = open(filename, 'r').readlines()
-    # I don't know what the 7th column is, so I call it lixo.
-    names = ['mag', 'color', 'Nobs', 'Nsim', 'diff', 'sig', 'lixo']
+    names = ['mag', 'color', 'Nobs', 'Nsim', 'diff', 'sig', 'gate']
     cmd = np.genfromtxt(filename, skip_header=4, names=names, invalid_raise=False)
     return cmd
 
