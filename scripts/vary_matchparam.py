@@ -45,7 +45,7 @@ def vary_matchparam(param_file, imfarr, bfarr):
 
         with open(new_name, 'w') as outp:
             outp.write(''.join(lines))
-            print 'wrote {}'.format(new_name)
+            #print 'wrote {}'.format(new_name)
         new_names.append(new_name)
     return new_names
 
@@ -89,14 +89,12 @@ def main(argv):
     args = parser.parse_args(argv)
 
     if ',' in args.imf:
+        # vary the IMF slope
         imfarr = np.arange(*map(float, args.imf.split(',')))
     else:
-        imfarr = [1.35]
-    try:
-        float(imfarr[0])
-        imf = None
-    except:
-        imf = imfarr[0]
+        imf = args.imf
+        imfarr = [imf]
+
     if ',' in args.bf:
         bfarr = np.arange(*map(float, args.bf.split(',')))
     else:
@@ -121,6 +119,7 @@ def main(argv):
                     outdir = args.destination
                 pname = os.path.split(param)[1]
                 oname = os.path.join(outdir, pname)
+
                 out = '_'.join(np.concatenate([['.'.join(oname.split('.')[:-1])],
                                                ['dav{}_{}_ssp.out'.format(dav, sub)]]))
                 scrn = '_'.join(np.concatenate([['.'.join(oname.split('.')[:-1])],
