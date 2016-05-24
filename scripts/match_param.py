@@ -3,6 +3,7 @@ Make a match param file
 Note -- will have to edit the param file by hand to insert dmod and Av.
 """
 #!/usr/bin/env python
+from __future__ import print_function
 import argparse
 import matplotlib.pylab as plt
 import numpy as np
@@ -18,11 +19,13 @@ from .fileio import match_param_default_dict, match_param_fmt
 from .fileio import replace_ext, parse_pipeline
 
 def move_on(ok, msg='0 to move on: '):
+    """read and return raw input"""
     ok = int(raw_input(msg))
     time.sleep(1)
     return ok
 
 def exclude_tpagb(phot, param, mtrgb):
+    """make one exclude gate using mtrgb and param file color, mag limits"""
     from scipy.interpolate import interp1d
 
     lines = open(param, 'r').readlines()
@@ -107,7 +110,7 @@ def find_match_limits(mag1, mag2, comp1=90., comp2=90., color_only=False,
 
     ok = 1
     while ok == 1:
-        print 'click color extrema'
+        print('click color extrema')
         pts = plt.ginput(2, timeout=-1)
         colmin, colmax = [pts[i][0] for i in range(2)]
         if colmin > colmax:
@@ -126,7 +129,7 @@ def find_match_limits(mag1, mag2, comp1=90., comp2=90., color_only=False,
         ax.plot(mag1, mag2, '.', color='k')
         ok = 1
         while ok == 1:
-            print 'click mag extrema'
+            print('click mag extrema')
             pts = plt.ginput(2, timeout=-1)
             mag1max, mag2max = pts[0]
             mag1min, mag2min = pts[1]
@@ -160,11 +163,12 @@ def find_match_limits(mag1, mag2, comp1=90., comp2=90., color_only=False,
 
     plt.draw()
 
-    print data
+    print(data)
     return data
 
 
 def find_gates(mag1, mag2, param):
+    """Click 4 points to make an exclude gate"""
     col = mag1 - mag2
 
     lines = open(param, 'r').readlines()
@@ -178,8 +182,8 @@ def find_gates(mag1, mag2, param):
     ax.set_xlim(colmin, colmax)
 
     ok = 1
-    while ok == 1:
-        print 'click '
+    while ok != 0:
+        print('click ')
         pts = np.asarray(plt.ginput(n=4, timeout=-1))
         exclude_gate = '1 {} 0 \n'.format(' '.join(['%.4f' % p for p in pts.flatten()]))
         pts = np.append(pts, pts[0]).reshape(5,2)
@@ -199,7 +203,8 @@ def find_gates(mag1, mag2, param):
 
 def match_param(mag1, mag2, filters, phot, param, interactive=False, fake=None,
                 comp_frac=0.5, param_kw={}):
-    print filters
+    """Make match param file"""
+    print('Using filters {}, {}'.format(*filters))
     p = dict(match_param_default_dict().items() + param_kw.items())
 
     if interactive:
@@ -213,23 +218,25 @@ def match_param(mag1, mag2, filters, phot, param, interactive=False, fake=None,
         p['Imin'] = np.min(mag2)
         p['Vmax'] = np.max(mag1)
         p['Imax'] = np.max(mag2)
-        print p['Vmax'], p['Imax']
+        print('From data: Vmax={} Imax={}'.format(p['Vmax'], p['Imax']))
         if fake is not None:
             from .asts import ASTs
             ast = ASTs(fake)
             ast.completeness(combined_filters=True, interpolate=True)
             print('Using {} completeness fraction from {}'.format(comp_frac, fake))
             p['Vmax'], p['Imax'] = ast.get_completeness_fraction(comp_frac)
-            print p['Vmax'], p['Imax']
+            print('From completeness: Vmax={} Imax={}'.format(p['Vmax'], p['Imax']))
 
     p['V'] = filters[0]
     p['I'] = filters[1]
     with open(param, 'w') as out:
+        # see fileio.match_param_fmt for dictionary defaults
         out.write(match_param_fmt() % p)
     print('wrote {}'.format(param))
     return param
 
 def match_limits(mag1, mag2, color_only=False, comp1=99., comp2=99.):
+    """Iteritively call find_match_limits"""
     plt.ion()
     ok = 1
     while ok == 1:
@@ -246,10 +253,11 @@ def match_limits(mag1, mag2, color_only=False, comp1=99., comp2=99.):
         colmin, colmax, mag1max, mag2max = data
         data_str = '%.2f %.2f %.2f %.2f' % (colmin, colmax, mag1max, mag2max)
 
-    print data_str
+    print('Match limits: {}'.format(data_str))
 
 
 def make_phot(fitsfile, filters):
+    """Convert binary fits table (from UW pipeline) to 2-column match phot file"""
     assert len(filters) > 0, 'need filters'
 
     tab = Table.read(fitsfile)
@@ -291,13 +299,13 @@ if __name__ == "__main__":
                         help='find limits interactively')
 
     parser.add_argument('-f', '--filters', type=str, default=None,
-                        help='comma separated fits mag column names to make match phot')
+                        help='comma separated fits mag column names (if filename does not follow UW pipeline convenction: PID_TARGET_FILTER1_FILTER2.ext')
 
     parser.add_argument('-a', '--fake', type=str, default=None,
-                        help='match fake file')
+                        help='match fake file, used to calculate completeness to set faint mag limits of param file')
 
-    parser.add_argument('-c', '--comp_frac', type=float, default=None,
-                        help='completeness fraction to use for faint limit (run with --fake=)')
+    parser.add_argument('-c', '--comp_frac', type=float, default=0.50,
+                        help='completeness fraction to use for faint mag limit (use with --fake=)')
 
     parser.add_argument('-p', '--param', type=str, help='match param file if existing')
 
@@ -306,6 +314,9 @@ if __name__ == "__main__":
     args = parser.parse_args(sys.argv[1:])
 
     if args.phot.endswith('fits'):
+        if args.filters is None:
+            print('to make phot, pass comma eparated fits mag column name with -f')
+            sys.exit()
         filters = args.filters.split(',')
         args.phot = make_phot(args.phot, filters)
 
@@ -317,11 +328,15 @@ if __name__ == "__main__":
     args.param = args.param or replace_ext(args.phot, '.param')
     if args.filters is None:
         target, filters = parse_pipeline(args.phot)
+    else:
+        filters = args.filters
 
     if not os.path.isfile(args.param):
         print('Making param file')
         match_param(mag1, mag2, filters, args.phot, args.param, fake=args.fake,
                     interactive=args.interactive, comp_frac=args.comp_frac)
+    else:
+        print('{} file found, not overwriting'.format(args.param))
 
     if args.exgates:
         find_gates(mag1, mag2, args.param)
