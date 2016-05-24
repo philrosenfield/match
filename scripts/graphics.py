@@ -56,6 +56,15 @@ def match_diagnostic(param, phot):
     from match photometery and cmd parameter space from the match param drawn
     """
     #mc = 0
+
+    def parse_gates(lines):
+        gverts = []
+        for line in lines:
+            vs = np.array(line.strip().split(), dtype=float)
+            vs = np.append(vs, vs[:2]).reshape(5, 2)
+            gverts.append(vs)
+        return gverts
+
     moff = 0.1
     off = 0.1
     mag1, mag2 = np.loadtxt(phot, unpack=True)
@@ -71,12 +80,15 @@ def match_diagnostic(param, phot):
     ylims = [(mag1max + moff, mag1min - moff), (mag2max + moff, mag2min - moff)]
 
     filters = paramlines[4].split()[-1].split(',')
-    excludes = np.array([paramlines[7].split()], dtype=float)
+    nexcludes = int(paramlines[7].strip())
+    excludes = []
+    if nexcludes > 0:
+        excludes = parse_gates(paramlines[7: 7 + int(nexcludes)])
 
-    nregions = excludes[0][0]
-    if nregions == 1:
-        vs = np.array(paramlines[7].split()[1:-1], dtype=float)
-        exgverts = np.append(vs, vs[:2]).reshape(5, 2)
+    nincludes = int(paramlines[8 + nexcludes].strip())
+    includes = []
+    if nincludes > 0:
+        includes = parse_gates(paramlines[9: 9 + int(nincludes)])
 
     verts = [np.array([[colmin, mag1min], [colmin, mag1max], [colmax, mag1max],
                        [colmax, mag1min], [colmin, mag1min]]),
@@ -96,10 +108,16 @@ def match_diagnostic(param, phot):
         axs[i].set_xlabel(r'${}-{}$'.format(*filters))
         axs[i].set_ylim(ylims[i])
         axs[i].set_xlim(colmin - off, colmax + off)
-    if nregions > 0:
-        axs[0].plot(exgverts[:, 0] , exgverts[:, 1])
-        # mag2 = mag1 - color
-        axs[1].plot(exgverts[:, 0] , exgverts[:, 1] - exgverts[:, 0])
+    if nexcludes > 0:
+        for exvs in excludes:
+            axs[0].plot(exvs[:, 0] , exvs[:, 1])
+            # mag2 = mag1 - color
+            axs[1].plot(exvs[:, 0] , exvs[:, 1] - exvs[:, 0])
+    if nincludes > 0:
+        for invs in includes:
+            axs[0].plot(invs[:, 0] , invs[:, 1])
+            # mag2 = mag1 - color
+            axs[1].plot(invs[:, 0] , invs[:, 1] - invs[:, 0])
 
     plt.savefig(param + EXT)
     print('wrote', param + EXT)
