@@ -5,10 +5,12 @@ import sys
 
 import numpy as np
 
-calcsfh="$HOME/match2.6/bin/calcsfh"
+from config import calcsfh, calcsfh_flag
 
 def getflags(dav=0.0, sub=None, imf=None):
-    flag = "-PARSEC -ssp -full -dAvy=0.0 -dAv={:.2f}".format(dav)
+    flag = calcsfh_flag
+    if dav is not None:
+        flag += " -dAv={:.2f}".format(dav)
     if sub is not None:
         flag += "  -sub={}".format(sub)
     if imf is not None:
@@ -74,6 +76,9 @@ def main(argv):
     parser.add_argument('-s', '--sub', type=str,
                         help='track sub directory')
 
+    parser.add_argument('-e', '--extra', type=str, default='',
+                        help='add an extra string to output filenames.')
+
     parser.add_argument('-d', '--destination', type=str, default=None,
                         help='destination directory for calcsfh output')
 
@@ -88,6 +93,11 @@ def main(argv):
 
     args = parser.parse_args(argv)
 
+    extra = ''
+    if len(args.extra) > 0:
+        extra = '_{}'.format(args.extra)
+
+
     if ',' in args.imf:
         # vary the IMF slope
         imfarr = np.arange(*map(float, args.imf.split(',')))
@@ -95,23 +105,29 @@ def main(argv):
         imf = args.imf
         imfarr = [imf]
 
+    bfarr = [0.0]
     if ',' in args.bf:
         bfarr = np.arange(*map(float, args.bf.split(',')))
-    else:
-         bfarr = [0.0]
 
+    davarr = [0.0]
     if ',' in args.dav:
         davarr = np.arange(*map(float, args.dav.split(',')))
-    else:
-        davarr = [0.0]
+
+    subs = [None]
+    if args.sub is not None:
+        subs = args.sub.replace(' ','').split(',')
+
+    # write the parameter files
+    params = vary_matchparam(args.param_file, imfarr, bfarr)
+
+    # loop over all to create output filenames and calcsfh calls
     line = ''
-
-    subs = args.sub.replace(' ','').split(',')
-
     n = 0
     for sub in subs:
+        subfmt = ''
+        if sub is not None:
+            subfmt = '_{}'.format(sub)
         for dav in davarr:
-            params = vary_matchparam(args.param_file, imfarr, bfarr)
             for param in params:
                 n += 1
                 outdir = os.path.split(param)[0]
@@ -119,12 +135,11 @@ def main(argv):
                     outdir = args.destination
                 pname = os.path.split(param)[1]
                 oname = os.path.join(outdir, pname)
-
-                out = '_'.join(np.concatenate([['.'.join(oname.split('.')[:-1])],
-                                               ['dav{}_{}_ssp.out'.format(dav, sub)]]))
-                scrn = '_'.join(np.concatenate([['.'.join(oname.split('.')[:-1])],
-                                               ['dav{}_{}_ssp.scrn'.format(dav, sub)]]))
-                flags = getflags(dav, sub, imf=imf)
+                name = '_'.join(np.concatenate([['.'.join(oname.split('.')[:-1])],
+                                               ['dav{}{}{}_ssp'.format(dav, subfmt, extra)]]))
+                out = '{}.out'.format(name)
+                scrn = '{}.scrn'.format(name)
+                flags = getflags(dav, sub=sub, imf=imf)
                 line += ' '.join([calcsfh, param, args.phot, args.fake, out, flags, '>', scrn, '&']) + '\n'
                 if n == args.nproc:
                     line += 'wait \n'

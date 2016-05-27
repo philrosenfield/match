@@ -119,7 +119,12 @@ def strip_header(ssp_file, skip_header=10):
     outfile = ssp_file + '.dat'
     with open(ssp_file, 'r') as infile:
         lines = [l.strip() for l in infile.readlines()]
-    np.savetxt(outfile, np.array(lines[skip_header:], dtype=str), fmt='%s')
+
+    try:
+        footer, = [i for i, l in enumerate(lines) if 'Best' in l]
+    except:
+        footer = None
+    np.savetxt(outfile, np.array(lines[skip_header:footer], dtype=str), fmt='%s')
     return outfile
 
 

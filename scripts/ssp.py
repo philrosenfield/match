@@ -93,6 +93,7 @@ class SSP(object):
 
         self.ibest = np.argmin(self.data['fit'])
 
+
         self.absprob = \
             np.exp(0.5 * (self.data['fit'].min() - self.data['fit']))
 
@@ -256,7 +257,7 @@ def main(argv):
                         help='run sspcombine on the file(s) (and exit)')
 
     parser.add_argument('-p', '--plotcmd', action='store_true',
-                        help='run pgcmd (need .out.cmd file)')
+                        help='run pgcmd (need .out.cmd file) and exit')
 
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='invoke pdb')
@@ -274,6 +275,7 @@ def main(argv):
 
     if args.plotcmd:
         make_pgcmd(args.fnames)
+        sys.exit()
 
     filtdict = {}
     if args.sub is not '':
