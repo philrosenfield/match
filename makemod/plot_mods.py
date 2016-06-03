@@ -1,4 +1,9 @@
-"""Plot match's mod* files"""
+"""Plot match's mod* files
+usage:
+cd matchX.X/Model/data
+e.g.,
+python -m match.makemod.plot_mods -p 'mod*'
+"""
 from __future__ import print_function
 import glob
 import os
