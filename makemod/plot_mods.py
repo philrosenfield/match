@@ -1,89 +1,118 @@
-import numpy as np
-import matplotlib as mpl
-mpl.use('Agg')
-import matplotlib.pylab as plt
+"""Plot match's mod* files"""
+from __future__ import print_function
 import glob
 import os
+import sys
+import argparse
+import numpy as np
+import matplotlib.pylab as plt
 
-def main(sub='', pref='mod1_*', overwrite=False):
+from ..scripts.config import EXT
+
+def plot_mods(sub=None, pref='mod1_*', overwrite=False):
     """
     make a plot of Mbol vs Log Te of tracks to go to MATCH or the
     MATCH tracks themselves
 
+    color bar axis is either Nstars (if match tracks) or logAge (if unprocessed
+    tracks)
+
     Parameters
     ----------
     sub : string
-        the subdirectory to operate in
+        the subdirectory to operate in [optional]
+
     pref : string
-        the prefix search string of the track names
+        the prefix search string of the track names [mod1*]
+        if plotting unprocessed tracks pref should end with .dat.
+
+    overwrite : bool [False]
+        overwrite existing plots
+
+    NB: Unprocessed match track plotting is not tested!
+    TODO: either:
+    hard code color bar limits or
+    set all axes limits as options or
+    use axes limits from makemod.cpp
     """
-    if sub != '':
+    here = os.getcwd()
+    if sub is not None:
+        assert os.path.isdir(sub), 'sub directory not found'
         os.chdir(sub)
 
-    i = 1  # mod1_ fmt: Mbol Log_Te Nstars ...
+    # i = LogT, j = Mbol k = Nstars or logAge
+    # mod format:Mbol Log_Te Nstars ...
+    i = 1
     j = 0
     k = 2
-    if 'match' in pref:
-        i = 2 # match_ fmt: logAge Mass logTe Mbol ...
+    zstr = 'Nstars'
+    # unprocessed format logAge Mass logTe Mbol ...
+    if pref.endswith('.dat'):
+        i = 2
         j = 3
         k = 1
+        zstr = 'Age'
 
-    #pref += '.dat'
     modfiles = glob.glob(pref)
-    for f in modfiles:
-        if f.endswith('.png'):
+    if len(modfiles) == 0:
+        print('{} not found'.format(pref))
+    for fname in modfiles:
+        figname = '{}{}'.format(fname, EXT)
+        if fname.endswith('.png'):
             continue
-        if os.path.isfile('%s.png' % f) and not overwrite:
+        if os.path.isfile(figname) and not overwrite:
+            print('found {} and not overwriting'.format(figname))
             continue
-        data = np.loadtxt(f)
-        fig, ax = plt.subplots()
+        data = np.loadtxt(fname).T
+        _, ax = plt.subplots()
         try:
-            l, = ax.scatter(data.T[i], data.T[j], c=np.log10(data.T[k]),
-                            cmap=plt.cm.Blues, edgecolor='none')
-            cb = plt.colorbar(l)
-            cb.set_label('log Nstars')
+            scr = ax.scatter(data[i], data[j], c=np.log10(data[k]),
+                             cmap=plt.cm.Blues, edgecolor='none')
+            cbar = plt.colorbar(scr)
+            cbar.set_label('log {}'.format(zstr))
         except:
-            ax.plot(data.T[i], data.T[j], color='k')
-        #ax.set_xlim(ax.get_xlim()[::-1])
-        #ax.set_ylim(ax.get_ylim()[::-1])
+            ax.plot(data[i], data[j], color='k')
+        ax.set_xlim(ax.get_xlim()[::-1])
+        ax.set_ylim(ax.get_ylim()[::-1])
         ax.set_ylim(13, -14.0)
-        ax.set_xlim(5, 3.30)
+        ax.set_xlim(5.5, 3.0)
 
-        ax.set_title(f)
-        ax.set_xlabel('Log Te')
+        ax.set_title(fname.replace('_', r'\_'))
+        ax.set_xlabel('Log T')
         ax.set_ylabel('Mbol')
-        plt.savefig('%s.png' % f)
+        plt.savefig(figname)
+        print('wrote {}'.format(figname))
         plt.close()
+    os.chdir(here)
 
-def find_flag(argv, flag, default=''):
-    string = '-%s=' % flag
-    try:
-        val, = [s.replace(string, '') for s in argv if string in s]
-    except:
-        val = default
-    return val
 
-def find_arg(argv, arg):
-    try:
-        arg, = [s.replace('-', '') for s in argv if arg in s]
-    except:
-        arg = None
-    return arg
+def main(argv):
+    """Main caller for plot_mods."""
+    parser = argparse.ArgumentParser(description="Plot mod* files in data directory")
 
-if __name__ == "__main__":
-    import sys
-    sub = find_flag(sys.argv, 'sub', '')
-    pref = find_flag(sys.argv, 'pref', 'mod1_*')
-    recursive = find_arg(sys.argv, 'R')
+    parser.add_argument('-s', '--sub', type=str,
+                        help='subdirectory name')
 
-    here = os.getcwd()
-    if recursive is not None:
-        if sub is not None:
-            os.chdir(sub)
+    parser.add_argument('-r', '--recursive', action='store_true',
+                        help='run on all subdirectories')
+
+    parser.add_argument('-f', '--overwrite', action='store_true',
+                        help='overwrite plots')
+
+    parser.add_argument('-p', '--pref', type=str, default='mod1*',
+                        help='search string for mod files')
+
+    args = parser.parse_args(argv)
+
+    if not os.getcwd().endswith('data'):
+        print('warning, this should run in matchX.X/Model/data')
+
+    subs = [args.sub]
+    if args.recursive:
         subs = [s for s in os.listdir('.') if os.path.isdir(s)]
-        for s in subs:
-            print s
-            main(sub=s, pref=pref)
-            os.chdir('..')
-    else:
-        main(sub=sub, pref=pref)
+
+    for sub in subs:
+        plot_mods(sub=sub, pref=args.pref, overwrite=args.overwrite)
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
