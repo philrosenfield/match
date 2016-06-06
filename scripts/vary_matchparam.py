@@ -41,7 +41,7 @@ def vary_matchparam(param_file, imfarr, bfarr):
     lines = open(param_file).readlines()
 
     for imf, bfrac in itertools.product(imfarr, bfarr):
-        imfline = lines[0].split()
+        imfline = lines[0].strip().split()
         try:
             # imf is a power law
             float(imf)
@@ -53,7 +53,7 @@ def vary_matchparam(param_file, imfarr, bfarr):
                 imfline[0] = '{:.2f}'.format(imf)
         except ValueError:
             # imf is -kroupa or -chabrier called from command line.
-            if len(imfline) == 6:
+            if len(imfline) > 6:
                 print('First line of param file formatted for powerlaw IMF')
 
         newimfline = ' '.join(imfline) + '\n'
@@ -108,6 +108,10 @@ def main(argv):
     parser.add_argument('-d', '--destination', type=str, default=None,
                         help='destination directory for calcsfh output')
 
+    parser.add_argument('-c', '--check', action='store_true',
+                        help=('check if calcsfh output file exists, '
+                              'useful for completeing interrupted runs.'))
+
     parser.add_argument('param_file', type=str,
                         help='template parameter file')
 
@@ -145,7 +149,6 @@ def main(argv):
             subfmt = '_{}'.format(sub)
         for dav in davarr:
             for param in params:
-                nproc += 1
                 parfile = param
                 if args.destination is not None:
                     parfile = os.path.join(args.destination,
@@ -157,13 +160,17 @@ def main(argv):
                 out = '{}{}'.format(name, OUTEXT)
                 scrn = '{}{}'.format(name, SCRNEXT)
 
-                flags = getflags(dav, sub=sub, imf=imf)
-                line += '{}\n'.format(' '.join([calcsfh, param, args.phot,
-                                                args.fake, out, flags, '>',
-                                                scrn, '&']))
-                if nproc == args.nproc:
-                    line += 'wait \n'
-                    nproc = 0
+                if args.check and os.path.isfile(out):
+                    print('{} exists, not overwriting'.format(out))
+                else:
+                    nproc += 1
+                    flags = getflags(dav, sub=sub, imf=imf)
+                    line += '{}\n'.format(' '.join([calcsfh, param, args.phot,
+                                                    args.fake, out, flags, '>',
+                                                    scrn, '&']))
+                    if nproc == args.nproc:
+                        line += 'wait \n'
+                        nproc = 0
 
     writeorappend(args.outfile, line)
     return

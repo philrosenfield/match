@@ -53,8 +53,8 @@ def add_filename_info_to_file(fname):
     print(fname)
     try:
         ibest, = np.where(df['Av'] == 'Best')[0]
-    except:
-        print(fname)
+    except ValueError:
+        print('Problem in {}'.format(fname))
         print(sys.exc_info()[1])
         raise
     #av, dmod, fit = map(float, [d.replace(',','').split('=')[1]

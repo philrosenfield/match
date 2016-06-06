@@ -22,12 +22,16 @@ def parse_argrange(strarr, arg):
     e.g.,
     "0.,1,0.1"
     array([ 0. ,  0.1,  0.2,  0.3,  0.4,  0.5,  0.6,  0.7,  0.8,  0.9])
-    
+
     arg:
     if no comma in strarr, return an array of this value.
     """
     if ',' in strarr:
-        arr = np.arange(*map(float, strarr.split(',')))
+        try:
+            arr = np.arange(*map(float, strarr.split(',')))
+        except ValueError:
+            #not floats.
+            arr = strarr.split(',')
     else:
         arr = np.array([arg])
     return arr
@@ -153,21 +157,21 @@ def writeorappend(outfile, line):
     if os.path.isfile(outfile):
         wstr = 'a'
         wrote = 'appended'
-    with open(args.outfile, wstr) as outp:
+    with open(outfile, wstr) as outp:
         outp.write(line)
-    print('{} {}'.format(wrote, args.outfile))
+    print('{} {}'.format(wrote, outfile))
     return
 
 
 def replaceext(filename, newext):
     '''
     Replace the extension of a filename
-    
+
     Parameters:
     filename : string
     new_ext : string
         string to replace current extension
-    
+
     e.g,:
         $ replaceext('data.02.SSS.v4.dat', '.log')
         data.02.SSS.v4.log
