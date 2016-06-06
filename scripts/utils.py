@@ -15,6 +15,24 @@ from .fileio import read_match_cmd, read_binned_sfh
 
 __all__ = ['check_boundaries', 'strip_header', 'convertz']
 
+
+def parse_argrange(strarr, arg):
+    """Reade a comma separated string into np.arange.
+    strarr : string
+    e.g.,
+    "0.,1,0.1"
+    array([ 0. ,  0.1,  0.2,  0.3,  0.4,  0.5,  0.6,  0.7,  0.8,  0.9])
+    
+    arg:
+    if no comma in strarr, return an array of this value.
+    """
+    if ',' in strarr:
+        arr = np.arange(*map(float, strarr.split(',')))
+    else:
+        arr = np.array([arg])
+    return arr
+
+
 def convertz(z=None, oh=None, mh=None, feh=None, oh_sun=8.76, z_sun=0.01524,
              y0=.2485, dy_dz=1.80):
     '''
@@ -127,6 +145,39 @@ def strip_header(ssp_file, skip_header=10):
     np.savetxt(outfile, np.array(lines[skip_header:footer], dtype=str), fmt='%s')
     return outfile
 
+
+def writeorappend(outfile, line):
+    """If outfile exists, append line to it, else write line to outfile"""
+    wstr = 'w'
+    wrote = 'wrote'
+    if os.path.isfile(outfile):
+        wstr = 'a'
+        wrote = 'appended'
+    with open(args.outfile, wstr) as outp:
+        outp.write(line)
+    print('{} {}'.format(wrote, args.outfile))
+    return
+
+
+def replaceext(filename, newext):
+    '''
+    Replace the extension of a filename
+    
+    Parameters:
+    filename : string
+    new_ext : string
+        string to replace current extension
+    
+    e.g,:
+        $ replaceext('data.02.SSS.v4.dat', '.log')
+        data.02.SSS.v4.log
+    '''
+    return splitext(filename)[0] + ext
+
+
+def splitext(filename):
+    '''split the filename from its extension'''
+    return '.'.join(filename.split('.')[:-1]), filename.split('.')[-1]
 
 def cheat_fake(infakefile, outfakefile):
     """

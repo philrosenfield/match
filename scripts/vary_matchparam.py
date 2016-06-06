@@ -1,13 +1,15 @@
+"""Vary the IMF, BF, -dAv, -sub calls to calcsfh"""
+from __future__ import print_function
 import argparse
 import itertools
 import os
 import sys
 
-import numpy as np
-
-from config import calcsfh, calcsfh_flag
+from config import calcsfh, calcsfh_flag, OUTEXT, SCRNEXT
+from utils import splitext, writeorappend, parse_argrange
 
 def getflags(dav=0.0, sub=None, imf=None):
+    """Add -dAv, -sub, and/or -kroupa or -chabrier to config.calcsfh_flag"""
     flag = calcsfh_flag
     if dav is not None:
         flag += " -dAv={:.2f}".format(dav)
@@ -18,38 +20,62 @@ def getflags(dav=0.0, sub=None, imf=None):
             flag += " -{}".format(imf)
     return flag
 
+
 def vary_matchparam(param_file, imfarr, bfarr):
+    """
+    Vary parameters from a match param template file.
+    param_file : string
+        calcsfh input (aka parameter) file
+    imfarr : array
+        imf values to vary
+    bfarr : array
+        binary fraction values to vary
+
+    Returns
+    -------
+    new_names : list
+        list of string new parameter file names (with new paramters in the
+        filename)
+    """
     new_names = []
     lines = open(param_file).readlines()
 
-    for imf, bf in itertools.product(imfarr, bfarr):
+    for imf, bfrac in itertools.product(imfarr, bfarr):
         imfline = lines[0].split()
         try:
+            # imf is a power law
             float(imf)
             if len(imfline) == 6:
+                # imf was not in the template param file
                 imfline.insert(0, '{}'.format(imf))
-            elif len(imfline) > 6 :
+            elif len(imfline) > 6:
+                # new power law
                 imfline[0] = '{:.2f}'.format(imf)
-        except:
-            pass
+        except ValueError:
+            # imf is -kroupa or -chabrier called from command line.
+            if len(imfline) == 6:
+                print('First line of param file formatted for powerlaw IMF')
 
         newimfline = ' '.join(imfline) + '\n'
         lines[0] = newimfline
 
         bfline = lines[2].split()
-        bfline[0] = '{:.2f}'.format(bf)
+        # new binary fraction
+        bfline[0] = '{:.2f}'.format(bfrac)
 
         newbfline = ' '.join(bfline) + '\n'
         lines[2] = newbfline
 
-        pname, ext = '.'.join(param_file.split('.')[:-1]), param_file.split('.')[-1]
-        new_name = '{}_imf{}_bf{}.{}'.format(pname, imf, bf, ext)
+        # place new params
+        pname, ext = splitext(param_file)
+        new_name = '{}_imf{}_bf{}.{}'.format(pname, imf, bfrac, ext)
 
         with open(new_name, 'w') as outp:
             outp.write(''.join(lines))
-            #print 'wrote {}'.format(new_name)
+
         new_names.append(new_name)
     return new_names
+
 
 def main(argv):
     """
@@ -93,67 +119,55 @@ def main(argv):
 
     args = parser.parse_args(argv)
 
+    if args.destination is not None:
+        assert (os.path.isdir(args.destination)), \
+            'destination must be an existing directory'
+
     extra = ''
     if len(args.extra) > 0:
         extra = '_{}'.format(args.extra)
 
-
-    if ',' in args.imf:
-        # vary the IMF slope
-        imfarr = np.arange(*map(float, args.imf.split(',')))
-    else:
-        imf = args.imf
-        imfarr = [imf]
-
-    bfarr = [0.0]
-    if ',' in args.bf:
-        bfarr = np.arange(*map(float, args.bf.split(',')))
-
-    davarr = [0.0]
-    if ',' in args.dav:
-        davarr = np.arange(*map(float, args.dav.split(',')))
-
-    subs = [None]
-    if args.sub is not None:
-        subs = args.sub.replace(' ','').split(',')
+    imfarr = parse_argrange(args.imf, args.imf)
+    imf = args.imf
+    bfarr = parse_argrange(args.bf, 0.0)
+    davarr = parse_argrange(args.bf, 0.0)
+    subs = parse_argrange(args.sub, None)
 
     # write the parameter files
     params = vary_matchparam(args.param_file, imfarr, bfarr)
 
     # loop over all to create output filenames and calcsfh calls
     line = ''
-    n = 0
+    nproc = 0
     for sub in subs:
         subfmt = ''
         if sub is not None:
             subfmt = '_{}'.format(sub)
         for dav in davarr:
             for param in params:
-                n += 1
-                outdir = os.path.split(param)[0]
+                nproc += 1
+                parfile = param
                 if args.destination is not None:
-                    outdir = args.destination
-                pname = os.path.split(param)[1]
-                oname = os.path.join(outdir, pname)
-                name = '_'.join(np.concatenate([['.'.join(oname.split('.')[:-1])],
-                                               ['dav{}{}{}_ssp'.format(dav, subfmt, extra)]]))
-                out = '{}.out'.format(name)
-                scrn = '{}.scrn'.format(name)
-                flags = getflags(dav, sub=sub, imf=imf)
-                line += ' '.join([calcsfh, param, args.phot, args.fake, out, flags, '>', scrn, '&']) + '\n'
-                if n == args.nproc:
-                    line += 'wait \n'
-                    n = 0
+                    parfile = os.path.join(args.destination,
+                                           os.path.split(param)[1])
+                prefx, _ = splitext(parfile)
+                suffx = 'dav{}{}{}_ssp'.format(dav, subfmt, extra)
+                name = '_'.join([prefx, suffx])
 
-    wstr = 'w'
-    wrote = 'wrote'
-    if os.path.isfile(args.outfile):
-        wstr = 'a'
-        wrote = 'appended'
-    with open(args.outfile, wstr) as outp:
-        outp.write(line)
-    print('{} {}'.format(wrote, args.outfile))
+                out = '{}{}'.format(name, OUTEXT)
+                scrn = '{}{}'.format(name, SCRNEXT)
+
+                flags = getflags(dav, sub=sub, imf=imf)
+                line += '{}\n'.format(' '.join([calcsfh, param, args.phot,
+                                                args.fake, out, flags, '>',
+                                                scrn, '&']))
+                if nproc == args.nproc:
+                    line += 'wait \n'
+                    nproc = 0
+
+    writeorappend(args.outfile, line)
     return
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
