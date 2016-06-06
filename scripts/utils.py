@@ -26,6 +26,9 @@ def parse_argrange(strarr, arg):
     arg:
     if no comma in strarr, return an array of this value.
     """
+    if strarr is None:
+        return [strarr]
+
     if ',' in strarr:
         try:
             arr = np.arange(*map(float, strarr.split(',')))
