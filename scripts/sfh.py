@@ -8,8 +8,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from .config import EXT
-from .fileio import read_binned_sfh, parse_pipeline
-from .utils import convertz
+from .fileio import read_binned_sfh
+from .utils import convertz,  parse_pipeline
 
 logger = logging.getLogger()
 

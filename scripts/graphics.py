@@ -12,8 +12,8 @@ from matplotlib.patheffects import withStroke
 
 from .sfh import SFH
 from .cmd import CMD
-from .fileio import get_files, parse_pipeline, read_match_cmd
-
+from .fileio import get_files, read_match_cmd
+from .utils import parse_pipeline
 __all__ = ['add_inner_title', 'forceAspect', 'match_plot', 'pgcmd', 'sfh_plot',
            'match_diagnostic', 'call_pgcmd']
 
