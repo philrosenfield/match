@@ -28,10 +28,16 @@ def combine_files(fnames, outfile='combined_files.csv'):
         df = add_filename_info_to_file(fname)
         all_data = all_data.append(df, ignore_index=True)
 
-    all_data.to_csv(outfile)
+    all_data.to_csv(outfile, index=False)
     return outfile
 
-def make_pgcmd(cmdfns):
+
+def make_pgcmd(cmdfns, nmax=5):
+    """
+    Call pgcmd on many .cmd files, ordering them according to best fit.
+    cmdfns : string or list
+        .cmd filename or list of filenames.
+    """
     from .cmd import CMD
     from .graphics import pgcmd
 
@@ -41,6 +47,8 @@ def make_pgcmd(cmdfns):
     fits = [float(open(cmdfn).readline().split()[0]) for cmdfn in cmdfns]
     icmd = np.argsort(fits)
     for j, i in enumerate(icmd):
+        if j > nmax:
+            break
         cmdfn = np.array(cmdfns)[i]
         mcmd = CMD(cmdfn)
         filter1 = 'V'
@@ -61,6 +69,16 @@ def make_pgcmd(cmdfns):
 
 
 def sspcombine(fname, dry_run=True, outfile=None):
+    """
+    call bin/sspcombine
+    fname : string
+        input filename
+    outfile : None default: [fname].stats
+        output filename
+    dry_run : bool
+        do not actually run sspcombine
+    return string command to run sspcombine
+    """
     sspname = strip_header(fname)
     if outfile is None:
         outfile = '> {}.stats'.format(fname)
@@ -93,7 +111,6 @@ class SSP(object):
 
         self.ibest = np.argmin(self.data['fit'])
 
-
         self.absprob = \
             np.exp(0.5 * (self.data['fit'].min() - self.data['fit']))
 
@@ -104,11 +121,10 @@ class SSP(object):
         inds = [i for i, m in enumerate(marg) if self._haskey(m)]
         return marg[inds]
 
-
     def _haskey(self, key):
         """test if the key requested is available"""
         ecode = True
-        if not key in self.data.keys():
+        if key not in self.data.keys():
             ecode = False
         return ecode
 
@@ -148,7 +164,6 @@ class SSP(object):
         prob /= prob.sum()
         return vals, prob, np.log(prob)
 
-
     def pdf_plot(self, attr, attr2=None, ax=None, sub=''):
         """Plot prob vs marginalized attr"""
         save = False
@@ -184,16 +199,15 @@ class SSP(object):
         ax.set_xlabel(key2label(attr))
 
         if save:
-            outname ='{}_{}{}_{}_gamma{}'.format(self.name.replace('.csv',''),
-                                                 attr, sub, ptype, EXT)
+            outname = '{}_{}{}_{}_gamma{}'.format(self.name.replace('.csv', ''),
+                                                  attr, sub, ptype, EXT)
             plt.savefig(outname, bbox_inches='tight')
             plt.close()
         return ax
 
-
     def pdf_plots(self, marginals='default', sub='', twod=False):
         """Call pdf_plot2d for a list of attr and attr2"""
-        if marginals=='default':
+        if marginals == 'default':
             marg = self._getmarginals()
         else:
             marg = marginals
@@ -210,6 +224,7 @@ class SSP(object):
 
         return
 
+
 def key2label(string):
     """latex labels for different strings"""
     def_fmt = r'${}$'
@@ -222,9 +237,10 @@ def key2label(string):
                'chi2': r'$\chi^2$',
                'bf': r'$\rm{Binary\ Fraction}$',
                'dav': r'$dA_V$'}
-    if not string in convert.keys():
+    if string not in convert.keys():
         return def_fmt.format(string)
     return convert[string]
+
 
 def main(argv):
     """
@@ -233,7 +249,7 @@ def main(argv):
     e.g., Reformat and then plot a OV=0.30 run:
     python -m match.scripts.ssp -fot --sub=ov0.30 *scrn
     """
-    parser = argparse.ArgumentParser(description="Plot or reformat calcsfh -ssp output")
+    parser = argparse.ArgumentParser(description="stats for calcsfh -ssp")
 
     parser.add_argument('-f', '--format', action='store_true',
                         help='combine the files including data in the filename')
@@ -244,7 +260,8 @@ def main(argv):
     parser.add_argument('-t', '--twod', action='store_true',
                         help='make val vs val vs prob plots')
 
-    parser.add_argument('-o', '--outfile', type=str, default='combined_files.csv',
+    parser.add_argument('-o', '--outfile', type=str,
+                        default='combined_files.csv',
                         help='if -f file name to write to')
 
     parser.add_argument('-s', '--sub', type=str, default='',
@@ -268,7 +285,8 @@ def main(argv):
     args = parser.parse_args(argv)
 
     if args.verbose:
-        import pdb; pdb.set_trace()
+        import pdb
+        pdb.set_trace()
 
     if args.list:
         args.fnames = map(str.strip, open(args.fnames[0], 'r').readlines())

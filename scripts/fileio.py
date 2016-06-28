@@ -204,9 +204,22 @@ def calcsfh_input_parameter(zinc=False, power_law_imf=True, **params):
                             param_dict['ntbins'])
     else:
         # set ntbins
-        dtarr = np.arange(param_dict['tmin'],
-                          param_dict['tmax'] + param_dict['tbin'],
-                          param_dict['tbin'])
+        if len(param_dict['tbreak']) > 0:
+            tbreak = np.asarray(param_dict['tbreak'])
+            tbin = np.asarray(param_dict['tbin'])
+            dtarr = np.array([])
+            assert len(param_dict['tbin']) == len(param_dict['tbreak']) + 1, \
+                "to use tbreak, tbin must be an array len(tbreak) + 1"
+            tmins = np.concatenate([[param_dict['tmin']], tbreak])
+            tmaxs = np.concatenate([tbreak, [param_dict['tmax']]])
+
+            for i in range(len(tmaxs)):
+                subarr = np.arange(tmins[i], tmaxs[i] + tbin[i], tbin[i])
+                dtarr = np.append(dtarr, subarr)
+        else:
+            dtarr = np.arange(param_dict['tmin'],
+                              param_dict['tmax'] + param_dict['tbin'],
+                              param_dict['tbin'])
 
         param_dict['ntbins'] = len(dtarr) - 1
 
@@ -227,8 +240,8 @@ def calcsfh_input_parameter(zinc=False, power_law_imf=True, **params):
     fmt += '{nexclude_gates:d} {exclude_gates:s} {ninclude_gates:d} {include_gates:s} \n'
     #    Metallicity information not yet supported
     fmt += '{ntbins:d}\n'
-    fmt += ''.join(['   {0:.2f} {1:.2f}\n'.format(i, j)
-                    for i, j in zip(dtarr[:], dtarr[1:])])
+    fmt += ''.join(['   {:.2f} {:.2f}\n'.format(i, j) for i, j in
+                    zip(dtarr[:], dtarr[1:]) if np.round(i,4) != np.round(j,4)])
     fmt += footer
     return fmt.format(**param_dict)
 
