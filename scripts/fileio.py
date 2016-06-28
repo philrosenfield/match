@@ -157,19 +157,19 @@ def calcsfh_input_parameter(zinc=False, power_law_imf=True, **params):
     Returns a formatted string of the calcsfh input parameter file.
     params is a dictionary to update calcsfh_dict which has most of the same
     keys as are directly needed in the calcsfh input parameter file.
-    
+
     imf dmod0 dmod1 ddmod av0 av1 dav
     logzmin logzmax dlogz[1]
     bf bad0 bad1
     ncmds[2]
-    vstep v-istep fake_sm v-imin v-imax v,i 
+    vstep v-istep fake_sm v-imin v-imax v,i
     vmin vmax v
     imin imax i
     nexclude_gates exclude_gates ninclude_gates include_gates[3]
     ntbins[4]
         ...
     use_bg bg_smooth bg_sample bg_file[5]
-    
+
     [1] if zinc the following is added:
         logzmin0 logzmin1 logzmax0 logzmax1
     [2] ncmds > 1 not implemented yet
@@ -179,7 +179,7 @@ def calcsfh_input_parameter(zinc=False, power_law_imf=True, **params):
         the number of time bins as ntbins or the length of a time bin as tbin.
     '''
     param_dict = dict(calcsfh_dict().items() + params.items())
-    
+
     # the logZ line changes if using -zinc flag
     zincfmt = '{logzmin:.2f} {logzmax:.2f} {dlogz:.2f}'
     if zinc:
@@ -194,7 +194,7 @@ def calcsfh_input_parameter(zinc=False, power_law_imf=True, **params):
     line0 += ' {dmod0:.3f} {dmod1:.3f} {ddmod:.3f} {av0:.3f} {av1:.3f} {dav:.3f}\n'
 
     # Parse the in/exclude gates
-    param_dict['exclude_gates'] = add_gates(param_dict['nexclude_gates'])    
+    param_dict['exclude_gates'] = add_gates(param_dict['nexclude_gates'])
     param_dict['include_gates'] = add_gates(param_dict['ninclude_gates'])
 
     # Prepare time bins
