@@ -4,7 +4,6 @@ import argparse
 import itertools
 import os
 import sys
-import numpy as np
 
 from config import calcsfh, calcsfh_flag, OUTEXT, SCRNEXT
 from utils import splitext, writeorappend, parse_argrange
@@ -22,7 +21,8 @@ def getflags(dav=0.0, sub=None, imf=None):
             flag += " -{}".format(imf)
     return flag
 
-def vary_matchparam(param_file, varyarrs=None):
+def vary_matchparam(param_file, varyarrs=None, power_law_imf=True,
+                    params=None):
     """
     Vary parameters from a match param template file.
     param_file : string
@@ -38,14 +38,13 @@ def vary_matchparam(param_file, varyarrs=None):
         filename)
     """
     new_names = []
-    varyarrs = {} or None
+    varyarrs = {} or varyarrs
+    params = {} or params
 
     pname, ext = splitext(param_file)
-    template = read_calcsfh_param(param_file)
+    template = dict(read_calcsfh_param(param_file).items() + params.items())
     # using tbin, tmin, tmax:
     del template['ntbins']
-    template['tmin'] = 9.0
-    template['tmax'] = 9.8
 
     for vals in itertools.product(*varyarrs.values()):
         name = []
@@ -53,12 +52,13 @@ def vary_matchparam(param_file, varyarrs=None):
             key = varyarrs.keys()[i].replace('arr', '')
             template[key] = val
             name.append('{}{}'.format(key, val))
-        new_param = calcsfh_input_parameter(**template)
+        new_param = calcsfh_input_parameter(power_law_imf=power_law_imf,
+                                            **template)
         new_name = '{}_{}.{}'.format(pname, '_'.join(name), ext)
 
         with open(new_name, 'w') as outp:
             outp.write(new_param)
-        print('wrote {}'.format(new_param))
+        print('wrote {}'.format(new_name))
         new_names.append(new_name)
     return new_names
 
@@ -128,28 +128,43 @@ def main(argv):
     parser.add_argument('-n', '--nproc', type=int, default=12,
                         help='number of simultaneous calls to calcsfh')
 
-    parser.add_argument('-o', '--outfile', type=str, default='calcsfh_ssp.sh',
+    parser.add_argument('--outfile', type=str, default='calcsfh_ssp.sh',
                         help='file to save the script')
 
-    parser.add_argument('-i', '--imf', type=str, default='-1,3,1',
-                        help='IMF min, max, dIMF')
+    parser.add_argument('--imf', nargs='?', default=[-1, 3, 1],
+                        help='IMF min, max, dIMF or one value/string')
 
-    parser.add_argument('-b', '--bf', type=str, default='0,1.00,0.3',
-                        help='BF min, max, dBF')
+    parser.add_argument('--bf', type=float, nargs='*', default=[0, 1., 0.3],
+                        help='BF min, max, dBF or list')
 
-    parser.add_argument('-a', '--dav', type=str, default='0,1.1,0.5',
+    parser.add_argument('--dav', type=float, nargs='*', default=[0, 1.1, 0.5],
+                        help='dAv min, max, ddAv or list')
+
+    parser.add_argument('--tbin', type=float, nargs='*', default=[0.5],
                         help='dAv min, max, ddAv')
 
-    parser.add_argument('-s', '--sub', type=str,
+    parser.add_argument('--vstep', type=float, nargs='*', default=[0.1],
+                        help='dAv min, max, ddAv')
+
+    parser.add_argument('--vistep', type=float, nargs='*', default=[0.05],
+                        help='dAv min, max, ddAv')
+
+    parser.add_argument('--tmin', type=float, default=6.6,
+                        help='min log age')
+
+    parser.add_argument('--tmax', type=float, default=10.25,
+                        help='max log age')
+
+    parser.add_argument('--sub', type=str,
                         help='track sub directory')
 
     parser.add_argument('-e', '--extra', type=str, default='',
                         help='add an extra string to output filenames.')
 
-    parser.add_argument('-d', '--destination', type=str, default=None,
+    parser.add_argument('--destination', type=str, default=None,
                         help='destination directory for calcsfh output')
 
-    parser.add_argument('-c', '--check', action='store_true',
+    parser.add_argument('--check', action='store_true',
                         help=('check if calcsfh output file exists, '
                               'useful for completeing interrupted runs.'))
 
@@ -172,20 +187,26 @@ def main(argv):
     if len(args.extra) > 0:
         extra = '_{}'.format(args.extra)
 
-    #imfarr = parse_argrange(args.imf, args.imf)
-    imf = args.imf
-    #bfarr = parse_argrange(args.bf, 0.0)
-    davarr = parse_argrange(args.dav, 0.0)
-    subs = parse_argrange(args.sub, None)
+    import pdb; pdb.set_trace()
+    subs = parse_argrange(args.sub)
+    davs = parse_argrange(args.dav)
+
+    cparams = {'tmin': args.tmin, 'tmax': args.tmax}
 
     # write the parameter files
-    imf = 1.30 # maybe test with kroupa....
-    varyarrs = {'imfarr': [1.30],
-                'bfarr': [0.],
-                'tbinarr': np.array([0.01, 0.05, 0.1, 0.5]),
-                'v-isteparr': np.array([0.01, 0.05, 0.1, 0.15]),
-                'vsteparr': np.array([0.01, 0.05, 0.1, 0.15])}
-    params = vary_matchparam(args.param_file, varyarrs)
+    varyarrs = {'bfarr': parse_argrange(args.bf),
+                'tbinarr': parse_argrange(args.tbin), # np.array([0.01, 0.05, 0.1, 0.5]),
+                'v-isteparr': parse_argrange(args.vistep), # np.array([0.01, 0.05, 0.1, 0.15]),
+                'vsteparr': parse_argrange(args.vstep)} #np.array([0.01, 0.05, 0.1, 0.15])}
+
+    power_law_imf = False
+    imf = args.imf
+    if not isinstance(imf, str):
+        varyarrs['imfarr'] = parse_argrange(args.imf)
+        power_law_imf = True
+
+    params = vary_matchparam(args.param_file, varyarrs=varyarrs, params=cparams,
+                             power_law_imf=power_law_imf)
 
     # loop over all to create output filenames and calcsfh calls
     line = ''
@@ -194,7 +215,7 @@ def main(argv):
         subfmt = ''
         if sub is not None:
             subfmt = '_{}'.format(sub)
-        for dav in davarr:
+        for dav in davs:
             for param in params:
                 parfile = param
                 if args.destination is not None:
