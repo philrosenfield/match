@@ -62,61 +62,6 @@ def vary_matchparam(param_file, varyarrs=None, power_law_imf=True,
         new_names.append(new_name)
     return new_names
 
-def vary_matchparam1(param_file, imfarr, bfarr):
-    """
-    Vary parameters from a match param template file.
-    param_file : string
-        calcsfh input (aka parameter) file
-    imfarr : array
-        imf values to vary
-    bfarr : array
-        binary fraction values to vary
-
-    Returns
-    -------
-    new_names : list
-        list of string new parameter file names (with new paramters in the
-        filename)
-    """
-    new_names = []
-    lines = open(param_file).readlines()
-
-    for imf, bfrac in itertools.product(imfarr, bfarr):
-        imfline = lines[0].strip().split()
-        try:
-            # imf is a power law
-            float(imf)
-            if len(imfline) == 6:
-                # imf was not in the template param file
-                imfline.insert(0, '{}'.format(imf))
-            elif len(imfline) > 6:
-                # new power law
-                imfline[0] = '{:.2f}'.format(imf)
-        except ValueError:
-            # imf is -kroupa or -chabrier called from command line.
-            if len(imfline) > 6:
-                print('First line of param file formatted for powerlaw IMF')
-
-        newimfline = ' '.join(imfline) + '\n'
-        lines[0] = newimfline
-
-        bfline = lines[2].split()
-        # new binary fraction
-        bfline[0] = '{:.2f}'.format(bfrac)
-
-        newbfline = ' '.join(bfline) + '\n'
-        lines[2] = newbfline
-
-        # place new params
-        pname, ext = splitext(param_file)
-        new_name = '{}_imf{}_bf{}.{}'.format(pname, imf, bfrac, ext)
-
-        with open(new_name, 'w') as outp:
-            outp.write(''.join(lines))
-
-        new_names.append(new_name)
-    return new_names
-
 
 def main(argv):
     """
