@@ -33,7 +33,7 @@ def vary_matchparam(param_file, varyarrs=None, power_law_imf=True,
 
     power_law_imf : bool
         passed to calcsfh_input_parameter
-    
+
     params : dict
         parameters to overwite param_file with but not vary. (probably
         tmin, tmax)
@@ -153,6 +153,7 @@ def main(argv):
     power_law_imf = False
     imf = args.imf
     if not isinstance(imf, str):
+        # i.e, not kroupa or chabrier
         varyarrs['imfarr'] = parse_argrange(args.imf)
         power_law_imf = True
 
