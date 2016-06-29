@@ -20,7 +20,7 @@ def getflags(dav=0.0, sub=None, imf=None):
             flag += " -{}".format(imf)
     return flag
 
-
+#generalize this to use param values... should actually read in values of param...
 def vary_matchparam(param_file, imfarr, bfarr):
     """
     Vary parameters from a match param template file.
