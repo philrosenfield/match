@@ -74,7 +74,6 @@ def process_match_sfh(sfhfile, outfile='processed_sfh.out', sarah_sim=False,
     return outfile
 
 
-
 def parse_pipeline(filename):
     '''find target and filters from the filename'''
     name = os.path.split(filename)[1].upper()
@@ -100,9 +99,14 @@ def parse_pipeline(filename):
     return target, filters
 
 
-def parse_argrange(strarr, arg):
-    """Reade a comma separated string into np.arange.
-    strarr : string
+def parse_argrange(strarr):
+    """
+    Read a comma separated string or float list into np.arange or np.array.
+
+    If the final value of the list is less than the others, it will assume
+    min, max, delta.
+
+    strarr : string or list
     e.g.,
     "0.,1,0.1"
     array([ 0. ,  0.1,  0.2,  0.3,  0.4,  0.5,  0.6,  0.7,  0.8,  0.9])
@@ -110,17 +114,33 @@ def parse_argrange(strarr, arg):
     arg:
     if no comma in strarr, return an array of this value.
     """
-    if strarr is None:
-        return [strarr]
+    def arangeit(arr):
+        """
+        return np.arange(*arr) if there are 3 values in arr
+        and last value is less than others.
+        """
+        if len(arr) == 3 and np.sign(np.diff(arr))[-1] < 1:
+            arng = np.arange(*arr)
+        else:
+            arng = arr
+        return arng
 
-    if ',' in strarr:
-        try:
-            arr = np.arange(*map(float, strarr.split(',')))
-        except ValueError:
-            #not floats.
-            arr = strarr.split(',')
+    if strarr is None:
+        return np.array([strarr])
+
+    if isinstance(strarr, str):
+        if ',' in strarr:
+            try:
+                farr = np.array(strarr.split(','), dtype=float)
+                arr = arangeit(farr)
+            except ValueError:
+                # not floats.
+                arr = np.array(strarr.split(','))
+        else:
+            # not a comma separated list
+            arr = np.array([strarr])
     else:
-        arr = np.array([arg])
+        arr = arangeit(strarr)
     return arr
 
 
