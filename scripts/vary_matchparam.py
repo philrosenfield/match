@@ -4,9 +4,11 @@ import argparse
 import itertools
 import os
 import sys
+import numpy as np
 
 from config import calcsfh, calcsfh_flag, OUTEXT, SCRNEXT
 from utils import splitext, writeorappend, parse_argrange
+from fileio import read_calcsfh_param, calcsfh_input_parameter
 
 def getflags(dav=0.0, sub=None, imf=None):
     """Add -dAv, -sub, and/or -kroupa or -chabrier to config.calcsfh_flag"""
@@ -20,8 +22,47 @@ def getflags(dav=0.0, sub=None, imf=None):
             flag += " -{}".format(imf)
     return flag
 
+def vary_matchparam(param_file, varyarrs=None):
+    """
+    Vary parameters from a match param template file.
+    param_file : string
+        calcsfh input (aka parameter) file
+    varyarrs : dict
+        a dictionary of array values where each key is XXXarr where
+        XXX is a key in calcsfh_input_parameter
 
-def vary_matchparam(param_file, imfarr, bfarr):
+    Returns
+    -------
+    new_names : list
+        list of string new parameter file names (with new parameters in the
+        filename)
+    """
+    new_names = []
+    varyarrs = {} or None
+
+    pname, ext = splitext(param_file)
+    template = read_calcsfh_param(param_file)
+    # using tbin, tmin, tmax:
+    del template['ntbins']
+    template['tmin'] = 9.0
+    template['tmax'] = 9.8
+
+    for vals in itertools.product(*varyarrs.values()):
+        name = []
+        for i, val in enumerate(vals):
+            key = varyarrs.keys()[i].replace('arr', '')
+            template[key] = val
+            name.append('{}{}'.format(key, val))
+        new_param = calcsfh_input_parameter(**template)
+        new_name = '{}_{}.{}'.format(pname, '_'.join(name), ext)
+
+        with open(new_name, 'w') as outp:
+            outp.write(new_param)
+        print('wrote {}'.format(new_param))
+        new_names.append(new_name)
+    return new_names
+
+def vary_matchparam1(param_file, imfarr, bfarr):
     """
     Vary parameters from a match param template file.
     param_file : string
@@ -131,14 +172,20 @@ def main(argv):
     if len(args.extra) > 0:
         extra = '_{}'.format(args.extra)
 
-    imfarr = parse_argrange(args.imf, args.imf)
+    #imfarr = parse_argrange(args.imf, args.imf)
     imf = args.imf
-    bfarr = parse_argrange(args.bf, 0.0)
-    davarr = parse_argrange(args.bf, 0.0)
+    #bfarr = parse_argrange(args.bf, 0.0)
+    davarr = parse_argrange(args.dav, 0.0)
     subs = parse_argrange(args.sub, None)
 
     # write the parameter files
-    params = vary_matchparam(args.param_file, imfarr, bfarr)
+    imf = 1.30 # maybe test with kroupa....
+    varyarrs = {'imfarr': [1.30],
+                'bfarr': [0.],
+                'tbinarr': np.array([0.01, 0.05, 0.1, 0.5]),
+                'v-isteparr': np.array([0.01, 0.05, 0.1, 0.15]),
+                'vsteparr': np.array([0.01, 0.05, 0.1, 0.15])}
+    params = vary_matchparam(args.param_file, varyarrs)
 
     # loop over all to create output filenames and calcsfh calls
     line = ''

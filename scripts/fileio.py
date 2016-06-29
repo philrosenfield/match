@@ -233,7 +233,7 @@ def calcsfh_input_parameter(zinc=False, power_law_imf=True, **params):
     fmt = line0
     fmt += zincfmt
     fmt += '{bf:.2f} {bad0:.6f} {bad1:.6f}\n'
-    fmt += '{ncmds: d}\n'
+    fmt += '{ncmds:d}\n'
     fmt += '{vstep:.2f} {v-istep:.2f} {fake_sm:d} {v-imin:.2f} {v-imax:.2f} {v:s},{i:s}\n'
     fmt += '{vmin:.2f} {vmax:.2f} {v:s}\n'
     fmt += '{imin:.2f} {vmax:.2f} {i:s}\n'
@@ -388,7 +388,7 @@ def get_files(src, search_string):
         logger.error('Can''t find %s in %s' % (search_string, src))
         sys.exit(2)
     files = [os.path.join(src, f)
-             for f in files if ensure_file(os.path.join(src, f), mad=False)]
+             for f in files if os.path.isfile(os.path.join(src, f), mad=False)]
     return files
 
 
@@ -406,34 +406,37 @@ def read_calcsfh_param(filename):
         d['dmod0'], d['dmod1'], d['ddmod'], d['av0'], d['av1'], d['dav'] \
             = np.array(lines[0].split(), dtype=float)
     except ValueError:
-        d['imf'], d['dmod0'], d['dmod1'], d['ddmod'], d['av0'], d['av1'], d['dav'] \
-            = np.array(lines[0].split(), dtype=float)
+        d['imf'], d['dmod0'], d['dmod1'], d['ddmod'], d['av0'], d['av1'], \
+            d['dav'] = np.array(lines[0].split(), dtype=float)
     try:
-        d['logzmin'], d['logzmax'], d['dlogz'], d['logzmin0'], d['logzmax0'], d['logzmin1'], d['logzmax1'] \
-            = np.array(lines[1].split(), dtype=float)
+        d['logzmin'], d['logzmax'], d['dlogz'], d['logzmin0'], d['logzmax0'], \
+            d['logzmin1'], d['logzmax1'] = np.array(lines[1].split(),
+                                                    dtype=float)
     except ValueError:
         d['logzmin'], d['logzmax'], d['dlogz'] \
             = np.array(lines[1].split(), dtype=float)
 
-    d['BF'], d['bad0'], d['bad1'] = np.array(lines[2].split(), dtype=float)
+    d['bf'], d['bad0'], d['bad1'] = np.array(lines[2].split(), dtype=float)
     d['ncmds'] = int(lines[3].strip())
     vstep, vistep, fake_sm, vimin, vimax, filters = lines[4].strip().split()
     d['v'], d['i'] = filters.split(',')
-    d['vstep'], d['vistep'], d['fake_sm'], d['vimin'], d['vimax'] \
-        = map(float, [vstep, vistep, fake_sm, vimin, vimax])
-    vmin, vmax, d['v'] = lines[5].strip().split()
-    imin, imax, d['i'] = lines[6].strip().split()
+    d['vstep'], d['v-istep'], d['v-imin'], d['v-imax'] = map(float,
+                                                             [vstep, vistep,
+                                                              vimin, vimax])
+    d['fake_sm'] = int(fake_sm)
+    vmin, vmax, _ = lines[5].strip().split()
+    imin, imax, _ = lines[6].strip().split()
     d['vmin'], d['vmax'], d['imin'], d['imax'] \
         = map(float, [vmin, vmax, imin, imax])
-    d['gates'] = lines[7].strip()
+    #d['gates'] = lines[7].strip()
     d['ntbins'] = int(lines[8].strip())
     d['to'], d['tf'] = np.array([l.strip().split() for l in lines[9:]
                                  if not l.startswith('-')], dtype=float).T
-    d['footer'] = ''.join([l for l in lines[8:] if l.startswith('-')])
+    #d['footer'] = ''.join([l for l in lines[8:] if l.startswith('-')])
     return d
 
 
-def fake_param_fmt(power_law_imf=True, fake=True):
+def fake_param_fmt():
     """
     I donno... without Ntbins and age binning I think this is stupid.
     Does not allow for -diskav or -mag or anything besides trying to reproduce
