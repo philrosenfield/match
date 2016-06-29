@@ -31,11 +31,18 @@ def vary_matchparam(param_file, varyarrs=None, power_law_imf=True,
         a dictionary of array values where each key is XXXarr where
         XXX is a key in calcsfh_input_parameter
 
+    power_law_imf : bool
+        passed to calcsfh_input_parameter
+    
+    params : dict
+        parameters to overwite param_file with but not vary. (probably
+        tmin, tmax)
+
     Returns
     -------
     new_names : list
         list of string new parameter file names (with new parameters in the
-        filename)
+        filename) that were written
     """
     new_names = []
     varyarrs = {} or varyarrs
@@ -43,7 +50,7 @@ def vary_matchparam(param_file, varyarrs=None, power_law_imf=True,
 
     pname, ext = splitext(param_file)
     template = dict(read_calcsfh_param(param_file).items() + params.items())
-    # using tbin, tmin, tmax:
+    # force using tbin, tmin, tmax:
     del template['ntbins']
 
     for vals in itertools.product(*varyarrs.values()):
@@ -132,7 +139,6 @@ def main(argv):
     if len(args.extra) > 0:
         extra = '_{}'.format(args.extra)
 
-    import pdb; pdb.set_trace()
     subs = parse_argrange(args.sub)
     davs = parse_argrange(args.dav)
 
@@ -140,9 +146,9 @@ def main(argv):
 
     # write the parameter files
     varyarrs = {'bfarr': parse_argrange(args.bf),
-                'tbinarr': parse_argrange(args.tbin), # np.array([0.01, 0.05, 0.1, 0.5]),
-                'v-isteparr': parse_argrange(args.vistep), # np.array([0.01, 0.05, 0.1, 0.15]),
-                'vsteparr': parse_argrange(args.vstep)} #np.array([0.01, 0.05, 0.1, 0.15])}
+                'tbinarr': parse_argrange(args.tbin),
+                'v-isteparr': parse_argrange(args.vistep),
+                'vsteparr': parse_argrange(args.vstep)}
 
     power_law_imf = False
     imf = args.imf
