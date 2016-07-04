@@ -9,16 +9,16 @@ from config import calcsfh, calcsfh_flag, OUTEXT, SCRNEXT
 from utils import splitext, writeorappend, parse_argrange
 from fileio import read_calcsfh_param, calcsfh_input_parameter
 
-def getflags(dav=0.0, sub=None, imf=None):
+def getflags(dav=None, sub=None, imf=None):
     """Add -dAv, -sub, and/or -kroupa or -chabrier to config.calcsfh_flag"""
+    imf = imf.lower()
     flag = calcsfh_flag
     if dav is not None:
         flag += " -dAv={:.2f}".format(dav)
     if sub is not None:
         flag += "  -sub={}".format(sub)
-    if imf is not None:
-        if imf == 'kroupa' or imf == 'chabrier':
-            flag += " -{}".format(imf)
+    if imf == 'kroupa' or imf == 'chabrier':
+        flag += " -{}".format(imf)
     return flag
 
 def vary_matchparam(param_file, varyarrs=None, power_law_imf=True,
@@ -139,17 +139,13 @@ def main(argv):
     if len(args.extra) > 0:
         extra = '_{}'.format(args.extra)
 
+    # get the array or calculate arange
     subs = parse_argrange(args.sub)
     davs = parse_argrange(args.dav)
-
-    cparams = {'tmin': args.tmin, 'tmax': args.tmax}
-
-    # write the parameter files
     varyarrs = {'bfarr': parse_argrange(args.bf),
                 'tbinarr': parse_argrange(args.tbin),
-                'v-isteparr': parse_argrange(args.vistep),
+                'visteparr': parse_argrange(args.vistep),
                 'vsteparr': parse_argrange(args.vstep)}
-
     power_law_imf = False
     imf = args.imf
     if not isinstance(imf, str):
@@ -157,10 +153,13 @@ def main(argv):
         varyarrs['imfarr'] = parse_argrange(args.imf)
         power_law_imf = True
 
+    cparams = {'tmin': args.tmin, 'tmax': args.tmax}
+    # do the "internal" matchparam varying
     params = vary_matchparam(args.param_file, varyarrs=varyarrs, params=cparams,
                              power_law_imf=power_law_imf)
 
-    # loop over all to create output filenames and calcsfh calls
+    # loop over all to create output filenames and calcsfh calls for parameters
+    # that vary that are not in the calcsfh parameter file.
     line = ''
     nproc = 0
     for sub in subs:
