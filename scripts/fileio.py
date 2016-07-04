@@ -176,9 +176,10 @@ def calcsfh_input_parameter(zinc=False, power_law_imf=True, **params):
         logzmin0 logzmin1 logzmax0 logzmax1
     [2] ncmds > 1 not implemented yet
     [3] Not implemented yet.
-    [4] The array is calculated here.
-        Supply minimum log age as tmin, maximum log age as tmax and either
-        the number of time bins as ntbins or the length of a time bin as tbin.
+    [4] The time array is calculated here.
+        Supply minimum log (or linear) age as tmin, maximum log age as tmax and
+        either the number of time bins as ntbins or the length of a time bin as
+        tbin.
     '''
     param_dict = dict(calcsfh_dict().items() + params.items())
 
@@ -222,6 +223,9 @@ def calcsfh_input_parameter(zinc=False, power_law_imf=True, **params):
             dtarr = np.arange(param_dict['tmin'],
                               param_dict['tmax'] + param_dict['tbin'],
                               param_dict['tbin'])
+        # linear ages as input converted to log
+        if dtarr[0] > 100.:
+            dtarr = np.log10(dtarr)
 
         param_dict['ntbins'] = len(dtarr) - 1
 
@@ -236,13 +240,13 @@ def calcsfh_input_parameter(zinc=False, power_law_imf=True, **params):
     fmt += zincfmt
     fmt += '{bf:.2f} {bad0:.6f} {bad1:.6f}\n'
     fmt += '{ncmds:d}\n'
-    fmt += '{vstep:.2f} {v-istep:.2f} {fake_sm:d} {v-imin:.2f} {v-imax:.2f} {v:s},{i:s}\n'
+    fmt += '{vstep:.2f} {vistep:.2f} {fake_sm:d} {vimin:.2f} {vimax:.2f} {v:s},{i:s}\n'
     fmt += '{vmin:.2f} {vmax:.2f} {v:s}\n'
     fmt += '{imin:.2f} {vmax:.2f} {i:s}\n'
     fmt += '{nexclude_gates:d} {exclude_gates:s} {ninclude_gates:d} {include_gates:s} \n'
     #    Metallicity information not yet supported
     fmt += '{ntbins:d}\n'
-    fmt += ''.join(['   {:.2f} {:.2f}\n'.format(i, j) for i, j in
+    fmt += ''.join(['   {:.6f} {:.6f}\n'.format(i, j) for i, j in
                     zip(dtarr[:], dtarr[1:]) if np.round(i,4) != np.round(j,4)])
     fmt += footer
     return fmt.format(**param_dict)
