@@ -17,7 +17,7 @@ __all__ = ['add_filename_info_to_file', 'add_gates', 'calcsfh_dict',
            'read_ssp_output']
 
 
-def add_filename_info_to_file(fname):
+def add_filename_info_to_file(fname, best=False):
     """
     add filename info to the data.
     E.g, ssp_imf4.85_bf0.3_dav0.0.dat
@@ -63,8 +63,10 @@ def add_filename_info_to_file(fname):
     #av, dmod, fit = map(float, [d.replace(',','':.split('=')[1]
     #                            for d in df.iloc[ibest].values
     #d                            if type(d) == str and '=' in d])
-    df = df.iloc[:ibest].copy(deep=True)
-
+    if best:
+        df = df.iloc[ibest+1].copy(deep=True)
+    else:
+        df = df.iloc[:ibest].copy(deep=True)
 
     new_stuff = filename_data(fname)
     for name, val in new_stuff.items():

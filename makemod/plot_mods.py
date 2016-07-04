@@ -14,6 +14,7 @@ import matplotlib.pylab as plt
 
 from ..scripts.config import EXT
 
+
 def plot_mods(sub=None, pref='mod1_*', overwrite=False):
     """
     make a plot of Mbol vs Log Te of tracks to go to MATCH or the
@@ -93,7 +94,7 @@ def plot_mods(sub=None, pref='mod1_*', overwrite=False):
 
 def main(argv):
     """Main caller for plot_mods."""
-    parser = argparse.ArgumentParser(description="Plot mod* files in data directory")
+    parser = argparse.ArgumentParser(description="Plot mod* files in data/")
 
     parser.add_argument('-s', '--sub', type=str,
                         help='subdirectory name')

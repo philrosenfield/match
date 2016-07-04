@@ -92,10 +92,10 @@ def main(argv):
     parser.add_argument('--dav', type=float, nargs='*', default=[0, 1.1, 0.5],
                         help='dAv min, max, ddAv or list')
 
-    parser.add_argument('--tbin', type=float, nargs='*', default=[0.5],
+    parser.add_argument('--tbin', type=float, nargs='*', default=[0.01],
                         help='dAv min, max, ddAv')
 
-    parser.add_argument('--vstep', type=float, nargs='*', default=[0.1],
+    parser.add_argument('--vstep', type=float, nargs='*', default=[0.15],
                         help='dAv min, max, ddAv')
 
     parser.add_argument('--vistep', type=float, nargs='*', default=[0.05],

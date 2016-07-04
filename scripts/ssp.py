@@ -1,4 +1,5 @@
 """Stats and visualization of calcsfh -ssp runs"""
+from __future__ import print_function
 import argparse
 import itertools
 import os
@@ -10,8 +11,7 @@ import numpy as np
 
 from .config import EXT, match_base
 from .fileio import filename_data, add_filename_info_to_file
-from .utils import strip_header
-from .config import EXT
+from .utils import strip_header, parse_pipeline
 
 
 __all__ = ['SSP']
@@ -22,11 +22,12 @@ except:
     pass
 
 
-def combine_files(fnames, outfile='combined_files.csv'):
+def combine_files(fnames, outfile='combined_files.csv', best=False):
+    """add files together including columns based on params in filename"""
     all_data = pd.DataFrame()
     for fname in fnames:
-        df = add_filename_info_to_file(fname)
-        all_data = all_data.append(df, ignore_index=True)
+        dframe = add_filename_info_to_file(fname, best=best)
+        all_data = all_data.append(dframe, ignore_index=True)
 
     all_data.to_csv(outfile, index=False)
     return outfile
@@ -34,14 +35,17 @@ def combine_files(fnames, outfile='combined_files.csv'):
 
 def make_pgcmd(cmdfns, nmax=5):
     """
-    Call pgcmd on many .cmd files, ordering them according to best fit.
+    Call pgcmd on many .cmd files, ordering them by inc. best fit value.
     cmdfns : string or list
         .cmd filename or list of filenames.
+
+    nmax : int
+        make best nmax plots.
     """
     from .cmd import CMD
     from .graphics import pgcmd
 
-    if type(cmdfns) is not list:
+    if not isinstance(cmdfns, list):
         cmdfns = [cmdfns]
 
     fits = [float(open(cmdfn).readline().split()[0]) for cmdfn in cmdfns]
@@ -58,7 +62,7 @@ def make_pgcmd(cmdfns, nmax=5):
         figname = '{}{}{}'.format(cmdfn, jstr, EXT)
         labels = ["Data", "fit={}".format(fits[i]), "Diff", "Sig"]
         try:
-            target, [filter1, filter2] = parse_pipeline(filename)
+            target, [filter1, filter2] = parse_pipeline(cmdfn)
             yfilter = filter1
         except:
             pass
@@ -93,6 +97,9 @@ def sspcombine(fname, dry_run=True, outfile=None):
 
 
 class SSP(object):
+    """
+    Class for calcsfh -ssp outputs
+    """
     def __init__(self, filename, data=None, filterby=None):
         """
         filenames are the calcsfh -ssp terminal or console output.
@@ -104,20 +111,20 @@ class SSP(object):
             data = pd.read_csv(filename)
 
         if filterby is not None:
-            for k, v in filterby.items():
-                data = data[data[k] == v].copy(deep=True)
+            for key, val in filterby.items():
+                data = data[data[key] == val].copy(deep=True)
 
         self.data = data
 
         self.ibest = np.argmin(self.data['fit'])
 
-        self.absprob = \
-            np.exp(0.5 * (self.data['fit'].min() - self.data['fit']))
+        self.absprob = 0.5 * (self.data['fit'] - self.data['fit'].min())
+        # np.exp(0.5 * (self.data['fit'].min() - self.data['fit']))
 
     def _getmarginals(self):
         """get the values to marginalize over that exist in the data"""
-        marg = np.array(['Av', 'IMF', 'dmod', 'lage', 'logZ', 'dav', 'ov',
-                         'bf'])
+        # marg = np.array(['Av', 'IMF', 'dmod', 'lage', 'logZ', 'dav', 'ov', 'bf'])
+        marg = np.array([k for k in self.data.keys() if k != 'fit'])
         inds = [i for i, m in enumerate(marg) if self._haskey(m)]
         return marg[inds]
 
@@ -166,26 +173,30 @@ class SSP(object):
 
     def pdf_plot(self, attr, attr2=None, ax=None, sub=''):
         """Plot prob vs marginalized attr"""
+
+        vals, prob, _ = self.marginalize(attr, attr2=attr2)
+        if len(vals) == 1:
+            print('{} not varied.'.format(attr))
+            return
+
         save = False
         if len(sub) > 0:
             sub = '_' + sub
 
         if ax is None:
-            fig, ax = plt.subplots()
+            _, ax = plt.subplots()
             save = True
 
-        vals, prob, _ = self.marginalize(attr, attr2=attr2)
-
         if attr2 is None:
-            if len(vals) == 1:
-                print('{} not varied.'.format(attr))
-                return -1
             ax.hist(vals, weights=prob, bins=31, histtype='step',
                     lw=4, color='k')
             ax.set_ylabel(r'$\rm{Probability}$')
             ptype = 'marginal'
         else:
             [vals, vals2] = vals
+            if len(np.unique(vals2)) == 1 or len(np.unique(vals)) == 1:
+                plt.close()
+                return
 
             h, xe, ye = np.histogram2d(vals, vals2, weights=prob)
             c = plt.imshow(h.T, origin='low', interpolation='None',
@@ -195,13 +206,14 @@ class SSP(object):
             cb = plt.colorbar(c)
             cb.set_label(r'$\rm{Probability}$')
             ax.set_ylabel(key2label(attr2))
-            ptype = 'joint'
+            ptype = '{}_joint'.format(attr2)
         ax.set_xlabel(key2label(attr))
 
         if save:
             outname = '{}_{}{}_{}_gamma{}'.format(self.name.replace('.csv', ''),
                                                   attr, sub, ptype, EXT)
             plt.savefig(outname, bbox_inches='tight')
+            print('wrote {}'.format(outname))
             plt.close()
         return ax
 
@@ -220,7 +232,7 @@ class SSP(object):
 
                 self.pdf_plot(i, attr2=j, sub=sub)
         else:
-            [self.pdf_plot(i, sub=sub) for i in marg]
+            _ = [self.pdf_plot(i, sub=sub) for i in marg]
 
         return
 
@@ -260,6 +272,9 @@ def main(argv):
     parser.add_argument('-t', '--twod', action='store_true',
                         help='make val vs val vs prob plots')
 
+    parser.add_argument('-b', '--best', action='store_true',
+                        help='include best fits only')
+
     parser.add_argument('-o', '--outfile', type=str,
                         default='combined_files.csv',
                         help='if -f file name to write to')
@@ -292,7 +307,7 @@ def main(argv):
         args.fnames = map(str.strip, open(args.fnames[0], 'r').readlines())
 
     if args.plotcmd:
-        make_pgcmd(args.fnames)
+        make_pgcmd(args.fnames, nmax=16)
         sys.exit()
 
     filtdict = {}
@@ -300,7 +315,7 @@ def main(argv):
         filtdict = filename_data(args.sub, skip=0)
 
     if args.format:
-        fname = combine_files(args.fnames, outfile=args.outfile)
+        fname = combine_files(args.fnames, outfile=args.outfile, best=args.best)
     elif args.sspcombine:
         [sspcombine(f, dry_run=False) for f in args.fnames]
         sys.exit(0)
