@@ -108,7 +108,13 @@ class SSP(object):
         """
         self.base, self.name = os.path.split(filename)
         if data is None:
-            data = pd.read_csv(filename)
+            try:
+                data = pd.read_csv(filename)
+            except:
+                dat = np.genfromtxt(scrn, skip_header=10, skip_footer=2,
+                                    names=['Av', 'IMF', 'dmod', 'lage', 'logZ',
+                                           'fit', 'sfr'])
+                data = pd.DataFrame(dat)
 
         if filterby is not None:
             for key, val in filterby.items():
