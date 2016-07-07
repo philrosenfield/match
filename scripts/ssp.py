@@ -108,10 +108,10 @@ class SSP(object):
         """
         self.base, self.name = os.path.split(filename)
         if data is None:
-            try:
+            if filename.endswith('.csv'):
                 data = pd.read_csv(filename)
-            except:
-                dat = np.genfromtxt(scrn, skip_header=10, skip_footer=2,
+            else:
+                dat = np.genfromtxt(filename, skip_header=10, skip_footer=2,
                                     names=['Av', 'IMF', 'dmod', 'lage', 'logZ',
                                            'fit', 'sfr'])
                 data = pd.DataFrame(dat)
