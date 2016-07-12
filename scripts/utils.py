@@ -1,3 +1,4 @@
+"""Utility functions for match.scripts"""
 from __future__ import print_function
 import logging
 import os
@@ -5,16 +6,13 @@ import re
 import sys
 
 import numpy as np
-import matplotlib.pyplot as plt
+
+from .fileio import read_match_cmd, read_binned_sfh
 
 logger = logging.getLogger()
 
-from astropy.table import Table
-from .fileio import read_match_cmd, read_binned_sfh
-
 
 __all__ = ['check_boundaries', 'strip_header', 'convertz']
-
 
 
 def process_match_sfh(sfhfile, outfile='processed_sfh.out', sarah_sim=False,
@@ -87,15 +85,15 @@ def parse_pipeline(filename):
 
     # the target name is assumed to be before the filters in the filename
     pref = name[:starts[0]-1]
-    for t in pref.split('_'):
-        if t == 'IR':
+    for pre in pref.split('_'):
+        if pre == 'IR':
             continue
         try:
             # this could be the proposal ID
-            int(t)
+            int(pre)
         except:
             # a mix of str and int should be the target
-            target = t
+            target = pre
     return target, filters
 
 
@@ -283,7 +281,7 @@ def replaceext(filename, newext):
         $ replaceext('data.02.SSS.v4.dat', '.log')
         data.02.SSS.v4.log
     '''
-    return splitext(filename)[0] + ext
+    return splitext(filename)[0] + newext
 
 
 def splitext(filename):

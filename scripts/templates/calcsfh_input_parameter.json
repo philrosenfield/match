@@ -4,7 +4,7 @@
  "imin": -99,
  "ncmds": 1,
  "logzmax": 0.1,
- "logzmin": -2.3,
+ "logzmin": -2.15,
  "av0": 0,
  "av1": 0,
  "exclude_gates": "",

@@ -5,6 +5,9 @@ EXT = '.png'
 # calcsfh output file naming schemes
 OUTEXT = '.out'
 SCRNEXT = '.scrn'
+PHOTEXT = '.match'
+FAKEEXT = '.matchfake'
+PARAMEXT = '.param'
 
 match_base = '/Volumes/raqiya/match2.6/'
 calcsfh="/Volumes/raqiya/match2.6/bin/calcsfh"

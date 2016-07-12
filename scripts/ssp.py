@@ -5,21 +5,22 @@ import itertools
 import os
 import sys
 
+try:
+    import seaborn
+    seaborn.set()
+except ImportError:
+    pass
+
 import pandas as pd
 import matplotlib.pylab as plt
 import numpy as np
 
 from .config import EXT, match_base
 from .fileio import filename_data, add_filename_info_to_file
-from .utils import strip_header, parse_pipeline
-
+from .utils import strip_header
+from .cmd import call_pgcmd_byfit
 
 __all__ = ['SSP']
-
-try:
-    plt.style.use('presentation')
-except:
-    pass
 
 
 def combine_files(fnames, outfile='combined_files.csv', best=False):
@@ -31,45 +32,6 @@ def combine_files(fnames, outfile='combined_files.csv', best=False):
 
     all_data.to_csv(outfile, index=False)
     return outfile
-
-
-def make_pgcmd(cmdfns, nmax=5):
-    """
-    Call pgcmd on many .cmd files, ordering them by inc. best fit value.
-    cmdfns : string or list
-        .cmd filename or list of filenames.
-
-    nmax : int
-        make best nmax plots.
-    """
-    from .cmd import CMD
-    from .graphics import pgcmd
-
-    if not isinstance(cmdfns, list):
-        cmdfns = [cmdfns]
-
-    fits = [float(open(cmdfn).readline().split()[0]) for cmdfn in cmdfns]
-    icmd = np.argsort(fits)
-    for j, i in enumerate(icmd):
-        if j > nmax:
-            break
-        cmdfn = np.array(cmdfns)[i]
-        mcmd = CMD(cmdfn)
-        filter1 = 'V'
-        filter2 = 'I'
-        yfilter = filter1
-        jstr = ('{}'.format(j)).zfill(4)
-        figname = '{}{}{}'.format(cmdfn, jstr, EXT)
-        labels = ["Data", "fit={}".format(fits[i]), "Diff", "Sig"]
-        try:
-            target, [filter1, filter2] = parse_pipeline(cmdfn)
-            yfilter = filter1
-        except:
-            pass
-
-        pgcmd(cmd=mcmd, filter1=filter1, filter2=filter2, yfilter=yfilter,
-              labels=labels, figname=figname)
-    return
 
 
 def sspcombine(fname, dry_run=True, outfile=None):
@@ -124,8 +86,7 @@ class SSP(object):
 
         self.ibest = np.argmin(self.data['fit'])
 
-        self.absprob = 0.5 * (self.data['fit'] - self.data['fit'].min())
-        # np.exp(0.5 * (self.data['fit'].min() - self.data['fit']))
+        self.absprob = np.exp(0.5 * (self.data['fit'].min() - self.data['fit']))
 
     def _getmarginals(self):
         """get the values to marginalize over that exist in the data"""
@@ -179,7 +140,6 @@ class SSP(object):
 
     def pdf_plot(self, attr, attr2=None, ax=None, sub=''):
         """Plot prob vs marginalized attr"""
-
         vals, prob, _ = self.marginalize(attr, attr2=attr2)
         if len(vals) == 1:
             print('{} not varied.'.format(attr))
@@ -204,13 +164,13 @@ class SSP(object):
                 plt.close()
                 return
 
-            h, xe, ye = np.histogram2d(vals, vals2, weights=prob)
-            c = plt.imshow(h.T, origin='low', interpolation='None',
-                           extent=[xe[0], xe[-1], ye[0], ye[-1]],
-                           cmap=plt.cm.Blues, aspect='auto')
+            hist, xedge, yedge = np.histogram2d(vals, vals2, weights=prob)
+            img = plt.imshow(hist.T, origin='low', interpolation='None',
+                             extent=[xedge[0], xedge[-1], yedge[0], yedge[-1]],
+                             cmap=plt.cm.Blues, aspect='auto')
 
-            cb = plt.colorbar(c)
-            cb.set_label(r'$\rm{Probability}$')
+            cbar = plt.colorbar(img)
+            cbar.set_label(r'$\rm{Probability}$')
             ax.set_ylabel(key2label(attr2))
             ptype = '{}_joint'.format(attr2)
         ax.set_xlabel(key2label(attr))
@@ -313,8 +273,8 @@ def main(argv):
         args.fnames = map(str.strip, open(args.fnames[0], 'r').readlines())
 
     if args.plotcmd:
-        make_pgcmd(args.fnames, nmax=16)
-        sys.exit()
+        call_pgcmd_byfit(args.fnames, nmax=16)
+        sys.exit(0)
 
     filtdict = {}
     if args.sub is not '':
@@ -323,7 +283,7 @@ def main(argv):
     if args.format:
         fname = combine_files(args.fnames, outfile=args.outfile, best=args.best)
     elif args.sspcombine:
-        [sspcombine(f, dry_run=False) for f in args.fnames]
+        _ = [sspcombine(f, dry_run=False) for f in args.fnames]
         sys.exit(0)
     else:
         fname = args.fnames[0]

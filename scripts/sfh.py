@@ -9,10 +9,16 @@ import matplotlib.pyplot as plt
 
 from .config import EXT
 from .fileio import read_binned_sfh
-from .utils import convertz,  parse_pipeline
+from .utils import convertz, parse_pipeline
 
 logger = logging.getLogger()
 
+def mh2z(num):
+    return 0.02 * 10 ** num
+
+
+def quadriture(x):
+    return np.sqrt(np.sum(x * x))
 
 class SFH(object):
     '''
@@ -68,7 +74,7 @@ class SFH(object):
             self.footer = []
             self.bestfit = np.nan
             self.match_out = ''
-            self.data = []
+            self.data = np.array([])
             return
 
         self.header = lines[0:6]
@@ -85,8 +91,8 @@ class SFH(object):
                 raise ValueError
 
             line = self.header[iline].strip().replace(' ', '').split(',')
-            for l in line:
-                key, attrs = l.split('=')
+            for i in line:
+                key, attrs = i.split('=')
                 attr, pmattr = attrs.split('+')
                 pattr, mattr = pmattr.split('-')
                 set_value_err_attr(key, attr, pattr, mattr)
@@ -96,7 +102,7 @@ class SFH(object):
         except:
             # zcmerge files: the first line has totalSF
             self.header = lines[0]
-            self.footer = ''
+            self.footer = ['']
             try:
                 key, attr, pattr, mattr = self.header.strip().split()
                 set_value_err_attr(key, attr, pattr, mattr)
@@ -111,9 +117,6 @@ class SFH(object):
             self.flag = 'zinc'
         return
 
-    def mh2z(self, num):
-        return 0.02 * 10 ** num
-
     def plot_bins(self, val='sfr', err=False, convertz=False, offset=1.):
         '''make SFH bins for plotting'''
         if type(val) == str:
@@ -123,10 +126,10 @@ class SFH(object):
                 valp = self.data['%s_errp' % val] * offset
             val = self.data[val] * offset
             if convertz:
-                val = self.mh2z(val)
+                val = mh2z(val)
                 if err:
-                    valm = self.mh2z(valm)
-                    valp = self.mh2z(valp)
+                    valm = mh2z(valm)
+                    valp = mh2z(valp)
         lagei = self.data.lagei
         lagef = self.data.lagef
 
@@ -145,6 +148,7 @@ class SFH(object):
     def age_plot(self, val='sfr', ax=None, plt_kw={}, errors=True,
                  convertz=False, xlabel=None, ylabel=None,
                  sfr_offset=1e3):
+
         def float2sci(num):
             """mpl has a better way of doing this now..."""
             return r'$%s}$' % ('%.0E' % num).replace('E', '0').replace('-0', '^{-').replace('+0', '^{').replace('O', '0')
@@ -156,7 +160,7 @@ class SFH(object):
         lages, sfrs = self.plot_bins(offset=sfr_offset)
         rlages, (rsfrs, sfr_merrs, sfr_perrs) = self.plot_bins(err=True,
                                                                offset=sfr_offset)
-        import pdb; pdb.set_trace()
+
         rlages = np.append(self.data['lagei'], self.data['lagef'][-1])
         rlages = rlages[:-1] + np.diff(rlages) / 2.
         rsfrs = self.data['sfr'] * sfr_offset
@@ -195,7 +199,7 @@ class SFH(object):
             val_merrs = rsfr_merrs
             val_perrs = rsfr_perrs
         if ax is None:
-            fig, ax = plt.subplots()
+            _, ax = plt.subplots()
             xlabel = r'$\log Age\ \rm{(yr)}$'
 
         ax.plot(lages, vals, **plt_kw)
@@ -263,20 +267,20 @@ class SFH(object):
 
     def sf_weighted_metallicity(self):
         agebins = (10 ** self.data.lagef - 10 ** self.data.lagei)
-        totalSF = np.sum(self.data.sfr * agebins)
-        fracsf = (self.data.sfr * agebins) / totalSF
+        totalsf = np.sum(self.data.sfr * agebins)
+        fracsf = (self.data.sfr * agebins) / totalsf
         feh = np.array([convertz(z=0.02 * 10 ** m)[-2] for m in self.data.mh])
         return np.sum(fracsf * feh)
 
     def param_table(self, angst=True, agesplit=[1e9, 3e9], target='',
-                    filters=['','']):
+                    filters=['', '']):
         try:
-            d = {'bestfit': self.bestfit, 'Av': self.Av, 'dmod': self.dmod}
+            dic = {'bestfit': self.bestfit, 'Av': self.Av, 'dmod': self.dmod}
         except:
             print('No bestfit info')
-            d = {'bestfit': np.nan, 'Av': np.nan, 'dmod': np.nan}
+            dic = {'bestfit': np.nan, 'Av': np.nan, 'dmod': np.nan}
 
-        d['header'] = \
+        dic['header'] = \
             (r'Galaxy & Optical Filters & A$_V$ & $(m\!-\!M)_0$ &'
              r'$\% \frac{{\rm{{SF}}}}{{\rm{{SF_{{TOT}}}}}}$ &'
              r'$\langle \mbox{{[Fe/H]}} \rangle$ &'
@@ -286,50 +290,53 @@ class SFH(object):
              r'\multicolumn{{2}}{{c}}{{${0}-{1}\rm{{Gyr}}$}} & \\ \hline'
              '\n'.format(*agesplit))
 
-        d['target'] = target
+        dic['target'] = target
         if angst:
             try:
-                d['target'], filters = parse_pipeline(self.name)
+                dic['target'], filters = parse_pipeline(self.name)
             except:
                 pass
 
-        d['filters'] = ','.join(filters)
+        dic['filters'] = ','.join(filters)
 
-        fyoung, fyoung_errp, fyoung_errm = self.mass_fraction(0, agesplit[0])
-        finter, finter_errp, finter_errm = self.mass_fraction(agesplit[0], agesplit[1])
+        fyng, fyng_errp, fyng_errm = self.mass_fraction(0, agesplit[0])
+        fint, fint_errp, fint_errm = self.mass_fraction(agesplit[0], agesplit[1])
 
         # logZ = 0 if there is no SF, that will add error to mean Fe/H
-        iyoung = self.nearest_age(agesplit[0], i=False)
-        iinter = self.nearest_age(agesplit[1], i=False)
+        iyng = self.nearest_age(agesplit[0], i=False)
+        iint = self.nearest_age(agesplit[1], i=False)
 
-        iyoungs, = np.nonzero(self.data.mh[:iyoung + 1] != 0)
-        iinters, = np.nonzero(self.data.mh[:iinter + 1] != 0)
-        iinters = list(set(iinters) - set(iyoungs))
+        iyngs, = np.nonzero(self.data.mh[:iyng + 1] != 0)
+        iints, = np.nonzero(self.data.mh[:iint + 1] != 0)
+        iints = list(set(iints) - set(iyngs))
 
-        feh_young = convertz(z=0.02 * 10 ** np.mean(self.data.mh[iyoungs]))[-2]
-        feh_inter = convertz(z=0.02 * 10 ** np.mean(self.data.mh[iinters]))[-2]
-        feh_young_errp = convertz(z=0.02 * 10 ** quadriture(self.data.mh_errp[iyoungs]))[-2]
-        feh_young_errm = convertz(z=0.02 * 10 ** quadriture(self.data.mh_errm[iyoungs]))[-2]
-        feh_inter_errp = convertz(z=0.02 * 10 ** quadriture(self.data.mh_errp[iinters]))[-2]
-        feh_inter_errm = convertz(z=0.02 * 10 ** quadriture(self.data.mh_errm[iinters]))[-2]
+        feh_yng = convertz(z=mh2z(np.mean(self.data.mh[iyngs])))[-2]
+        feh_int = convertz(z=mh2z(np.mean(self.data.mh[iints])))[-2]
+        feh_yng_errp = \
+            convertz(z=mh2z(quadriture(self.data.mh_errp[iyngs])))[-2]
+        feh_yng_errm = \
+            convertz(z=mh2z(quadriture(self.data.mh_errm[iyngs])))[-2]
+        feh_int_errp = \
+            convertz(z=mh2z(quadriture(self.data.mh_errp[iints])))[-2]
+        feh_int_errm = \
+            convertz(z=mh2z(quadriture(self.data.mh_errm[iints])))[-2]
 
         maf = '${0: .2f}^{{+{1: .2f}}}_{{-{2: .2f}}}$'
 
-        d['fyoung'], d['finter'] = [maf.format(v, p, m)
-                                    for v,p,m in zip([fyoung, finter],
-                                                     [fyoung_errp, finter_errp],
-                                                     [fyoung_errm, finter_errm])]
-        d['feh_young'], d['feh_inter'] = [maf.format(v, p, m)
-                                          for v,p,m in zip([feh_young, feh_inter],
-                                                           [feh_young_errp, feh_inter_errp],
-                                                           [feh_young_errm, feh_inter_errm])]
+        dic['fyng'], dic['fint'] = \
+            [maf.format(v, p, m) for v, p, m in zip([fyng, fint],
+                                                    [fyng_errp, fint_errp],
+                                                    [fyng_errm, fint_errm])]
+        dic['feh_yng'], dic['feh_int'] = \
+            [maf.format(v, p, m) for v, p, m in zip([feh_yng, feh_int],
+                                                    [feh_yng_errp, feh_int_errp],
+                                                    [feh_yng_errm, feh_int_errm])]
 
         line = ['{target}', '{filters}', '{Av: .2f}', '{dmod: .2f}',
-                '{fyoung}', '{feh_young}','{finter}',
-                '{feh_inter}']#, '{bestfit: .1f}']
+                '{fyng}', '{feh_yng}', '{fint}', '{feh_int}']
 
-        d['fmt'] = '%s \\\\ \n' % (' & '.join(line))
-        return d
+        dic['fmt'] = '%s \\\\ \n' % (' & '.join(line))
+        return dic
 
     def nearest_age(self, lage, i=True):
         if lage > 10.15:
@@ -364,19 +371,22 @@ class SFH(object):
             return 0, 0, 0
 
         # higher precision than self.totalSF
-        totalSF = np.sum(self.data.sfr * agebins)
+        totalsf = np.sum(self.data.sfr * agebins)
         idxi = self.nearest_age(lagei)
         idxf = self.nearest_age(lagef, i=False) + 1 # +1 is to include final bin
 
-        fracsfr = np.sum(self.data.sfr[idxi:idxf] * agebins[idxi:idxf]) / totalSF
-        fracsfr_errp = quadriture(self.data.sfr_errp[idxi:idxf] * agebins[idxi:idxf]) / totalSF
-        fracsfr_errm = quadriture(self.data.sfr_errm[idxi:idxf] * agebins[idxi:idxf]) / totalSF
+        fracsfr = np.sum(self.data.sfr[idxi:idxf] * \
+                         agebins[idxi:idxf]) / totalsf
+        fracsfr_errp = quadriture(self.data.sfr_errp[idxi:idxf] * \
+                                  agebins[idxi:idxf]) / totalsf
+        fracsfr_errm = quadriture(self.data.sfr_errm[idxi:idxf] * \
+                                  agebins[idxi:idxf]) / totalsf
 
         return fracsfr, fracsfr_errp, fracsfr_errm
 
     def sfh_plot(self):
         from matplotlib.ticker import NullFormatter
-        fig, (ax1, ax2) = plt.subplots(nrows=2)
+        _, (ax1, ax2) = plt.subplots(nrows=2)
         self.age_plot(ax=ax1)
         self.age_plot(val='mh', convertz=False, ax=ax2)
         ax1.xaxis.set_major_formatter(NullFormatter())
@@ -385,10 +395,6 @@ class SFH(object):
         print('wrote {}'.format(figname))
         plt.savefig(figname)
         plt.close()
-
-
-def quadriture(x):
-    return np.sqrt(np.sum(x * x))
 
 
 def main(argv):
@@ -402,14 +408,14 @@ def main(argv):
 
     args = parser.parse_args(argv)
 
-
     for sfh_file in args.sfh_files:
         msfh = SFH(sfh_file)
         if len(msfh.data) != 0:
             msfh.sfh_plot()
             msfh.plot_csfr()
-            d = msfh.param_table()
-            print(d['fmt'].format(**d))
+            #dic = msfh.param_table()
+            #print(dic['fmt'].format(**dic))
+
 
 if __name__ == '__main__':
     main(sys.argv[1:])
