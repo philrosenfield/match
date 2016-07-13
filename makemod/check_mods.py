@@ -30,7 +30,7 @@ def zlimits_from_makemod(model='PARSEC', dz=0.01):
     return zmin, zmax
 
 
-def filenames_loop(logt0, logt1, dlogt, z0, z1, dz, mod='mod1'):
+def filenames_loop(logt0, logt1, dlogt, z0, z1, dz, mod='mod1', quiet=False):
     """Loop through the data directory counting all mod? files"""
     ishere = 0
     missing = 0
@@ -40,7 +40,8 @@ def filenames_loop(logt0, logt1, dlogt, z0, z1, dz, mod='mod1'):
                                                               (logt + dlogt), z)
             res = glob.glob(fname)
             if len(res) == 0:
-                print(fname)
+                if not quiet:
+                    print(fname)
                 missing += 1
             else:
                 ishere += 1
@@ -48,7 +49,7 @@ def filenames_loop(logt0, logt1, dlogt, z0, z1, dz, mod='mod1'):
 
 
 def check_mods(model='PARSEC', dz=0.01, dlogt=0.001, sub=None,
-               logt0=6.6, logt1=10.25, mod='mod1'):
+               logt0=6.6, logt1=10.25, mod='mod1', quiet=False):
     """check the mod files completeness"""
     here = os.getcwd()
     datadir = os.path.join(match_base, model, 'data')
@@ -58,7 +59,7 @@ def check_mods(model='PARSEC', dz=0.01, dlogt=0.001, sub=None,
 
     os.chdir(datadir)
     z0, z1 = zlimits_from_makemod(model=model, dz=dz)
-    filenames_loop(logt0, logt1, dlogt, z0, z1, dz, mod=mod)
+    filenames_loop(logt0, logt1, dlogt, z0, z1, dz, mod=mod, quiet=quiet)
     os.chdir(here)
 
 
@@ -92,6 +93,9 @@ def main(argv):
     parser.add_argument('-s', '--sub', type=str,
                         help='subdirectory of data/')
 
+    parser.add_argument('-q', '--quiet', action='store_true',
+                        help='supress printing missing filenames')
+
     parser.add_argument('-m', '--mod', type=str, default='mod1',
                         help='mod file prefix (mod1, mod2 etc)')
 
@@ -105,7 +109,7 @@ def main(argv):
 
     check_mods(model=model, dz=args.dz, dlogt=args.dlogt, sub=args.sub,
                logt0=args.agelimits[0], logt1=args.agelimits[1],
-               mod=args.mod)
+               mod=args.mod, quiet=args.quiet)
 
 
 if __name__ == "__main__":

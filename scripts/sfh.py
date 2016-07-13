@@ -74,7 +74,8 @@ class SFH(object):
         self.header = lines[0:6]
         self.footer = lines[-1]
         try:
-            bestfit, fout = self.header[0].replace(' ', '').split('=')[1].split('(')
+            bestfit, fout = \
+                self.header[0].replace(' ', '').split('=')[1].split('(')
             self.bestfit = float(bestfit)
             self.match_out = fout.split(')')[0]
 
@@ -112,11 +113,12 @@ class SFH(object):
         return
 
     def mh2z(self, num):
+        """nore really [M/H] """
         return 0.02 * 10 ** num
 
     def plot_bins(self, val='sfr', err=False, convertz=False, offset=1.):
         '''make SFH bins for plotting'''
-        if type(val) == str:
+        if isinstance(val, str):
             if err:
                 #import pdb; pdb.set_trace()
                 valm = self.data['%s_errm' % val] * offset
