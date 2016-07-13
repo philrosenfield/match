@@ -137,12 +137,18 @@ def read_fake(filename):
 
 
 def read_match_cmd(filename):
-    '''
-    reads MATCH .cmd file
-    '''
+    '''read MATCH .cmd file'''
+    if not filename.endswith('.cmd'):
+        print('Warning: {} might not be a .cmd file'.format(filename))
     names = ['mag', 'color', 'Nobs', 'Nsim', 'diff', 'sig', 'gate']
-    cmd = np.genfromtxt(filename, skip_header=4, names=names, invalid_raise=False)
-    return cmd
+    cmd = np.genfromtxt(filename, skip_header=4, names=names,
+                        invalid_raise=False)
+    with open(filename, 'r') as inp:
+        header = [next(inp).strip() for _ in range(4)]
+    fit = float(header[0].split()[0])
+    colors = header[2]
+    yfilter = header[-1]
+    return cmd, fit, colors, yfilter
 
 
 def add_gates(ngates):
@@ -182,6 +188,14 @@ def calcsfh_input_parameter(zinc=False, power_law_imf=True, **params):
         tbin.
     '''
     param_dict = dict(calcsfh_dict().items() + params.items())
+
+    possible_filters = match_filters()
+    ohno = 0
+    for filt in [param_dict['v'], param_dict['i']]:
+        if not filt in possible_filters['filters']:
+            print('{} not in filter list'.format(filt))
+            ohno += 1
+    assert(ohno == 0), 'Filters need to be in match filter list.'
 
     # the logZ line changes if using -zinc flag
     zincfmt = '{logzmin:.2f} {logzmax:.2f} {dlogz:.2f}'
@@ -301,6 +315,12 @@ def calcsfh_dict():
         cdict = json.load(inp)
     return cdict
 
+def match_filters():
+    '''return dictionary of possible filters in match.'''
+    base = os.path.split(__file__)[0]
+    with open(os.path.join(base, 'templates/match_filters.json')) as inp:
+        fdict = json.load(inp)
+    return fdict
 
 def read_ssp_output(filename):
     """
@@ -426,9 +446,8 @@ def read_calcsfh_param(filename):
     d['ncmds'] = int(lines[3].strip())
     vstep, vistep, fake_sm, vimin, vimax, filters = lines[4].strip().split()
     d['v'], d['i'] = filters.split(',')
-    d['vstep'], d['v-istep'], d['v-imin'], d['v-imax'] = map(float,
-                                                             [vstep, vistep,
-                                                              vimin, vimax])
+    d['vstep'], d['vistep'], d['vimin'], d['vimax'] = \
+        np.array([vstep, vistep, vimin, vimax], dtype=float)
     d['fake_sm'] = int(fake_sm)
     vmin, vmax, _ = lines[5].strip().split()
     imin, imax, _ = lines[6].strip().split()
@@ -437,7 +456,8 @@ def read_calcsfh_param(filename):
     #d['gates'] = lines[7].strip()
     d['ntbins'] = int(lines[8].strip())
     d['to'], d['tf'] = np.array([l.strip().split() for l in lines[9:]
-                                 if not l.startswith('-')], dtype=float).T
+                                 if not l.startswith('-') and
+                                 len(l.strip().split()) > 0], dtype=float).T
     #d['footer'] = ''.join([l for l in lines[8:] if l.startswith('-')])
     return d
 

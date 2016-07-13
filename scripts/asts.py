@@ -11,7 +11,7 @@ import matplotlib.pylab as plt
 import numpy as np
 from .config import EXT
 from scipy.interpolate import interp1d
-from .fileio import parse_pipeline
+from .utils import parse_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -468,7 +468,7 @@ class ASTs(object):
                                    bounds_error=False)
         return
 
-    def get_completeness_fraction(self, frac, dmag=0.001, bright_lim=18):
+    def get_completeness_fraction(self, frac, dmag=0.001, bright_lim=20):
         """Find the completeness magnitude at a given fraction"""
         assert hasattr(self, 'fcomp1'), \
             'need to run completeness with interpolate=True'
@@ -506,7 +506,7 @@ class ASTs(object):
         if not hasattr(self, 'rec'):
             self.completeness(combined_filters=True)
         if axs is None:
-            fig, axs = plt.subplots(ncols=2, figsize=(12, 6))
+            _, axs = plt.subplots(ncols=2, figsize=(12, 6))
 
         axs[0].plot(self.mag1[self.rec], self.mag1diff[self.rec], '.',
                     color='k', alpha=0.5)
@@ -537,7 +537,7 @@ class ASTs(object):
             'need to run completeness with interpolate=True'
 
         if ax is None:
-            fig, ax = plt.subplots()
+            _, ax = plt.subplots()
 
         ax.plot(self.ast_bins, self.fcomp1(self.ast_bins),
                 label=r'${}$'.format(self.filter1))

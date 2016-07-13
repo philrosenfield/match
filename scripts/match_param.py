@@ -5,89 +5,74 @@ Note -- will have to edit the param file by hand to insert dmod and Av.
 #!/usr/bin/env python
 from __future__ import print_function
 import argparse
-import matplotlib.pylab as plt
-import numpy as np
 import os
 import sys
 import time
 
-from astropy.io import fits
-from astropy.table import Table
+import numpy as np
 
-from .diagnostics import match_diagnostic
-from .fileio import match_param_default_dict, match_param_fmt
-from .fileio import replace_ext, parse_pipeline
+import matplotlib.pylab as plt
 
-def move_on(ok, msg='0 to move on: '):
+from .config import PARAMEXT
+from .fileio import read_calcsfh_param, calcsfh_input_parameter, match_filters
+from .utils import replaceext, parse_pipeline
+from .match_phot import make_phot
+from .graphics import match_diagnostic
+
+def move_on(okay, msg='0 to move on: '):
     """read and return raw input"""
-    ok = int(raw_input(msg))
+    okay = int(raw_input(msg))
     time.sleep(1)
-    return ok
+    return okay
 
-def exclude_tpagb(phot, param, mtrgb):
-    """make one exclude gate using mtrgb and param file color, mag limits"""
-    from scipy.interpolate import interp1d
 
-    lines = open(param, 'r').readlines()
-    dmag, dcol, _, colmin, colmax = map(float, lines[4].split()[:-1])
-    mag1min, mag1max = map(float, lines[5].split()[:-1])
-
-    maxcol = colmax - dcol
-    brightlim = mag1min + dmag
-    mag1, mag2 = np.loadtxt(phot, unpack=True)
-    # choose color cut
-    mincol = find_match_limits(mag1, mag2, color_only=True)[0]
-
-    xarr, yarr = put_a_line_on_it(mtrgb, consty=False, filter1=True)
-    f = interp1d(xarr, yarr)
-    faintlim1 = f(mincol)
-    faintlim2 = f(maxcol)
-    exclude_gate = '1 {0} {2} {0} {3} {1} {3} {1} {4} 0 \n'.format(mincol,
-                                                                   maxcol,
-                                                                   faintlim1,
-                                                                   brightlim,
-                                                                   faintlim2)
-    lines[7] = exclude_gate
-    # not so simple ... need them to be parallelograms.
-    # PASS!
-    print(exclude_gate)
-    # write new param file with exclude/include gate
-    os.system('mv {0} {0}_bkup'.format(param))
-    with open(param, 'w') as outp:
-        [outp.write(l) for l in lines]
-    print('wrote %s' % param)
-
-def put_a_line_on_it(val, npts=100, consty=True, ax=None,
-                     ls='--', annotate=True, filter1=None,
-                     annotate_fmt='$TRGB=%.2f$', xmin=-3, xmax=6,
-                     ymin=14, ymax=32, ann_kwargs={}, pltkw={}):
+def within_limits(params, fakefile, offset=1.):
     """
-    if consty is True: plots a constant y value across ax.xlims().
-    if consty is False: plots a constant x on a plot of y vs x-y
+    Cull param cmd limits to that of the fake file
+    params : dict
+        calcsfh_input_parameter dictionary (only need CMD limits)
+    fakefile : string
+        match AST file
+    offset : float
+        mag below
     """
-    xarr = np.linspace(xmin, xmax, npts)
-    yarr = np.linspace(ymin, ymax, npts)
-    if consty:
-        # just a contsant y value over the plot range of x.
-        new_xarr = xarr
-    else:
-        # a plot of y vs x-y and we want to mark
-        # where a constant value of x is
-        # e.g, f814w vs f555-f814; val is f555
-        new_xarr = val - yarr
-        # e.g, f555w vs f555-f814; val is f814
-        if filter1 is True:
-            yarr = xarr + val
-            new_xarr = xarr
+    vimin = params['vimin']
+    vimax = params['vimax']
+    vmin = params['vmin']
+    imin = params['imin']
+    vmax = params['vmax']
+    imax = params['imax']
 
-    if ax is not None:
-        ax.plot(new_xarr, yarr, ls, **pltkw)
-        if annotate:
-            xy = (new_xarr[-1] - 0.1, yarr[-1] - 0.2)
-            ax.annotate(annotate_fmt % val, xy=xy, ha='right', fontsize=16,
-                        **ann_kwargs)
-    return new_xarr, yarr
-
+    mag1in, mag2in, _, _ = np.loadtxt(fakefile, unpack=True)
+    colin = mag1in - mag2in
+    msg = 'Overwrote'
+    if vimin < colin.min():
+        vimin = colin.min()
+        msg += ' vimin'
+    if vimax > colin.max():
+        vimax = colin.max()
+        msg += ' vimax'
+    if vmin < mag1in.min():
+        vmin = mag1in.min()
+        msg += ' vmin'
+    if vmax > mag1in.max() - 1.:
+        vmax = mag1in.max() - 1.
+        msg += ' vmax'
+    if imin < mag2in.min():
+        imin = mag2in.min()
+        msg += ' imin'
+    if imax > mag2in.max() - 1:
+        imax = mag2in.max() - 1.
+        msg += ' imax'
+    msg += ' with values from matchfake'
+    print(msg)
+    params['vimin'] = vimin
+    params['vimax'] = vimax
+    params['vmin'] = vmin
+    params['imin'] = imin
+    params['vmax'] = vmax
+    params['imax'] = imax
+    return params
 
 def find_match_limits(mag1, mag2, comp1=90., comp2=90., color_only=False,
                       xlim=None, ylim=None):
@@ -96,7 +81,7 @@ def find_match_limits(mag1, mag2, comp1=90., comp2=90., color_only=False,
     """
     col = mag1 - mag2
 
-    fig, ax = plt.subplots()
+    _, ax = plt.subplots()
     ax.plot(col, mag2, 'o', color='k', ms=3, alpha=0.3, mec='none')
     if xlim is not None:
         ax.set_xlim(xlim)
@@ -108,8 +93,8 @@ def find_match_limits(mag1, mag2, comp1=90., comp2=90., color_only=False,
     if comp1 < 90.:
         ax.hlines(comp2, *ax.get_xlim())
 
-    ok = 1
-    while ok == 1:
+    okay = 1
+    while okay == 1:
         print('click color extrema')
         pts = plt.ginput(2, timeout=-1)
         colmin, colmax = [pts[i][0] for i in range(2)]
@@ -118,17 +103,17 @@ def find_match_limits(mag1, mag2, comp1=90., comp2=90., color_only=False,
         ax.vlines(colmin, *ax.get_ylim())
         ax.vlines(colmax, *ax.get_ylim())
         plt.draw()
-        ok = move_on(0)
+        okay = move_on(0)
 
     plt.close()
 
     inds, = np.nonzero((col < colmax) & (col > colmin))
     data = (colmin, colmax)
     if not color_only:
-        fig, ax = plt.subplots()
+        _, ax = plt.subplots()
         ax.plot(mag1, mag2, '.', color='k')
-        ok = 1
-        while ok == 1:
+        okay = 1
+        while okay == 1:
             print('click mag extrema')
             pts = plt.ginput(2, timeout=-1)
             mag1max, mag2max = pts[0]
@@ -141,7 +126,7 @@ def find_match_limits(mag1, mag2, comp1=90., comp2=90., color_only=False,
             ax.plot(mag1max, mag2max, 'o', color='r')
             ax.plot(mag1min, mag2min, 'o', color='r')
             plt.draw()
-            ok = move_on(ok)
+            okay = move_on(okay)
 
         plt.close()
 
@@ -149,7 +134,7 @@ def find_match_limits(mag1, mag2, comp1=90., comp2=90., color_only=False,
                            (mag2 < mag2min) & (mag2 > mag2max) &
                            (col < colmax) & (col > colmin))
 
-    fig, ax = plt.subplots()
+    _, ax = plt.subplots()
     ax.plot(col, mag2, '.', color='k')
     ax.plot(col[inds], mag2[inds], '.', color='r')
     ax.set_ylim(ax.get_ylim()[::-1])
@@ -168,7 +153,9 @@ def find_match_limits(mag1, mag2, comp1=90., comp2=90., color_only=False,
 
 
 def find_gates(mag1, mag2, param):
-    """Click 4 points to make an exclude gate"""
+    """Click 4 points to make an exclude gate -- does not work in calcsfh!"""
+    print('not supported')
+    sys.exit()
     col = mag1 - mag2
 
     lines = open(param, 'r').readlines()
@@ -176,20 +163,20 @@ def find_gates(mag1, mag2, param):
     mag1min, mag1max = map(float, lines[5].split()[:-1])
     #mag2min, mag2max = map(float, lines[5].split()[:-1])
     # click around
-    fig, ax = plt.subplots()
+    _, ax = plt.subplots()
     ax.plot(col, mag2, ',', color='k', alpha=0.2)
     ax.set_ylim(mag1max, mag1min)
     ax.set_xlim(colmin, colmax)
 
-    ok = 1
-    while ok != 0:
+    okay = 1
+    while okay != 0:
         print('click ')
         pts = np.asarray(plt.ginput(n=4, timeout=-1))
         exclude_gate = '1 {} 0 \n'.format(' '.join(['%.4f' % p for p in pts.flatten()]))
-        pts = np.append(pts, pts[0]).reshape(5,2)
-        ax.plot(pts[:,0], pts[:,1], color='r', lw=3, alpha=0.3)
+        pts = np.append(pts, pts[0]).reshape(5, 2)
+        ax.plot(pts[:, 0], pts[:, 1], color='r', lw=3, alpha=0.3)
         plt.draw()
-        ok = move_on(0)
+        okay = move_on(0)
     lines[7] = exclude_gate
     # not so simple ... need them to be parallelograms.
     # PASS!
@@ -197,151 +184,232 @@ def find_gates(mag1, mag2, param):
     # write new param file with exclude/include gate
     os.system('mv {0} {0}_bkup'.format(param))
     with open(param, 'w') as outp:
-        [outp.write(l) for l in lines]
+        _ = [outp.write(l) for l in lines]
     print('wrote %s' % param)
 
 
-def match_param(mag1, mag2, filters, phot, param, interactive=False, fake=None,
-                comp_frac=0.5, param_kw={}):
-    """Make match param file"""
+def match_param(mag1, mag2, filters, param, interactive=False, fake=None,
+                comp_frac=0.5, param_kw=None, power_law_imf=False, zinc=False,
+                bright_lim=20., clobber=False):
+    """
+    Make match param file
+
+    Note:
+    Will check filter list against templates/match_filters.json
+    Will check the CMD limits against the AST limits (if fake is passed)
+
+    mag1, mag2 : array, array
+        v mag and i mag (extrema used for CMD limits)
+    filters : list of strings
+        v and i filter names
+    param : string
+        template parameter file or if clobber parameter file name
+    interactive : bool
+        choose cmd limits interactively
+    fake : string
+        matchfake filename if using comp_frac or want to check CMD limits
+        are within fake limits (see FK overflow in MATCH README)
+    comp_frac : float
+        completeness fraction to set faint mag limit
+    param_kw : dict
+        parameters of template/calcsfh_input_parameter.json to write
+    power_law_imf : bool
+        passed to fileio.calcsfh_input_parameter
+    zinc : bool
+        passed to fileio.calcsfh_input_parameter
+    bright_lim : float
+        passed to asts.ast.get_completeness_fraction
+    clobber : bool
+        overwrite param file if exisiting
+    """
+    param_kw = param_kw or {}
+
     print('Using filters {}, {}'.format(*filters))
-    p = dict(match_param_default_dict().items() + param_kw.items())
+    if os.path.isfile(param) and not clobber:
+        template = read_calcsfh_param(param)
+        template.update(param_kw)
+    else:
+        template = param_kw
 
     if interactive:
-        p['V-Imin'], p['V-Imax'], p['Vmin'], p['Vmax'], p['Imin'], p['Imax'] = \
-            find_match_limits(mag1, mag2)
+        vimin, vimax, vmin, vmax, imin, imax = find_match_limits(mag1, mag2)
     else:
         color = mag1 - mag2
-        p['V-Imin'] = np.min(color)
-        p['V-Imax'] = np.max(color)
-        p['Vmin'] = np.min(mag1)
-        p['Imin'] = np.min(mag2)
-        p['Vmax'] = np.max(mag1)
-        p['Imax'] = np.max(mag2)
-        print('From data: Vmax={} Imax={}'.format(p['Vmax'], p['Imax']))
-        if fake is not None:
+        vimin = np.min(color)
+        vimax = np.max(color)
+        vmin = np.min(mag1)
+        imin = np.min(mag2)
+        if fake is None:
+            vmax = np.max(mag1)
+            imax = np.max(mag2)
+            dove = 'data'
+        else:
             from .asts import ASTs
             ast = ASTs(fake)
             ast.completeness(combined_filters=True, interpolate=True)
-            print('Using {} completeness fraction from {}'.format(comp_frac, fake))
-            p['Vmax'], p['Imax'] = ast.get_completeness_fraction(comp_frac)
-            print('From completeness: Vmax={} Imax={}'.format(p['Vmax'], p['Imax']))
+            print('Using {} completeness fraction from {}'.format(comp_frac,
+                                                                  fake))
+            vmax, imax = ast.get_completeness_fraction(comp_frac,
+                                                       bright_lim=bright_lim)
+            dove = 'completeness'
+        print('From {}: vmax={} imax={}'.format(dove, vmax, imax))
 
-    p['V'] = filters[0]
-    p['I'] = filters[1]
+    template['vimin'] = vimin
+    template['vimax'] = vimax
+    template['vmin'] = vmin
+    template['imin'] = imin
+    template['vmax'] = vmax
+    template['imax'] = imax
+    if fake is not None:
+        template = within_limits(template, fake)
+    template['v'] = filters[0]
+    template['i'] = filters[1]
+
+    # HACK!! Is it WFC3 or UVIS?
+    # (calcsfh_input_parameter will throw assertion for unrecognized filters)
+    # First: UW Pipeline says FXXXW, MATCH would think that's WFPC2
+    # So this won't work with WFPC2 data.
+    #  If it's not WFC3, both are UVIS.
+    # However, this is a bad way to do it, should have a -wfc or -uvis flag.
+    itsuvis = False
+    possible_filters = match_filters()['filters']
+    if filters[0].startswith('F') and filters[0].endswith('W'):
+        template['v'] = filters[0].replace('F', 'WFC')
+    if not template['v'] in possible_filters:
+        template['v'] = filters[0].replace('F', 'UVIS')
+        itsuvis = True
+
+    if filters[1].startswith('F') and filters[1].endswith('W'):
+        template['i'] = filters[1].replace('F', 'WFC')
+    if not template['i'] in possible_filters or itsuvis:
+        template['i'] = filters[1].replace('F', 'UVIS')
+
     with open(param, 'w') as out:
         # see fileio.match_param_fmt for dictionary defaults
-        out.write(match_param_fmt() % p)
+        out.write(calcsfh_input_parameter(power_law_imf=power_law_imf,
+                                          zinc=zinc,
+                                          **template))
     print('wrote {}'.format(param))
     return param
 
-def match_limits(mag1, mag2, color_only=False, comp1=99., comp2=99.):
-    """Iteritively call find_match_limits"""
-    plt.ion()
-    ok = 1
-    while ok == 1:
-        data = find_match_limits(mag1, mag2, comp2=comp2, comp1=comp1,
-                                 color_only=color_only)
-        ok = move_on(0)
 
-    plt.close()
+def main(argv):
+    """main function for match_param"""
+    parser = argparse.ArgumentParser(description="make calcsfh param file")
 
-    if color_only:
-        colmin, colmax = data
-        data_str = '%.2f %.2f' % (colmin, colmax)
-    else:
-        colmin, colmax, mag1max, mag2max = data
-        data_str = '%.2f %.2f %.2f %.2f' % (colmin, colmax, mag1max, mag2max)
+    parser.add_argument('--imf', default=None,
+                        help='IMF power law value (None if using calcsfh flag)')
 
-    print('Match limits: {}'.format(data_str))
+    parser.add_argument('--bf', type=float, default=0.0,
+                        help='Binary fraction')
 
+    parser.add_argument('--tbin', type=float, default=0.05,
+                        help='age bin width(s)')
 
-def make_phot(fitsfile, filters):
-    """Convert binary fits table (from UW pipeline) to 2-column match phot file"""
-    assert len(filters) > 0, 'need filters'
+    parser.add_argument('--vstep', type=float, default=0.15,
+                        help='mag step size')
 
-    tab = Table.read(fitsfile)
+    parser.add_argument('--vistep', type=float, default=0.05,
+                        help='color step size')
 
-    test = [f in tab.colnames for f in filters]
-    if False in test:
-        print(tab.colnames)
-        sys.exit()
-    else:
-        pref, ext = fitsfile.split('.')[0], '.'.join(fitsfile.split('.')[1:])
-        ext = '.{}'.format(ext.replace('.fits', ''))
-        photname = '{0}_{1}_{2}{3}.match'.format(pref, filters[0], filters[1], ext)
-        photname = photname.replace('_VEGA', '')
-        np.savetxt(photname, np.column_stack((tab[filters[0]], tab[filters[1]])),
-                   fmt='%.3f')
-        print('wrote {}'.format(photname))
-    return photname
+    parser.add_argument('--tmin', type=float, default=6.6,
+                        help='min log age')
 
+    parser.add_argument('--tmax', type=float, default=10.24,
+                        help='max log age')
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Find color mag limits of CMDs interactively")
+    parser.add_argument('--zinc', action='store_true',
+                        help='use zinc')
 
-    parser.add_argument('-x', '--color_only', action='store_true',
-                        help='with -i skip the magnitude finding')
+    parser.add_argument('--dmod', type=float, nargs=2,
+                        help='dmod0, dmod1')
+
+    parser.add_argument('--av', type=float, nargs=2,
+                        help='av0, av1')
+
+    parser.add_argument('--dav', type=float, default=0.05,
+                        help='Av step -- NOT -dAv flag')
+
+    parser.add_argument('--ddmod', type=float, default=0.10,
+                        help='dmod step')
 
     parser.add_argument('-s', '--slice', type=float, default=99.,
                         help='cut out mags outside of this value')
 
-    parser.add_argument('-m', '--mtrgb', type=float, default=None,
-                        help='trgb magnitude (run with -t)')
-
-    parser.add_argument('-e', '--exgates', action='store_true',
-                        help='find exclude gates (will force -i')
-
-    parser.add_argument('-t', '--extpgates', action='store_true',
-                        help='with -m exclude tp-agb (will force -i)')
-
     parser.add_argument('-i', '--interactive', action='store_true',
-                        help='find limits interactively')
+                        help='find cmd limits interactively')
 
     parser.add_argument('-f', '--filters', type=str, default=None,
-                        help='comma separated fits mag column names (if filename does not follow UW pipeline convenction: PID_TARGET_FILTER1_FILTER2.ext')
+                        help=('comma separated filter names (if filename does '
+                              'not follow: PID_TARGET_FILTER1_FILTER2.ext)'))
 
-    parser.add_argument('-a', '--fake', type=str, default=None,
-                        help='match fake file, used to calculate completeness to set faint mag limits of param file')
+    parser.add_argument('--fake', type=str, default=None,
+                        help=('match fake file, used to calculate completeness '
+                              'to set faint mag limits of param file'))
 
     parser.add_argument('-c', '--comp_frac', type=float, default=0.50,
-                        help='completeness fraction to use for faint mag limit (use with --fake=)')
+                        help=('completeness fraction as faint mag limit '
+                              '(use with --fake=)'))
 
-    parser.add_argument('-p', '--param', type=str, help='match param file if existing')
+    parser.add_argument('-b', '--bright_lim', type=float, default=20,
+                        help=('bright limit to consider for calculating '
+                              'completeness (use with --fake=)'))
 
-    parser.add_argument('phot', type=str, help='match phot file or fits file')
+    parser.add_argument('-p', '--param', type=str,
+                        help='template match param file')
 
-    args = parser.parse_args(sys.argv[1:])
+    parser.add_argument('--clobber', action='store_true',
+                        help='overwrite')
 
+
+    parser.add_argument('phot', type=str, help='photometry file match or fits')
+
+    args = parser.parse_args(argv)
+    assert(not isinstance(args.imf, str)), 'Only set IMF if it is a power law.'
     if args.phot.endswith('fits'):
-        if args.filters is None:
-            print('to make phot, pass comma eparated fits mag column name with -f')
-            sys.exit()
-        filters = args.filters.split(',')
-        args.phot = make_phot(args.phot, filters)
+        args.phot = make_phot(args.phot)[0]
 
     mag1, mag2 = np.loadtxt(args.phot, unpack=True)
-    inds, = np.nonzero((np.abs(mag1) < args.slice) & (np.abs(mag2) < args.slice))
+    inds, = np.nonzero((np.abs(mag1) < args.slice) &
+                       (np.abs(mag2) < args.slice))
     mag1 = mag1[inds]
     mag2 = mag2[inds]
 
-    args.param = args.param or replace_ext(args.phot, '.param')
-    if args.filters is None:
-        target, filters = parse_pipeline(args.phot)
-    else:
-        filters = args.filters
+    args.param = args.param or replaceext(args.phot, PARAMEXT)
 
-    if not os.path.isfile(args.param):
+    filters = args.filters
+    if args.filters is None:
+        _, filters = parse_pipeline(args.phot)
+
+    if not os.path.isfile(args.param) or args.clobber:
         print('Making param file')
-        match_param(mag1, mag2, filters, args.phot, args.param, fake=args.fake,
-                    interactive=args.interactive, comp_frac=args.comp_frac)
+        param_kw = {'imf': args.imf,
+                    'bf': args.bf,
+                    'tbin': args.tbin,
+                    'vstep': args.vstep,
+                    'vistep': args.vistep,
+                    'tmin': args.tmin,
+                    'tmax': args.tmax,
+                    'dmod0': args.dmod[0],
+                    'dmod1': args.dmod[1],
+                    'ddmod': args.ddmod,
+                    'av0': args.av[0],
+                    'av1': args.av[1],
+                    'dav': args.dav}
+
+        power_law_imf = True
+        if args.imf is None:
+            power_law_imf = False
+
+        match_param(mag1, mag2, filters, args.param, fake=args.fake,
+                    interactive=args.interactive, comp_frac=args.comp_frac,
+                    param_kw=param_kw, power_law_imf=power_law_imf,
+                    zinc=args.zinc, bright_lim=args.bright_lim,
+                    clobber=args.clobber)
+
+        match_diagnostic(args.param, args.phot, fake=args.fake)
     else:
         print('{} file found, not overwriting'.format(args.param))
 
-    if args.exgates:
-        find_gates(mag1, mag2, args.param)
-
-    if args.extpgates:
-        exclude_tpagb(args.phot, args.param, args.mtrgb)
-
-    match_diagnostic(args.param, args.phot)
+if __name__ == "__main__":
+    main(sys.argv[1:])
