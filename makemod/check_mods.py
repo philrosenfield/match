@@ -5,7 +5,10 @@ import os
 import argparse
 import glob
 import numpy as np
-from ..scripts.config import match_base
+try:
+    from ..scripts.config import match_base
+except:
+    from scripts.config import match_base
 
 
 def zlimits_from_makemod(model='PARSEC', dz=0.01):

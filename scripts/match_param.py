@@ -2,7 +2,6 @@
 Make a match param file
 Note -- will have to edit the param file by hand to insert dmod and Av.
 """
-#!/usr/bin/env python
 from __future__ import print_function
 import argparse
 import os
@@ -18,6 +17,7 @@ from .fileio import read_calcsfh_param, calcsfh_input_parameter, match_filters
 from .utils import replaceext, parse_pipeline
 from .match_phot import make_phot
 from .graphics import match_diagnostic
+
 
 def move_on(okay, msg='0 to move on: '):
     """read and return raw input"""
@@ -73,6 +73,7 @@ def within_limits(params, fakefile, offset=1.):
     params['vmax'] = vmax
     params['imax'] = imax
     return params
+
 
 def find_match_limits(mag1, mag2, comp1=90., comp2=90., color_only=False,
                       xlim=None, ylim=None):
@@ -161,7 +162,7 @@ def find_gates(mag1, mag2, param):
     lines = open(param, 'r').readlines()
     colmin, colmax = map(float, lines[4].split()[3:-1])
     mag1min, mag1max = map(float, lines[5].split()[:-1])
-    #mag2min, mag2max = map(float, lines[5].split()[:-1])
+    # mag2min, mag2max = map(float, lines[5].split()[:-1])
     # click around
     _, ax = plt.subplots()
     ax.plot(col, mag2, ',', color='k', alpha=0.2)
@@ -172,7 +173,8 @@ def find_gates(mag1, mag2, param):
     while okay != 0:
         print('click ')
         pts = np.asarray(plt.ginput(n=4, timeout=-1))
-        exclude_gate = '1 {} 0 \n'.format(' '.join(['%.4f' % p for p in pts.flatten()]))
+        exclude_gate = '1 {} 0 \n'.format(' '.join(['%.4f' % p
+                                                    for p in pts.flatten()]))
         pts = np.append(pts, pts[0]).reshape(5, 2)
         ax.plot(pts[:, 0], pts[:, 1], color='r', lw=3, alpha=0.3)
         plt.draw()
@@ -227,7 +229,10 @@ def match_param(mag1, mag2, filters, param, interactive=False, fake=None,
     print('Using filters {}, {}'.format(*filters))
     if os.path.isfile(param) and not clobber:
         template = read_calcsfh_param(param)
-        template.update(param_kw)
+        if param_kw['tbin'] is not None:
+            print(template['ntbins'])
+            del template['ntbins']
+            template.update(param_kw)
     else:
         template = param_kw
 
@@ -295,31 +300,32 @@ def match_param(mag1, mag2, filters, param, interactive=False, fake=None,
 
 def main(argv):
     """main function for match_param"""
-    parser = argparse.ArgumentParser(description="make calcsfh param file")
+    parser = argparse.ArgumentParser(description="make calcsfh param file",
+                                     fromfile_prefix_chars='@')
 
     parser.add_argument('--imf', default=None,
-                        help='IMF power law value (None if using calcsfh flag)')
+                        help='IMF power law (None if using calcsfh flag)')
 
     parser.add_argument('--bf', type=float, default=0.0,
-                        help='Binary fraction')
+                        help='Binary fraction [0.0]')
 
     parser.add_argument('--tbin', type=float, default=0.05,
-                        help='age bin width(s)')
+                        help='age bin width(s) [0.05]')
 
     parser.add_argument('--vstep', type=float, default=0.15,
-                        help='mag step size')
+                        help='mag step size [0.15]')
 
     parser.add_argument('--vistep', type=float, default=0.05,
-                        help='color step size')
+                        help='color step size [0.05]')
 
     parser.add_argument('--tmin', type=float, default=6.6,
-                        help='min log age')
+                        help='min log age [6.6]')
 
     parser.add_argument('--tmax', type=float, default=10.24,
-                        help='max log age')
+                        help='max log age [10.24]')
 
     parser.add_argument('--zinc', action='store_true',
-                        help='use zinc')
+                        help='use zinc [False]')
 
     parser.add_argument('--dmod', type=float, nargs=2,
                         help='dmod0, dmod1')
@@ -328,13 +334,13 @@ def main(argv):
                         help='av0, av1')
 
     parser.add_argument('--dav', type=float, default=0.05,
-                        help='Av step -- NOT -dAv flag')
+                        help='Av step -- NOT -dAv flag [0.05]')
 
     parser.add_argument('--ddmod', type=float, default=0.10,
-                        help='dmod step')
+                        help='dmod step [0.1]')
 
-    parser.add_argument('-s', '--slice', type=float, default=99.,
-                        help='cut out mags outside of this value')
+    parser.add_argument('-s', '--slice', type=float, default=40.,
+                        help='cut out mags outside of this value [40.]')
 
     parser.add_argument('-i', '--interactive', action='store_true',
                         help='find cmd limits interactively')
@@ -344,23 +350,22 @@ def main(argv):
                               'not follow: PID_TARGET_FILTER1_FILTER2.ext)'))
 
     parser.add_argument('--fake', type=str, default=None,
-                        help=('match fake file, used to calculate completeness '
-                              'to set faint mag limits of param file'))
+                        help=('match fake file to calculate completeness '
+                              'and to set faint mag limits of param file'))
 
     parser.add_argument('-c', '--comp_frac', type=float, default=0.50,
                         help=('completeness fraction as faint mag limit '
-                              '(use with --fake=)'))
+                              '(use with --fake=) [0.50]'))
 
     parser.add_argument('-b', '--bright_lim', type=float, default=20,
                         help=('bright limit to consider for calculating '
-                              'completeness (use with --fake=)'))
+                              'completeness (use with --fake=) [20]'))
 
     parser.add_argument('-p', '--param', type=str,
                         help='template match param file')
 
     parser.add_argument('--clobber', action='store_true',
                         help='overwrite')
-
 
     parser.add_argument('phot', type=str, help='photometry file match or fits')
 

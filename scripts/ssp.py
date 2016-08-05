@@ -23,11 +23,12 @@ from .cmd import call_pgcmd_byfit
 __all__ = ['SSP']
 
 
-def combine_files(fnames, outfile='combined_files.csv', best=False):
+def combine_files(fnames, outfile='combined_files.csv', best=False,
+                  stats=False):
     """add files together including columns based on params in filename"""
     all_data = pd.DataFrame()
     for fname in fnames:
-        dframe = add_filename_info_to_file(fname, best=best)
+        dframe = add_filename_info_to_file(fname, best=best, stats=stats)
         all_data = all_data.append(dframe, ignore_index=True)
 
     all_data.to_csv(outfile, index=False)
@@ -83,14 +84,15 @@ class SSP(object):
                 data = data[data[key] == val].copy(deep=True)
 
         self.data = data
-
         self.ibest = np.argmin(self.data['fit'])
 
-        self.absprob = np.exp(0.5 * (self.data['fit'].min() - self.data['fit']))
+        self.absprob = \
+            np.exp(0.5 * (self.data['fit'].min() - self.data['fit']))
 
     def _getmarginals(self):
         """get the values to marginalize over that exist in the data"""
-        # marg = np.array(['Av', 'IMF', 'dmod', 'lage', 'logZ', 'dav', 'ov', 'bf'])
+        # marg = np.array(['Av', 'IMF', 'dmod', 'lage', 'logZ', 'dav',
+        # 'ov', 'bf'])
         marg = np.array([k for k in self.data.keys() if k != 'fit'])
         inds = [i for i, m in enumerate(marg) if self._haskey(m)]
         return marg[inds]
@@ -176,11 +178,12 @@ class SSP(object):
         ax.set_xlabel(key2label(attr))
 
         if save:
-            outname = '{}_{}{}_{}_gamma{}'.format(self.name.replace('.csv', ''),
-                                                  attr, sub, ptype, EXT)
+            outfmt = '{}_{}{}_{}_gamma{}'
+            outname = outfmt.format(self.name.replace('.csv', ''),
+                                    attr, sub, ptype, EXT)
             plt.savefig(outname, bbox_inches='tight')
             print('wrote {}'.format(outname))
-            plt.close()
+        plt.close()
         return ax
 
     def pdf_plots(self, marginals='default', sub='', twod=False):
@@ -192,7 +195,8 @@ class SSP(object):
 
         if twod:
             for i, j in itertools.product(marg, marg):
-                # e.g., skip Av vs Av and Av vs IMF if already plotted IMF vs Av
+                # e.g., skip Av vs Av and Av vs IMF
+                # if already plotted IMF vs Av
                 if i >= j:
                     continue
 
@@ -230,7 +234,7 @@ def main(argv):
     parser = argparse.ArgumentParser(description="stats for calcsfh -ssp")
 
     parser.add_argument('-f', '--format', action='store_true',
-                        help='combine the files including data in the filename')
+                        help='combine the files including data from filename')
 
     parser.add_argument('-d', '--oned', action='store_true',
                         help='make val vs prob plots')
@@ -241,18 +245,18 @@ def main(argv):
     parser.add_argument('-b', '--best', action='store_true',
                         help='include best fits only')
 
-    parser.add_argument('-o', '--outfile', type=str,
+    parser.add_argument('--outfile', type=str,
                         default='combined_files.csv',
                         help='if -f file name to write to')
 
-    parser.add_argument('-s', '--sub', type=str, default='',
+    parser.add_argument(--sub', type=str, default='',
                         help='add substring to figure names')
-
-    parser.add_argument('-l', '--list', action='store_true',
-                        help='fnames is a file with a list of files to read')
 
     parser.add_argument('-c', '--sspcombine', action='store_true',
                         help='run sspcombine on the file(s) (and exit)')
+
+    parser.add_argument('-s', '--stats', action='store_true',
+                        help='with -f, use stats (see .cmd.main -c)')
 
     parser.add_argument('-p', '--plotcmd', action='store_true',
                         help='run pgcmd (need .out.cmd file) and exit')
@@ -281,7 +285,8 @@ def main(argv):
         filtdict = filename_data(args.sub, skip=0)
 
     if args.format:
-        fname = combine_files(args.fnames, outfile=args.outfile, best=args.best)
+        fname = combine_files(args.fnames, outfile=args.outfile,
+                              best=args.best)
     elif args.sspcombine:
         _ = [sspcombine(f, dry_run=False) for f in args.fnames]
         sys.exit(0)

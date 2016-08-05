@@ -14,14 +14,17 @@ from .utils import parse_pipeline
 
 __all__ = ['CMD']
 
+
 class CMD(object):
     """
     A quikly made object to read the MATCH CMD file and hold paramters to
-    automatically make plots with the same color scale as other MATCH CMD files.
+    automatically make plots with the same color scale as other MATCH CMD
+    files.
     """
     def __init__(self, filename):
         self.base, self.name = os.path.split(os.path.abspath(filename))
-        self.cmd, self.fit, self.colors, self.yfilter = read_match_cmd(filename)
+        self.cmd, self.fit, self.colors, self.yfilter = \
+            read_match_cmd(filename)
         self.load_match_cmd()
 
     def set_labels(self):
@@ -33,7 +36,7 @@ class CMD(object):
             labels[0] = strfmt.format(target)
         except:
             pass
-        labels.extend(r'$-2\ln P = {:g}$'.format(self.fit))
+        labels.append(r'$-2\ln P = {:g}$'.format(self.fit))
         return labels
 
     def load_match_cmd(self):
@@ -51,12 +54,11 @@ class CMD(object):
 
         self.extent = [np.min(self.cmd['color']), np.max(self.cmd['color']),
                        np.max(self.cmd['mag']), np.min(self.cmd['mag'])]
-        #self.max_counts = np.nanmax(np.concatenate([self.data, self.model]))
-        #self.max_diff = np.nanmax(np.abs(self.diff))
-        #self.max_sig = np.nanmax(np.abs(self.sig))
+        # self.max_counts = np.nanmax(np.concatenate([self.data, self.model]))
+        # self.max_diff = np.nanmax(np.abs(self.diff))
+        # self.max_sig = np.nanmax(np.abs(self.sig))
 
-
-    def pgcmd(self, labels=None, outdir=None, logcounts=True, figname=None):
+    def pgcmd(self, labels=None, outdir=None, logcounts=False, figname=None):
         '''produce the image that pgcmd.pro makes'''
         labels = labels or self.set_labels()
 
@@ -92,7 +94,7 @@ class CMD(object):
         return grid
 
 
-def call_pgcmd_byfit(cmdfns, nmax=5, outdir=None):
+def call_pgcmd_byfit(cmdfns, nmax=5, outdir=None, logcounts=False):
     """
     Call pgcmd with filename order them by increasing best fit value.
     cmdfns : string or list
@@ -103,18 +105,22 @@ def call_pgcmd_byfit(cmdfns, nmax=5, outdir=None):
     """
     if not isinstance(cmdfns, list):
         cmd = CMD(cmdfns)
-        cmd.pgcmd()
+        cmd.pgcmd(outdir=outdir, logcounts=logcounts)
         return
 
     cmds = np.array([CMD(cmdfn) for cmdfn in cmdfns])
-    icmd = np.argsort(np.concatenate([cmd.fit for cmd in cmds]))
+    try:
+        icmd = np.argsort(np.concatenate([cmd.fit for cmd in cmds]))
+    except ValueError:
+        icmd = np.argsort([cmd.fit for cmd in cmds])
     for j, cmd in enumerate(cmds[icmd]):
         if j > nmax:
             break
         jstr = ('{}'.format(j)).zfill(4)
-        cmd.pgcmd(figname=cmd.figname.replace(EXT, ''.join(jstr, EXT)),
-                  outdir=outdir)
+        cmd.pgcmd(figname='{}{}{}'.format(cmd.name, jstr, EXT),
+                  outdir=outdir, logcounts=logcounts)
     return
+
 
 def main(argv):
     """main function for cmd"""
@@ -125,6 +131,9 @@ def main(argv):
 
     parser.add_argument('-f', '--byfit', action='store_true',
                         help='number filenames by best fit')
+
+    parser.add_argument('--logcounts', action='store_true',
+                        help='use log binning for data and model')
 
     parser.add_argument('cmdfiles', type=str, nargs='*',
                         help='.cmd files to plot')
@@ -137,11 +146,11 @@ def main(argv):
 
     if args.byfit:
         call_pgcmd_byfit(args.cmdfiles, nmax=len(args.cmdfiles),
-                         outdir=args.outdir)
+                         outdir=args.outdir, logcounts=args.logcounts)
     else:
         for cmdfile in args.cmdfiles:
             cmd = CMD(cmdfile)
-            cmd.pgcmd(outdir=args.outdir)
+            cmd.pgcmd(outdir=args.outdir, logcounts=args.logcounts)
 
 if __name__ == "__main__":
     main(sys.argv[1:])

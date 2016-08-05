@@ -13,6 +13,49 @@ except ImportError:
     pass
 
 
+def pcolor_(x, y, z, nanfunc=np.max, ax=None):
+    """
+    Call plt.pcolor with 1D arrays shifting the grid so x, y are at bin center
+    nanfunc : function
+        f(z) to use for incomplete grid spaces
+    """
+    def center_grid(a):
+        """
+        uniquify and shift a uniform array half a bin maintaining its size
+        """
+        x = np.unique(a)
+        dx = np.diff(x)[0]
+        x = np.append(x, x[-1] + dx)
+        x -= dx / 2
+        return x
+
+    def centered_meshgrid(x, y):
+        """call meshgrid with bins shifted so x, y will be at bin center"""
+        X, Y = np.meshgrid(center_grid(x), center_grid(y), indexing="ij")
+        return X, Y
+
+    if ax is None:
+        _, ax = plt.subplots()
+
+    X, Y = centered_meshgrid(x, y)
+    ux = np.unique(x)
+    uy = np.unique(y)
+    C = np.zeros(shape=(len(ux), len(uy))) + nanfunc(z)
+    for i in range(len(ux)):
+        for j in range(len(uy)):
+            iz, = np.nonzero((x == ux[i]) & (y == uy[j]))
+            if len(iz) > 0:
+                Z = z.iloc[iz]
+                if len(iz) > 1:
+                    Z = np.median(Z)
+                C[i, j] = Z
+
+    ax.pcolor(X, Y, C, cmap="Blues_r")
+    ax.set_xlim(X.min(), X.max())
+    ax.set_ylim(Y.min(), Y.max())
+    return ax
+
+
 def stitch_cmap(cmap1, cmap2, stitch_frac=0.5, dfrac=0.001):
     '''
     Code adapted from Dr. Adrienne Stilp
@@ -26,6 +69,7 @@ def stitch_cmap(cmap1, cmap2, stitch_frac=0.5, dfrac=0.001):
     stitched = stitch_cmap(cm.Greys_r, cm.Reds, stitch_frac=0.525, dfrac=0.05)
     '''
     from matplotlib.colors import LinearSegmentedColormap
+
     def left(seg):
         """left color segment"""
         return [(i * (stitch_frac - dfrac), j, k) for i, j, k in seg]
@@ -158,7 +202,7 @@ def match_plot(hesslist, extent, labels=None, imagegrid_kw=None,
                 colors = plt.cm.Reds
             if i == 1:
                 colors = plt.cm.Blues
-            #colors = plt.cm.get_cmap('binary', 11)
+            # colors = plt.cm.get_cmap('binary', 11)
 
         aspect = abs((extent[1] - extent[0]) / (extent[3] - extent[2]))
         img = ax.imshow(hess, origin='upper', extent=extent, aspect=aspect,
