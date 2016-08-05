@@ -242,6 +242,8 @@ def calcsfh_input_parameter(zinc=False, power_law_imf=True, **params):
             dtarr = np.log10(dtarr)
 
         param_dict['ntbins'] = len(dtarr) - 1
+    if param_dict['ntbins'] > 100:
+        print('Warning {} time bins'.format(param_dict['ntbins']))
 
     # Add background information (if a file is supplied)
     # This might not be the correct formatting...
