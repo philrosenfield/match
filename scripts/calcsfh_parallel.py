@@ -16,6 +16,7 @@ calcsfh = '$HOME/research/match2.5/bin/calcsfh'
 zcombine = '$HOME/research/match2.5/bin/zcombine'
 hybridmc = '$HOME/research/match2.5/bin/hybridMC'
 
+
 def test_files(prefs, run_calcsfh=True):
     """make sure match input files exist"""
     return_code = 0
@@ -32,6 +33,7 @@ def test_files(prefs, run_calcsfh=True):
     if return_code > 0:
         sys.exit(2)
     return
+
 
 def uniform_filenames(prefs, dry_run=False):
     """
@@ -51,12 +53,13 @@ def uniform_filenames(prefs, dry_run=False):
                                                       '.gst').lower()
         umatch = '_'.join(match.split('_')[1:]).lower()
         uparam = param.replace('.param', '.gst.param').lower()
-        for old, new in zip([fake, match, param],[ufake, umatch, uparam]):
+        for old, new in zip([fake, match, param], [ufake, umatch, uparam]):
             cmd = 'mv {dir}/{old} {dir}/{new}'.format(dir=dirname, old=old,
                                                       new=new)
             logger.info(cmd)
             if not dry_run:
                 os.system(cmd)
+
 
 def calcsfh_existing_files(pref, optfilter1=''):
     """file formats for param match and matchfake"""
@@ -68,7 +71,7 @@ def calcsfh_existing_files(pref, optfilter1=''):
 
 def calcsfh_new_files(pref):
     """file formats for match grid, sdout, and sfh file"""
-    out =  pref + '.out'
+    out = pref + '.out'
     scrn = pref + '.scrn'
     sfh = pref + '.sfh'
     return (out, scrn, sfh)
@@ -93,18 +96,19 @@ def run_parallel(prefs, dry_run=False, nproc=8, run_calcsfh=True):
     """run calcsfh and zcombine in parallel, flags are hardcoded."""
     test_files(prefs, run_calcsfh)
 
-    rdict = {'calcsfh': calcsfh, 'zcombine': zcombine,'hybridmc': hybridmc}
+    rdict = {'calcsfh': calcsfh, 'zcombine': zcombine, 'hybridmc': hybridmc}
     # calcsfh
     # calcsfh, param, match, fake, out, scrn
-    cmd1 = '{calcsfh} {param} {match} {fake} {out} -PARSEC -mcdata -kroupa -zinc -sub=v2 > {scrn}'
+    cmd1 = ('{calcsfh} {param} {match} {fake} {out} ',
+            '-PARSEC -mcdata -kroupa -zinc -sub=v2 > {scrn}')
     # zcombine
-    #zcombine, out, sfh
+    # zcombine, out, sfh
     cmd2 = '{zcombine} {out} -bestonly > {sfh}'
     # hybridmc
-    #hybridmc, mcin, mcmc, mcscrn
+    # hybridmc, mcin, mcmc, mcscrn
     cmd3 = '{hybridmc} {mcin} {mcmc} -tint=2.0 -nmc=10000 -dt=0.015 > {mcscrn}'
     # zcombine w/ hybrid mc
-    #zcombine, mcmc, mczc
+    # zcombine, mcmc, mczc
     cmd4 = '{zcombine} {mcmc} -unweighted -medbest -jeffreys -best={mczc}'
 
     niters = np.ceil(len(prefs) / float(nproc))
@@ -114,39 +118,43 @@ def run_parallel(prefs, dry_run=False, nproc=8, run_calcsfh=True):
     for j, iset in enumerate(sets):
         # don't use not needed procs
         iset = iset[iset < len(prefs)]
-        
+
         # run calcsfh
         procs = []
         for i in iset:
             if run_calcsfh:
-                rdict['param'], rdict['match'], rdict['fake'] = calcsfh_existing_files(prefs[i])
-                rdict['out'], rdict['scrn'], rdict['sfh'] = calcsfh_new_files(prefs[i])
+                rdict['param'], rdict['match'], rdict['fake'] = \
+                    calcsfh_existing_files(prefs[i])
+                rdict['out'], rdict['scrn'], rdict['sfh'] = \
+                    calcsfh_new_files(prefs[i])
                 cmd = cmd1.format(**rdict)
             else:
                 rdict['mcin'] = hybridmc_existing_files(prefs[i])
-                rdict['mcmc'], rdict['mcscrn'], rdict['mczc'] = hybridmc_new_files(prefs[i])
+                rdict['mcmc'], rdict['mcscrn'], rdict['mczc'] = \
+                    hybridmc_new_files(prefs[i])
                 cmd = cmd3.format(**rdict)
             if not dry_run:
                 procs.append(subprocess.Popen(cmd, shell=True))
             logger.info(cmd)
-        
+
         # wait for calcsfh
         if not dry_run:
             [p.wait() for p in procs]
             logger.debug('calcsfh or hybridMC set {} complete'.format(j))
-        
+
         # run zcombine
         procs = []
         for i in iset:
             if run_calcsfh:
-                rdict['out'], rdict['scrn'], rdict['sfh'] = calcsfh_new_files(prefs[i])
+                rdict['out'], rdict['scrn'], rdict['sfh'] = \
+                    calcsfh_new_files(prefs[i])
                 zcom = cmd2.format(**rdict)
             else:
                 zcom = cmd4.format(**rdict)
             if not dry_run:
                 procs.append(subprocess.Popen(zcom, shell=True))
             logger.info(zcom)
-        
+
         # wait for zcombine
         if not dry_run:
             [p.wait() for p in procs]
@@ -155,7 +163,10 @@ def run_parallel(prefs, dry_run=False, nproc=8, run_calcsfh=True):
 
 def main(argv):
     """parse in put args, setup logger, and call run_parallel"""
-    parser = argparse.ArgumentParser(description="Run calcsfh in parallel. Note: bg cmd, if in use, need to be in the current folder")
+    desc = ('Run calcsfh in parallel. Note: bg cmd, if in use, ',
+            'need to be in the current folder')
+
+    parser = argparse.ArgumentParser(description=desc)
 
     parser.add_argument('-d', '--dry_run', action='store_true',
                         help='only print commands')
@@ -169,32 +180,38 @@ def main(argv):
     parser.add_argument('-m', '--hmc',  action='store_false',
                         help='run hybridMC (must be after a calcsfh run)')
 
-    parser.add_argument('-f', '--logfile', type=str, default='calcsfh_parallel.log',
+    parser.add_argument('-f', '--logfile', type=str,
+                        default='calcsfh_parallel.log',
                         help='log file name')
 
     parser.add_argument('-s', '--simplify', action='store_true',
-                        help='make filename uniform and exit (before calcsfh run)')
+                        help=('make filename uniform and exit ',
+                              '(before calcsfh run)'))
 
     parser.add_argument('pref_list', type=argparse.FileType('r'),
-                        help="list of prefixs to run on. E.g., ls */*.match | sed 's/.match//' > pref_list")
+                        help=("list of prefixs to run on. E.g.,",
+                              "ls */*.match | sed 's/.match//' > pref_list"))
 
     args = parser.parse_args(argv)
     prefs = [l.strip() for l in args.pref_list.readlines()]
-    
+
     handler = logging.FileHandler(args.logfile)
     if args.verbose:
         handler.setLevel(logging.DEBUG)
     else:
         handler.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter(('%(asctime)s - %(name)s - ',
+                                   '%(levelname)s - %(message)s'))
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
     if args.simplify:
         uniform_filenames(prefs, dry_run=args.dry_run)
     else:
-        logger.info('running on {}'.format(', '.join([p.strip() for p in prefs])))
-        run_parallel(prefs, dry_run=args.dry_run, nproc=args.nproc, run_calcsfh=args.hmc)
+        logger.info('running on {}'.format(', '.join([p.strip()
+                                                      for p in prefs])))
+        run_parallel(prefs, dry_run=args.dry_run, nproc=args.nproc,
+                     run_calcsfh=args.hmc)
 
 
 if __name__ == '__main__':

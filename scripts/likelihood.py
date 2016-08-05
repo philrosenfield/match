@@ -4,6 +4,7 @@ from .utils import read_binned_sfh
 import sys
 import argparse
 
+
 def stellar_prob(obs, model, normalize=False):
     '''
     FROM MATCH README
@@ -34,15 +35,17 @@ def stellar_prob(obs, model, normalize=False):
     d[smalln] = 2. * m[smalln]
 
     smallm = (m < 0.001) & (n != 0)
-    d[smallm] = 2. * (0.001 + n[smallm] * np.log(n[smallm] / 0.001) - n[smallm])
+    d[smallm] = 2. * (0.001 + n[smallm] *
+                      np.log(n[smallm] / 0.001) - n[smallm])
 
     sig = np.sqrt(d) * np.sign(n - m)
-    #fit = np.sum(sig)
-    #pct_dif = (m - n) / n
+    # fit = np.sum(sig)
+    # pct_dif = (m - n) / n
     # sum(d) = -2 ln P
-    prob = np.exp( -1 * np.sum(d) / 2)
-    #prob = np.sum(d) / float(len(np.concatenate(n)) - 1)
-    return d, prob#, pct_dif, sig
+    prob = np.exp(-1 * np.sum(d) / 2)
+    # prob = np.sum(d) / float(len(np.concatenate(n)) - 1)
+    return d, prob  # , pct_dif, sig
+
 
 def match_stats(sfh_file, match_cmd_file, nfp_nonsfr=5, nmc_runs=10000,
                 outfile='cmd_stats.dat', dry_run=False, extra=''):
@@ -65,7 +68,8 @@ def match_stats(sfh_file, match_cmd_file, nfp_nonsfr=5, nmc_runs=10000,
     if nmc_runs > 0:
         perr_frac = sfr_data.sfr_errp[inds] / sfr_data.sfr[inds]
         merr_frac = sfr_data.sfr_errm[inds] / sfr_data.sfr[inds]
-        line = '# min_sfr_merr max_sfr_perr med_sfr_merr med_sfr_perr max_sfr_merr max_sfr_perr \n'
+        line = ('# min_sfr_merr max_sfr_perr med_sfr_merr med_sfr_perr ',
+                'max_sfr_merr max_sfr_perr \n')
         line += '%.3f %.3f %.3f %.3f %.3f %.3f\n' % \
             (np.min(perr_frac), np.min(merr_frac), np.median(perr_frac),
              np.median(merr_frac), np.max(perr_frac), np.max(merr_frac))
@@ -80,16 +84,18 @@ def match_stats(sfh_file, match_cmd_file, nfp_nonsfr=5, nmc_runs=10000,
         os.system(cmd)
     return cmd
 
+
 def read_match_stats(statsfile):
     with open(statsfile, 'r') as inp:
         lines = inp.readlines()
     stats = {}
     for line in lines:
-        if not ':' in line:
+        if ':' not in line:
             continue
         key, val = line.split(':')
         stats[''.join(key.replace('^', '').split())] = float(val)
     return stats
+
 
 def main(argv):
     parser = argparse.ArgumentParser(description="run match stats")
