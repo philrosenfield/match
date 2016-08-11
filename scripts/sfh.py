@@ -120,9 +120,13 @@ class SFH(object):
             self.flag = 'zinc'
         return
 
+    def mh2z(self, num):
+        """nore really [M/H] """
+        return 0.02 * 10 ** num
+
     def plot_bins(self, val='sfr', err=False, convertz=False, offset=1.):
         '''make SFH bins for plotting'''
-        if type(val) == str:
+        if isinstance(val, str):
             if err:
                 valm = self.data['%s_errm' % val] * offset
                 valp = self.data['%s_errp' % val] * offset

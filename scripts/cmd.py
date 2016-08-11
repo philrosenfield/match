@@ -7,7 +7,7 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .config import EXT
+from .config import EXT, match_base
 from .fileio import read_match_cmd
 from .graphics import match_plot
 from .utils import parse_pipeline
@@ -122,6 +122,29 @@ def call_pgcmd_byfit(cmdfns, nmax=5, outdir=None, logcounts=False):
     return
 
 
+def call_stats(cmdfiles, outdir=None, nfp=3, dryrun=False):
+    """ call match/bin/stats on a list of .cmd files"""
+    if type(cmdfiles) is not list:
+        cmdfiles = [cmdfiles]
+
+    stats = os.path.join(match_base, 'bin', 'stats')
+    assert os.path.isfile(stats), 'stats program not found. {}'.format(stats)
+
+    for cmdfile in cmdfiles:
+        outfile = cmdfile + '.stats'
+        if outdir is not None:
+            assert os.path.isdir(outdir), \
+                '{} directory not found'.format(outdir)
+            outfile = os.path.join(outdir, outfile)
+        cmd = '{:s} {:s} 0 {:d} > {:s}'.format(stats, cmdfile, nfp, outfile)
+        print(cmd)
+        if dryrun:
+            print(cmd)
+        else:
+            os.system(cmd)
+    return
+
+
 def main(argv):
     """main function for cmd"""
     parser = argparse.ArgumentParser(description="plot cmd file")
@@ -132,6 +155,8 @@ def main(argv):
     parser.add_argument('-f', '--byfit', action='store_true',
                         help='number filenames by best fit')
 
+    parser.add_argument('-c', '--stats', action='store_true',
+                        help='call match/bin/stats and exit')
     parser.add_argument('--logcounts', action='store_true',
                         help='use log binning for data and model')
 
@@ -143,6 +168,10 @@ def main(argv):
     if args.outdir is not None:
         assert os.path.isdir(args.outdir), \
             'directory {} not found'.format(args.outdir)
+
+    if args.stats:
+        call_stats(args.cmdfiles, outdir=args.outdir)
+        sys.exit()
 
     if args.byfit:
         call_pgcmd_byfit(args.cmdfiles, nmax=len(args.cmdfiles),

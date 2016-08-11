@@ -232,7 +232,7 @@ def match_param(mag1, mag2, filters, param, interactive=False, fake=None,
         if param_kw['tbin'] is not None:
             print(template['ntbins'])
             del template['ntbins']
-            template.update(param_kw)
+        template.update(param_kw)
     else:
         template = param_kw
 
