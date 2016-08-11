@@ -519,10 +519,10 @@ class ASTs(object):
 
         xlab = r'${{\rm Input}}\ {}$'
 
-        axs[0].set_xlabel(xlab.format(self.filter1), fontsize=20)
-        axs[1].set_xlabel(xlab.format(self.filter2), fontsize=20)
+        axs[0].set_xlabel(xlab.format(self.filter1))
+        axs[1].set_xlabel(xlab.format(self.filter2))
 
-        axs[0].set_ylabel(r'${{\rm Input}} - {{\rm Ouput}}$', fontsize=20)
+        axs[0].set_ylabel(r'${{\rm Input}} - {{\rm Ouput}}$')
         return axs
 
     def completeness_plot(self, ax=None, comp_fracs=None):

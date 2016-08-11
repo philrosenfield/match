@@ -5,23 +5,62 @@ import itertools
 import os
 import sys
 
+import numpy as np
 
-def write_slurm(cmds, outdir='slurm'):
+try:
+    from .config import calcsfh, calcsfh_flag, OUTEXT, SCRNEXT
+    from .utils import splitext, writeorappend, parse_argrange
+    from .fileio import read_calcsfh_param, calcsfh_input_parameter
+except SystemError:
+    from config import calcsfh, calcsfh_flag, OUTEXT, SCRNEXT
+    from utils import splitext, writeorappend, parse_argrange
+    from fileio import read_calcsfh_param, calcsfh_input_parameter
+
+
+def write_slurm(cmdscript, outdir='slurm'):
+    """
+    Read a calcsfh_ssp script (output of varyparams) and split calls into
+    separate calcsfh_*.sh scripts to be called in a job array.
+
+    All outputs of this function will be put in [outdir].
+    The match parameter, phot, and fake files referenced in the cmdscript
+    will also be copied into [outdir] with the idea it will be tar'd up and
+    shipped to odyssey.
+
+    calcsfh.slurm is also written (all hardcoded but job array size)
+    for sbatch submission.
+
+    All the ssp.scrn and ssp.out file names are changed to have the same job
+    array index as the calcsfh_*.sh file for fast debugging if a job gets
+    killed or fails.
+    """
     if not os.path.isdir(outdir):
         os.mkdir(outdir)
 
+    with open(cmdscript, 'r') as inp:
+        cmds = inp.readlines()
     cmds = [c.replace('&', '') for c in cmds if 'wait' not in c and len(c) > 0]
-
+    copys = []
     for i, cmd in enumerate(cmds):
-        cmdfn = os.path.join(outdir, 'calcsfh_{}.sh'.format(i+1))
+        # num = ('{}'.format(i + 1)).zfill(4)
+        num = i + 1
+        _, param, phot, fake = cmd.split()[:4]
+        cmdfn = os.path.join(outdir, 'calcsfh_{}.sh'.format(num))
+        cmd = cmd.replace('ssp.', 'ssp{}.'.format(num))
         with open(cmdfn, 'w') as outp:
                 outp.write(cmd)
+        copys.append(param)
+        copys.append(phot)
+        copys.append(fake)
+
+    for c in np.unique(copys):
+        os.system('cp {0:s} {1:s}/{0:s}'.format(c, outdir))
 
     line = "#!/bin/bash\n\n"
     line += "#SBATCH -n 2\n"
     line += "#SBATCH -N 1\n"
     line += "#SBATCH -t 36:00:00\n"
-    line += "#SBATCH --mem 90000\n"
+    line += "#SBATCH --mem 120000\n"
     line += "#SBATCH -p conroy\n"
     line += "#SBATCH --array=1-{}\n".format(len(cmds))
     line += "#SBATCH -o calcsfh_%a.o\n"
@@ -93,13 +132,57 @@ def vary_matchparam(param_file, varyarrs=None, power_law_imf=True,
 
         new_param = calcsfh_input_parameter(power_law_imf=power_law_imf,
                                             **template)
-        new_name = '{}_{}.{}'.format(pname, '_'.join(name), ext)
+        new_name = '{}_{}.{}'.format(pname, '_'.join(np.sort(name)), ext)
 
         with open(new_name, 'w') as outp:
             outp.write(new_param)
         # print('wrote {}'.format(new_name))
         new_names.append(new_name)
     return new_names
+
+
+def vary_calcsfh_calls(phot, fake, params, outfile, subs, davs,
+                       calcsfh=calcsfh, destination=None, check=False,
+                       nproc=12, extra='', imf=None):
+    """
+    loop over param files to create output filenames and calcsfh calls for
+    parameters that vary that are not in the calcsfh parameter file.
+    """
+    runtot = len(params) * len(davs) * len(subs)
+    print('Requested {} calcsfh calls'.format(runtot))
+
+    line = ''
+    inproc = 0
+    for sub in subs:
+        subfmt = ''
+        if sub is not None:
+            subfmt = '_{}'.format(sub)
+        for dav in davs:
+            for param in params:
+                parfile = param
+                if destination is not None:
+                    parfile = os.path.join(destination,
+                                           os.path.split(param)[1])
+                prefx, _ = splitext(parfile)
+                suffx = 'dav{:g}{}{}_ssp'.format(dav, subfmt, extra)
+
+                name = '_'.join([prefx, suffx])
+
+                out = '{}{}'.format(name, OUTEXT)
+                scrn = '{}{}'.format(name, SCRNEXT)
+
+                if check and os.path.isfile(out):
+                    print('{} exists, not overwriting'.format(out))
+                else:
+                    inproc += 1
+                    flags = getflags(dav, sub=sub, imf=imf)
+                    line += ' '.join([calcsfh, param, phot, fake,
+                                      out, flags, '>', scrn, '&\n'])
+                    if nproc == inproc:
+                        line += 'wait \n'
+                        inproc = 0
+
+    writeorappend(outfile, line)
 
 
 def main(argv):
@@ -197,57 +280,16 @@ def main(argv):
     params = vary_matchparam(args.param_file, varyarrs=varyarrs,
                              params=cparams, power_law_imf=power_law_imf)
 
-    # loop over all to create output filenames and calcsfh calls for parameters
-    # that vary that are not in the calcsfh parameter file.
-    line = ''
-    nproc = 0
+    vary_calcsfh_calls(args.phot, args.fake, params, args.outfile, subs, davs,
+                       calcsfh=args.calcsfh, destination=args.destination,
+                       nproc=args.nproc, extra=extra, imf=imf)
 
-    runtot = len(params) * len(davs) * len(subs)
-    print('Requested {} calcsfh calls'.format(runtot))
-    for sub in subs:
-        subfmt = ''
-        if sub is not None:
-            subfmt = '_{}'.format(sub)
-        for dav in davs:
-            for param in params:
-                parfile = param
-                if args.destination is not None:
-                    parfile = os.path.join(args.destination,
-                                           os.path.split(param)[1])
-                prefx, _ = splitext(parfile)
-                suffx = 'dav{:g}{}{}_ssp'.format(dav, subfmt, extra)
-                name = '_'.join([prefx, suffx])
-
-                out = '{}{}'.format(name, OUTEXT)
-                scrn = '{}{}'.format(name, SCRNEXT)
-
-                if args.check and os.path.isfile(out):
-                    print('{} exists, not overwriting'.format(out))
-                else:
-                    nproc += 1
-                    flags = getflags(dav, sub=sub, imf=imf)
-                    line += ' '.join([calcsfh, param, args.phot, args.fake,
-                                      out, flags, '>', scrn, '&\n'])
-                    if nproc == args.nproc:
-                        line += 'wait \n'
-                        nproc = 0
-
-    writeorappend(args.outfile, line)
     if args.slurm:
         if args.calcsfh == calcsfh:
             print('Warning: calcsfh path is default -- {}'.format(calcsfh))
-        write_slurm(line.split('\n'))
+        write_slurm(args.outfile)
     return
 
 
 if __name__ == "__main__":
-    try:
-        from .config import calcsfh, calcsfh_flag, OUTEXT, SCRNEXT
-        from .utils import splitext, writeorappend, parse_argrange
-        from .fileio import read_calcsfh_param, calcsfh_input_parameter
-    except SystemError:
-        from config import calcsfh, calcsfh_flag, OUTEXT, SCRNEXT
-        from utils import splitext, writeorappend, parse_argrange
-        from fileio import read_calcsfh_param, calcsfh_input_parameter
-
     main(sys.argv[1:])

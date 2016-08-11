@@ -81,7 +81,7 @@ class SSP(object):
 
         if filterby is not None:
             for key, val in filterby.items():
-                data = data[data[key] == val].copy(deep=True)
+                data = data.loc[data[key] == val].copy(deep=True)
 
         self.data = data
         self.ibest = np.argmin(self.data['fit'])
@@ -140,71 +140,129 @@ class SSP(object):
         prob /= prob.sum()
         return vals, prob, np.log(prob)
 
-    def pdf_plot(self, attr, attr2=None, ax=None, sub=''):
-        """Plot prob vs marginalized attr"""
-        vals, prob, _ = self.marginalize(attr, attr2=attr2)
-        if len(vals) == 1:
+    def pdf_plot(self, *args, **kwargs):
+        return pdf_plot(self, *args, **kwargs)
+
+    def pdf_plots(self, *args, **kwargs):
+        return pdf_plots(self, *args, **kwargs)
+
+
+def pdf_plot(SSP, attr, attr2=None, ax=None, sub='', save=False,
+             truth=None):
+    """Plot prob vs marginalized attr"""
+    def center_grid(a):
+        """
+        uniquify and shift a uniform array half a bin maintaining its size
+        """
+        x = np.unique(a)
+        dx = np.diff(x)[0]
+        x = np.append(x, x[-1] + dx)
+        x -= dx / 2
+        return x
+
+    truth = truth or {}
+
+    if len(sub) > 0:
+        sub = '_' + sub
+
+    vals, prob, _ = SSP.marginalize(attr, attr2=attr2)
+
+    if len(np.unique(vals)) == 1:
+        print('{} not varied.'.format(attr))
+        return
+
+    if attr2 is None:
+        if ax is None:
+            _, ax = plt.subplots()
+        ax.hist(vals, weights=prob, bins=center_grid(vals), histtype='step',
+                lw=4, color='k')
+        ax.set_ylabel(r'$\rm{Probability}$')
+        ptype = 'marginal'
+        if attr in truth:
+            ax.axvline(truth[attr], color='darkred')
+    else:
+        [vals, vals2] = vals
+        if len(np.unique(vals2)) == 1 or len(np.unique(vals)) == 1:
             print('{} not varied.'.format(attr))
             return
 
-        save = False
-        if len(sub) > 0:
-            sub = '_' + sub
-
         if ax is None:
             _, ax = plt.subplots()
-            save = True
 
-        if attr2 is None:
-            ax.hist(vals, weights=prob, bins=31, histtype='step',
-                    lw=4, color='k')
-            ax.set_ylabel(r'$\rm{Probability}$')
-            ptype = 'marginal'
-        else:
-            [vals, vals2] = vals
-            if len(np.unique(vals2)) == 1 or len(np.unique(vals)) == 1:
-                plt.close()
-                return
+        ybins = center_grid(vals2)
+        hist, xedge, yedge = np.histogram2d(vals, vals2,
+                                            bins=[center_grid(vals),
+                                                  center_grid(vals2)],
+                                            weights=prob)
+        img = ax.imshow(hist.T, origin='low', interpolation='nearest',
+                        extent=[xedge[0], xedge[-1], yedge[0], yedge[-1]],
+                        cmap=plt.cm.Blues, aspect='auto')
 
-            hist, xedge, yedge = np.histogram2d(vals, vals2, weights=prob)
-            img = plt.imshow(hist.T, origin='low', interpolation='None',
-                             extent=[xedge[0], xedge[-1], yedge[0], yedge[-1]],
-                             cmap=plt.cm.Blues, aspect='auto')
+        # cbar = plt.colorbar(img)
+        # cbar.set_label(r'$\rm{Probability}$')
+        # cbar.set_clim(0, 1)
+        ax.set_ylabel(key2label(attr2))
+        ptype = '{}_joint'.format(attr2)
+        if attr in truth:
+            ax.axvline(truth[attr], color='darkred', lw=3)
+        if attr2 in truth:
+            ax.axhline(truth[attr2], color='darkred', lw=3)
+            ax.set_xlim(xedge[0], xedge[-1])
+            ax.set_ylim(yedge[0], yedge[-1])
 
-            cbar = plt.colorbar(img)
-            cbar.set_label(r'$\rm{Probability}$')
-            ax.set_ylabel(key2label(attr2))
-            ptype = '{}_joint'.format(attr2)
-        ax.set_xlabel(key2label(attr))
-
-        if save:
-            outfmt = '{}_{}{}_{}_gamma{}'
-            outname = outfmt.format(self.name.replace('.csv', ''),
-                                    attr, sub, ptype, EXT)
-            plt.savefig(outname, bbox_inches='tight')
-            print('wrote {}'.format(outname))
+    ax.set_xlabel(key2label(attr))
+    if save:
+        outfmt = '{}_{}{}_{}_gamma{}'
+        outname = outfmt.format(SSP.name.replace('.csv', ''),
+                                attr, sub, ptype, EXT)
+        plt.savefig(outname, bbox_inches='tight')
+        print('wrote {}'.format(outname))
         plt.close()
-        return ax
+    return ax
 
-    def pdf_plots(self, marginals='default', sub='', twod=False):
-        """Call pdf_plot2d for a list of attr and attr2"""
-        if marginals == 'default':
-            marg = self._getmarginals()
-        else:
-            marg = marginals
 
-        if twod:
-            for i, j in itertools.product(marg, marg):
+def pdf_plots(SSP, marginals='default', sub='', twod=False, truth=None):
+    """Call pdf_plot2d for a list of attr and attr2"""
+    truth = truth or {}
+    if marginals == 'default':
+        marg = SSP._getmarginals()
+    else:
+        marg = marginals
+
+    ndim = len(marg)
+    if twod:
+        raxs = []
+
+        fig, axs = plt.subplots(nrows=ndim, ncols=ndim)
+        [[ax.set_visible(False) for ax in axs[i, i:]] for i in range(ndim)]
+        [[ax.tick_params(left='off', labelleft='off') for ax in axs.T[i]]
+         for i in np.arange(ndim-1)+1]
+        [ax.tick_params(bottom='off', labelbottom='off')
+         for ax in axs[:-1].ravel()]
+        [[ax.tick_params(right='off', top='off') for ax in axs[i+1, :i]]
+         for i in range(ndim-1)]
+
+        for j in marg:
+            for i in marg:
                 # e.g., skip Av vs Av and Av vs IMF
                 # if already plotted IMF vs Av
+                iy, ix = np.sort([marg.index(j), marg.index(i)])
                 if i >= j:
                     continue
 
-                self.pdf_plot(i, attr2=j, sub=sub)
-        else:
-            _ = [self.pdf_plot(i, sub=sub) for i in marg]
-
-        return
+                    ax.tick_params(labelleft='off', labelbottom='off')
+                raxs.append(SSP.pdf_plot(i, attr2=j, sub=sub, truth=truth,
+                                         ax=axs[ix, iy]))
+    else:
+        fig, axs = plt.subplots(ncols=ndim, figsize=(15, 3))
+        [ax.tick_params(left='off', labelleft='off') for ax in axs[1:]]
+        [ax.tick_params(right='off', labelright='off') for ax in axs[:-1]]
+        [ax.tick_params(top='off') for ax in axs]
+        axs[-1].tick_params(labelright='on')
+        raxs = [SSP.pdf_plot(i, sub=sub, truth=truth, ax=axs[marg.index(i)])
+                for i in marg]
+        [ax.set_ylabel('') for ax in axs[1:]]
+    return fig, raxs
 
 
 def key2label(string):
@@ -249,7 +307,7 @@ def main(argv):
                         default='combined_files.csv',
                         help='if -f file name to write to')
 
-    parser.add_argument(--sub', type=str, default='',
+    parser.add_argument('--sub', type=str, default='',
                         help='add substring to figure names')
 
     parser.add_argument('-c', '--sspcombine', action='store_true',
@@ -272,9 +330,6 @@ def main(argv):
     if args.verbose:
         import pdb
         pdb.set_trace()
-
-    if args.list:
-        args.fnames = map(str.strip, open(args.fnames[0], 'r').readlines())
 
     if args.plotcmd:
         call_pgcmd_byfit(args.fnames, nmax=16)

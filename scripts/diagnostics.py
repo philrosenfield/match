@@ -4,7 +4,7 @@ import os
 import sys
 
 from .fileio import get_files
-from .graphics import call_pgcmd, match_diagnostic
+from .graphics import match_diagnostic
 from .utils import check_boundaries
 from .sfh import SFH
 
@@ -45,16 +45,10 @@ def main(argv):
 
     [check_boundaries(p, s) for p, s in zip(params, scrns)]
 
-    try:
-        filter1, filter2 = args.filters.split(',')
-    except AttributeError:
-        filter1 = 'V'
-        filter2 = 'I'
-
     labels = ['${\\rm %s}$' % i for i in ('data', 'model', 'diff', 'sig')]
 
-    call_pgcmd(cmd_names, filter1, filter2, labels=labels,
-               logcounts=args.logcounts)
+    #call_pgcmd(cmd_names, filter1, filter2, labels=labels,
+    #           logcounts=args.logcounts)
 
     if len(sfh_files) > 0:
         for sfh_file in sfh_files:
