@@ -17,7 +17,7 @@ import numpy as np
 
 from .config import EXT, match_base
 from .fileio import filename_data, add_filename_info_to_file
-from .utils import strip_header
+from .utils import strip_header, center_grid
 from .cmd import call_pgcmd_byfit
 
 __all__ = ['SSP']
@@ -63,7 +63,7 @@ class SSP(object):
     """
     Class for calcsfh -ssp outputs
     """
-    def __init__(self, filename, data=None, filterby=None):
+    def __init__(self, filename, data=None, filterby=None, gyr=False):
         """
         filenames are the calcsfh -ssp terminal or console output.
         They do not need to be stripped of their header or footer or
@@ -78,6 +78,10 @@ class SSP(object):
                                     names=['Av', 'IMF', 'dmod', 'lage', 'logZ',
                                            'fit', 'sfr'])
                 data = pd.DataFrame(dat)
+
+        self.gyr = gyr
+        if gyr:
+            data['lage'] = (10 ** (data['lage'] - 9))
 
         if filterby is not None:
             for key, val in filterby.items():
@@ -147,71 +151,74 @@ class SSP(object):
         return pdf_plots(self, *args, **kwargs)
 
 
-def pdf_plot(SSP, attr, attr2=None, ax=None, sub='', save=False,
+def pdf_plot(SSP, attr, attr2=None, ax=None, sub=None, save=False,
              truth=None):
     """Plot prob vs marginalized attr"""
-    def center_grid(a):
-        """
-        uniquify and shift a uniform array half a bin maintaining its size
-        """
-        x = np.unique(a)
-        dx = np.diff(x)[0]
-        x = np.append(x, x[-1] + dx)
-        x -= dx / 2
-        return x
-
+    do_cbar = False
+    sub = sub or ''
     truth = truth or {}
 
-    if len(sub) > 0:
-        sub = '_' + sub
-
     vals, prob, _ = SSP.marginalize(attr, attr2=attr2)
-
     if len(np.unique(vals)) == 1:
         print('{} not varied.'.format(attr))
         return
 
     if attr2 is None:
+        # plot type is marginal probability.
+        ptype = 'marginal'
         if ax is None:
             _, ax = plt.subplots()
-        ax.hist(vals, weights=prob, bins=center_grid(vals), histtype='step',
+            do_cbar = True
+
+        # grid edges
+        xedge = center_grid(vals)
+
+        # 1D Historgram
+        ax.hist(vals, weights=prob, bins=xedge, histtype='step',
                 lw=4, color='k')
         ax.set_ylabel(r'$\rm{Probability}$')
-        ptype = 'marginal'
-        if attr in truth:
-            ax.axvline(truth[attr], color='darkred')
     else:
         [vals, vals2] = vals
         if len(np.unique(vals2)) == 1 or len(np.unique(vals)) == 1:
             print('{} not varied.'.format(attr))
             return
 
+        # plot type is joint probability.
+        ptype = '{}_joint'.format(attr2)
+
+        # grid edges
+        xedge = center_grid(vals)
+        yedge = center_grid(vals2)
+
         if ax is None:
             _, ax = plt.subplots()
+            docbar = True
 
-        ybins = center_grid(vals2)
-        hist, xedge, yedge = np.histogram2d(vals, vals2,
-                                            bins=[center_grid(vals),
-                                                  center_grid(vals2)],
+        # 2D histogram weighted by probabibily
+        hist, xedge, yedge = np.histogram2d(vals, vals2, bins=[xedge, yedge],
                                             weights=prob)
         img = ax.imshow(hist.T, origin='low', interpolation='nearest',
                         extent=[xedge[0], xedge[-1], yedge[0], yedge[-1]],
                         cmap=plt.cm.Blues, aspect='auto')
 
-        # cbar = plt.colorbar(img)
-        # cbar.set_label(r'$\rm{Probability}$')
-        # cbar.set_clim(0, 1)
-        ax.set_ylabel(key2label(attr2))
-        ptype = '{}_joint'.format(attr2)
-        if attr in truth:
-            ax.axvline(truth[attr], color='darkred', lw=3)
+        if do_cbar:
+            cbar = plt.colorbar(img)
+            cbar.set_label(r'$\rm{Probability}$')
+
+        ax.set_ylabel(key2label(attr2, gyr=SSP.gyr))
         if attr2 in truth:
             ax.axhline(truth[attr2], color='darkred', lw=3)
-            ax.set_xlim(xedge[0], xedge[-1])
-            ax.set_ylim(yedge[0], yedge[-1])
+        ax.set_ylim(yedge[0], yedge[-1])
 
-    ax.set_xlabel(key2label(attr))
+    if attr in truth:
+        ax.axvline(truth[attr], color='darkred', lw=3)
+
+    ax.set_xlim(xedge[0], xedge[-1])
+    ax.set_xlabel(key2label(attr, gyr=SSP.gyr))
     if save:
+        # add subdirectory to filename
+        if len(sub) > 0:
+            sub = '_' + sub
         outfmt = '{}_{}{}_{}_gamma{}'
         outname = outfmt.format(SSP.name.replace('.csv', ''),
                                 attr, sub, ptype, EXT)
@@ -221,13 +228,13 @@ def pdf_plot(SSP, attr, attr2=None, ax=None, sub='', save=False,
     return ax
 
 
-def pdf_plots(SSP, marginals='default', sub='', twod=False, truth=None):
+def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
+              text=None):
     """Call pdf_plot2d for a list of attr and attr2"""
+    text = text or ''
+    sub = sub or ''
     truth = truth or {}
-    if marginals == 'default':
-        marg = SSP._getmarginals()
-    else:
-        marg = marginals
+    marg = marginals or SSP._getmarginals()
 
     ndim = len(marg)
     if twod:
@@ -262,10 +269,15 @@ def pdf_plots(SSP, marginals='default', sub='', twod=False, truth=None):
         raxs = [SSP.pdf_plot(i, sub=sub, truth=truth, ax=axs[marg.index(i)])
                 for i in marg]
         [ax.set_ylabel('') for ax in axs[1:]]
+        [ax.locator_params(axis='x', nbins=6) for ax in axs]
+        if text:
+            axs[-1].text(0.10, 0.90, '${}$'.format(text),
+                         transform=axs[-1].transAxes)
+        fig.subplots_adjust(bottom=0.2, left=0.05)
     return fig, raxs
 
 
-def key2label(string):
+def key2label(string, gyr=False):
     """latex labels for different strings"""
     def_fmt = r'${}$'
     convert = {'Av': r'$A_V$',
@@ -276,10 +288,16 @@ def key2label(string):
                'ov': r'$\Lambda_c$',
                'chi2': r'$\chi^2$',
                'bf': r'$\rm{Binary\ Fraction}$',
-               'dav': r'$dA_V$'}
+               'dav': r'$dA_V$',
+               'trueov': r'$\Lambda_c\ \rm{In}$'}
     if string not in convert.keys():
-        return def_fmt.format(string)
-    return convert[string]
+        convstr = def_fmt.format(string)
+    else:
+        convstr = convert[string]
+
+    if gyr:
+        convstr = convstr.replace('yr', 'Gyr').replace(r'\log\ ', '')
+    return convstr
 
 
 def main(argv):

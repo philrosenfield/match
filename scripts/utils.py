@@ -15,7 +15,16 @@ except SystemError:
 logger = logging.getLogger()
 
 
-__all__ = ['check_boundaries', 'strip_header', 'convertz']
+__all__ = ['check_boundaries', 'strip_header', 'convertz', 'center_grid']
+
+
+def center_grid(a):
+    """uniquify and shift a uniform array half a bin maintaining its size"""
+    x = np.unique(a)
+    dx = np.diff(x)[0]
+    x = np.append(x, x[-1] + dx)
+    x -= dx / 2
+    return x
 
 
 def process_match_sfh(sfhfile, outfile='processed_sfh.out', sarah_sim=False,

@@ -17,7 +17,7 @@ except SystemError:
     from fileio import read_calcsfh_param, calcsfh_input_parameter
 
 
-def write_slurm(cmdscript, outdir='slurm'):
+def write_slurm(cmdscript, outdir='slurm', istart=1):
     """
     Read a calcsfh_ssp script (output of varyparams) and split calls into
     separate calcsfh_*.sh scripts to be called in a job array.
@@ -41,14 +41,15 @@ def write_slurm(cmdscript, outdir='slurm'):
         cmds = inp.readlines()
     cmds = [c.replace('&', '') for c in cmds if 'wait' not in c and len(c) > 0]
     copys = []
+    num = istart
     for i, cmd in enumerate(cmds):
         # num = ('{}'.format(i + 1)).zfill(4)
-        num = i + 1
         _, param, phot, fake = cmd.split()[:4]
         cmdfn = os.path.join(outdir, 'calcsfh_{}.sh'.format(num))
         cmd = cmd.replace('ssp.', 'ssp{}.'.format(num))
         with open(cmdfn, 'w') as outp:
                 outp.write(cmd)
+        num += 1
         copys.append(param)
         copys.append(phot)
         copys.append(fake)
@@ -60,9 +61,10 @@ def write_slurm(cmdscript, outdir='slurm'):
     line += "#SBATCH -n 2\n"
     line += "#SBATCH -N 1\n"
     line += "#SBATCH -t 36:00:00\n"
-    line += "#SBATCH --mem 120000\n"
+    line += "#SBATCH --mem 190000\n"
     line += "#SBATCH -p conroy\n"
-    line += "#SBATCH --array=1-{}\n".format(len(cmds))
+    line += "#SBATCH --array={0:d}-{1:d}\n".format(istart,
+                                                   istart + len(cmds) - 1)
     line += "#SBATCH -o calcsfh_%a.o\n"
     line += "#SBATCH -e calcsfh_%a.e\n"
     line += "bash calcsfh_${SLURM_ARRAY_TASK_ID}.sh\n"
@@ -246,10 +248,13 @@ def main(argv):
                         help='match ast file')
 
     parser.add_argument('--calcsfh', type=str, default=calcsfh,
-                        help='over ride default calcsfh base')
+                        help='over ride default calcsfh base [config.calcsfh]')
 
     parser.add_argument('--slurm', action='store_true',
                         help='also write script as slurm job array.')
+
+    parser.add_argument('--slurmstart', type=int, default=1,
+                        help='start the slurm numbering [1]')
 
     args = parser.parse_args(argv)
 
@@ -287,7 +292,7 @@ def main(argv):
     if args.slurm:
         if args.calcsfh == calcsfh:
             print('Warning: calcsfh path is default -- {}'.format(calcsfh))
-        write_slurm(args.outfile)
+        write_slurm(args.outfile, istart=args.slurmstart)
     return
 
 
