@@ -155,7 +155,7 @@ class SFH(object):
                  convertz=False, xlabel=None, ylabel=None,
                  sfr_offset=1e3):
 
-        plt_kw = dict({'lw': 3, 'color': 'black'}.items() + plt_kw.items())
+        plt_kw = dict({'lw': 3, 'color': 'black'}, **plt_kw)
         eplt_kw = plt_kw.copy()
         eplt_kw.update({'linestyle': 'None'})
 
@@ -225,10 +225,10 @@ class SFH(object):
             ax.tick_params(direction='in')
             one_off = True
 
-        fill_between_kw = dict({'alpha': 1, 'color': 'gray'}.items() +
-                               fill_between_kw.items())
+        fill_between_kw = dict({'alpha': 1, 'color': 'gray'},
+                               **fill_between_kw)
 
-        plt_kw = dict({'lw': 3}.items() + plt_kw.items())
+        plt_kw = dict({'lw': 3}, **plt_kw)
 
         # lages, (csfh, csfh_errm, csfh_errp) = self.plot_bins(val='csfr',
         #                                                     err=True)

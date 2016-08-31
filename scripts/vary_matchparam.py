@@ -40,6 +40,9 @@ def write_slurm(cmdscript, outdir='slurm', istart=1):
     with open(cmdscript, 'r') as inp:
         cmds = inp.readlines()
     cmds = [c.replace('&', '') for c in cmds if 'wait' not in c and len(c) > 0]
+
+    iend = istart + len(cmds) - 1
+
     copys = []
     num = istart
     for i, cmd in enumerate(cmds):
@@ -48,7 +51,7 @@ def write_slurm(cmdscript, outdir='slurm', istart=1):
         cmdfn = os.path.join(outdir, 'calcsfh_{}.sh'.format(num))
         cmd = cmd.replace('ssp.', 'ssp{}.'.format(num))
         with open(cmdfn, 'w') as outp:
-                outp.write(cmd)
+            outp.write(cmd)
         num += 1
         copys.append(param)
         copys.append(phot)
@@ -63,10 +66,11 @@ def write_slurm(cmdscript, outdir='slurm', istart=1):
     line += "#SBATCH -t 36:00:00\n"
     line += "#SBATCH --mem 190000\n"
     line += "#SBATCH -p conroy\n"
-    line += "#SBATCH --array={0:d}-{1:d}\n".format(istart,
-                                                   istart + len(cmds) - 1)
+    line += "#SBATCH --array={0:d}-{1:d}\n".format(istart, iend)
     line += "#SBATCH -o calcsfh_%a.o\n"
     line += "#SBATCH -e calcsfh_%a.e\n"
+    line += "#SBATCH --mail-type=END,FAIL\n"
+    line += "#SBATCH --mail-user=philip.rosenfield@cfa.harvard.edu\n\n"
     line += "bash calcsfh_${SLURM_ARRAY_TASK_ID}.sh\n"
     line += "exit\n"
 
@@ -239,19 +243,19 @@ def main(argv):
                               'useful for completeing interrupted runs.'))
 
     parser.add_argument('--param_file', type=str,
-                        help='template parameter file')
+                        help='template parameter file (see .match_param)')
 
     parser.add_argument('--phot', type=str,
-                        help='match photometry file')
+                        help='match photometry file (see .match_phot)')
 
     parser.add_argument('--fake', type=str,
-                        help='match ast file')
+                        help='match ast file (see .asts)')
 
     parser.add_argument('--calcsfh', type=str, default=calcsfh,
                         help='over ride default calcsfh base [config.calcsfh]')
 
     parser.add_argument('--slurm', action='store_true',
-                        help='also write script as slurm job array.')
+                        help='convert output script to slurm job array.')
 
     parser.add_argument('--slurmstart', type=int, default=1,
                         help='start the slurm numbering [1]')

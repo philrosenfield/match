@@ -141,7 +141,7 @@ class SSP(object):
                 prob[i] = np.sum(self.absprob[x == ix])
             vals = unq_x
 
-        prob /= prob.sum()
+        # prob /= prob.sum()
         return vals, prob, np.log(prob)
 
     def pdf_plot(self, *args, **kwargs):
@@ -373,7 +373,6 @@ def main(argv):
 
     if args.twod:
         ssp.pdf_plots(sub=args.sub, twod=args.twod)
-
 
 if __name__ == "__main__":
     main(sys.argv[1:])

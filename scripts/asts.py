@@ -555,18 +555,29 @@ class ASTs(object):
         plt.legend(loc='lower left', frameon=False)
         return ax
 
-    def add_complines(self, ax, *fracs, **get_comp_frac_kw):
+    def add_complines(self, ax, fracs, cmd=False, get_cfrac_kw=None,
+                      yaxis='I'):
         """add verticle lines to a plot at given completeness fractions"""
+        get_comp_frac_kw = get_comp_frac_kw or {}
+        if not isinstance(fracs, list):
+            fracs = list(fracs)
+
         lblfmt = r'${frac}\ {filt}:\ {comp: .2f}$'
         for frac in fracs:
-            ax.hlines(frac, *ax.get_xlim(), alpha=0.5)
-            comp1, comp2 = self.get_completeness_fraction(frac,
-                                                          **get_comp_frac_kw)
-            for comp, filt in zip((comp1, comp2),
-                                  (self.filter1, self.filter2)):
-                lab = lblfmt.format(frac=frac, filt=filt, comp=comp)
-                ax.vlines(comp, 0, 1, label=lab,
-                          color=next(ax._get_lines.color_cycle))
+            if cmd:
+                ycomp = comp1
+                if yaxis.upper() == 'I':
+                    ycomp = comp2
+                graphics.put_a_line_on_it()
+            else:
+                ax.hlines(frac, *ax.get_xlim(), alpha=0.5)
+                comp1, comp2 = self.get_completeness_fraction(frac,
+                                                              **get_cfrac_kw)
+                for comp, filt in zip((comp1, comp2),
+                                      (self.filter1, self.filter2)):
+                    lab = lblfmt.format(frac=frac, filt=filt, comp=comp)
+                    ax.vlines(comp, 0, 1, label=lab,
+                              color=next(ax._get_lines.color_cycle))
         plt.legend(loc='lower left', frameon=False)
         return ax
 
@@ -608,8 +619,8 @@ def main(argv):
             ax = ast.completeness_plot()
             if args.plot_fracs is not None:
                 fracs = map(float, args.plot_fracs.split(','))
-                ast.add_complines(ax, *fracs,
-                                  **{'bright_lim': args.bright_mag})
+                ast.add_complines(ax, fracs,
+                                  get_cfrac_kw={'bright_lim': args.bright_mag})
             plt.savefig(comp_name)
             plt.close()
 

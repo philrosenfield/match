@@ -13,6 +13,34 @@ except ImportError:
     pass
 
 
+def put_a_line_on_it(ax, val, consty=False, color='black',
+                     ls='--', lw=2, yfilt='I', steps=20):
+    """
+    if consty is True: plots a constant y value across ax.xlims().
+    if consty is False: plots a constant x on a plot of y vs x-y
+    """
+    (xmin, xmax) = ax.get_xlim()
+    (ymin, ymax) = ax.get_ylim()
+
+    xarr = np.linspace(xmin, xmax, steps)
+    yarr = np.linspace(ymin, ymax, steps)
+    if consty is True:
+        # just a contsant y value over the plot range of x.
+        # e.g., a LF
+        ax.axhline(val, color=color, lw=lw)
+    if consty is False:
+        # a plot of y vs x-y and we want to mark
+        # where a constant value of x is
+        # e.g, f814w vs f555-f814; val is f555
+        new_xarr = val - yarr
+        # e.g, f555w vs f555-f814; val is f814
+        if yfilt.upper() != 'I':
+            yarr = xarr + val
+            new_xarr = xarr
+        ax.plot(new_xarr, yarr, ls, color=color, lw=lw)
+    return new_xarr, yarr
+
+
 def pcolor_(x, y, z, nanfunc=np.max, ax=None):
     """
     Call plt.pcolor with 1D arrays shifting the grid so x, y are at bin center
@@ -90,7 +118,7 @@ def stitch_cmap(cmap1, cmap2, stitch_frac=0.5, dfrac=0.001):
                                    1024)
 
 
-def match_diagnostic(param, phot, fake=None):
+def match_diagnostic(param, phot, fake=None, save=True):
     """
     make two panel cmd figure (ymag = mag1, mag2)
     from match photometery and cmd parameter space from the match param drawn
@@ -102,22 +130,19 @@ def match_diagnostic(param, phot, fake=None):
 
     params = read_calcsfh_param(param)
 
-    colmin, colmax = params['vimin'], params['vimax']
-    mag1min, mag1max = params['vmin'], params['vmax']
-    mag2min, mag2max = params['imin'], params['imax']
-
-    ylims = [(mag1max + moff, mag1min - moff),
-             (mag2max + moff, mag2min - moff)]
+    cmin, cmax = params['vimin'], params['vimax']
+    m1min, m1max = params['vmin'], params['vmax']
+    m2min, m2max = params['imin'], params['imax']
 
     filters = [params['v'], params['i']]
 
-    verts = [np.array([[colmin, mag1min], [colmin, mag1max], [colmax, mag1max],
-                       [colmax, mag1min], [colmin, mag1min]]),
-             np.array([[colmin, mag2min], [colmin, mag2max], [colmax, mag2max],
-                       [colmax, mag2min], [colmin, mag2min]])]
+    verts = [np.array([[cmin, m1min], [cmin, m1max], [cmax, m1max],
+                       [cmax, m1min], [cmin, m1min]]),
+             np.array([[cmin, m2min], [cmin, m2max], [cmax, m2max],
+                       [cmax, m2min], [cmin, m2min]])]
 
-    magcuts, = np.nonzero((mag1 < mag1max) & (mag1 > mag1min) &
-                          (mag2 < mag2max) & (mag2 > mag2min))
+    magcuts, = np.nonzero((mag1 < m1max) & (mag1 > m1min) &
+                          (mag2 < m2max) & (mag2 > m2min))
 
     _, axs = plt.subplots(ncols=2, sharex=True, figsize=(12, 6))
 
@@ -127,8 +152,7 @@ def match_diagnostic(param, phot, fake=None):
         axs[i].plot(verts[i][:, 0], verts[i][:, 1], label='param limits')
         axs[i].set_ylabel(r'${}$'.format(filters[i]))
         axs[i].set_xlabel(r'${}-{}$'.format(*filters))
-        axs[i].set_ylim(ylims[i])
-        axs[i].set_xlim(colmin - off, colmax + off)
+        axs[i].invert_yaxis()
 
     if fake is not None:
         mag1in, mag2in, _, _ = np.loadtxt(fake, unpack=True)
@@ -142,9 +166,10 @@ def match_diagnostic(param, phot, fake=None):
             axs[i].plot(fverts[:, 0], fverts[:, 1], label='fake limits')
             plt.legend(loc='best')
 
-    plt.savefig(param + EXT)
-    print('wrote', param + EXT)
-    plt.close()
+    if save:
+        plt.savefig(param + EXT)
+        print('wrote', param + EXT)
+        plt.close()
     return axs
 
 

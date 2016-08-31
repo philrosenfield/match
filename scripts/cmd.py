@@ -157,8 +157,12 @@ def main(argv):
 
     parser.add_argument('-c', '--stats', action='store_true',
                         help='call match/bin/stats and exit')
+
     parser.add_argument('--logcounts', action='store_true',
                         help='use log binning for data and model')
+
+    parser.add_argument('--nmax', type=int,
+                        help='max best cmds to plot with --byfit')
 
     parser.add_argument('cmdfiles', type=str, nargs='*',
                         help='.cmd files to plot')
@@ -174,7 +178,9 @@ def main(argv):
         sys.exit()
 
     if args.byfit:
-        call_pgcmd_byfit(args.cmdfiles, nmax=len(args.cmdfiles),
+        if args.nmax is None:
+            args.nmax = len(args.cmdfiles)
+        call_pgcmd_byfit(args.cmdfiles, nmax=args.nmax,
                          outdir=args.outdir, logcounts=args.logcounts)
     else:
         for cmdfile in args.cmdfiles:

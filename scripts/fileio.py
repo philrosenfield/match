@@ -59,10 +59,10 @@ def add_filename_info_to_file(fname, best=False, stats=False):
     print(fname)
     try:
         ibest, = np.where(df['Av'] == 'Best')[0]
-    except ValueError:
-        print('Problem in {}'.format(fname))
+    except TypeError:
+        print('{} may not have finished, no "Best fit" string'.format(fname))
         print(sys.exc_info()[1])
-        raise
+        return df
     # av, dmod, fit = map(float, [d.replace(',','':.split('=')[1]
     #                             for d in df.iloc[ibest].values
     # d                            if type(d) == str and '=' in d])
@@ -86,9 +86,6 @@ def add_filename_info_to_file(fname, best=False, stats=False):
             return df
         data = read_cmd_stats(cmdfile)
     return df
-
-def read_cmd_stats(cmdfile):
-    pass
 
 
 def filename_data(fname, ext=None, skip=2, delimiter='_', exclude='imf'):
