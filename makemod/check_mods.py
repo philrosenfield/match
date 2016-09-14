@@ -38,6 +38,7 @@ def filenames_loop(logt0, logt1, dlogt, z0, z1, dz, mod='mod1', quiet=False,
     """Loop through the data directory counting all mod? files"""
     ishere = 0
     missing = 0
+    bishere = 0
     bmissing = 0
     for logt in np.arange(logt0, logt1, dlogt):
         for z in np.arange(z0, z1, dz):
@@ -50,24 +51,26 @@ def filenames_loop(logt0, logt1, dlogt, z0, z1, dz, mod='mod1', quiet=False,
                 missing += 1
             else:
                 ishere += 1
-                if checkmodb:
-                    bname = fname.replace(mod, '{}b'.format(mod))
-                    resb = glob.glob(bname)
-                    if len(resb) == 0:
-                        if not quiet:
-                            print('Binary File DNE: {}'.format(bname))
-                            bmissing += 1
+            if checkmodb:
+                bname = fname.replace(mod, '{}b'.format(mod))
+                resb = glob.glob(bname)
+                if len(resb) == 0:
+                    if not quiet:
+                        print('Binary File DNE: {}'.format(bname))
+                    bmissing += 1
+                else:
+                    bishere += 1
     print('{} {} files, {} missing'.format(ishere, mod, missing))
     if checkmodb:
-        print('{0} {1} files, {2} have no associated binary ({1}b) file'.format(ishere, mod, bmissing))
+        print('{} {}b files, {} missing'.format(bishere, mod, bmissing))
 
 
 def check_mods(model='PARSEC', dz=0.01, dlogt=0.001, sub=None,
                logt0=6.6, logt1=10.25, mod='mod1', quiet=False,
-               checkmodb=False):
+               checkmodb=False, datadir=None):
     """check the mod files completeness"""
     here = os.getcwd()
-    datadir = os.path.join(match_base, model, 'data')
+    datadir = datadir or os.path.join(match_base, model, 'data')
     if sub is not None:
         datadir = os.path.join(datadir, sub)
     assert os.path.isdir(datadir), 'Data directory not found {}'.format(datadir)
@@ -121,6 +124,8 @@ def main(argv):
     parser.add_argument('-p', '--parsec', action='store_true',
                         help='PARSEC models (otherwise MIST)')
 
+    parser.add_argument('--dataloc', type=str, help='override data loctiona')
+
     args = parser.parse_args(argv)
     model = 'MIST'
     if args.parsec:
@@ -128,7 +133,8 @@ def main(argv):
 
     check_mods(model=model, dz=args.dz, dlogt=args.dlogt, sub=args.sub,
                logt0=args.agelimits[0], logt1=args.agelimits[1],
-               mod=args.mod, quiet=args.quiet, checkmodb=args.checkmodb)
+               mod=args.mod, quiet=args.quiet, checkmodb=args.checkmodb,
+               datadir=args.dataloc)
 
 
 if __name__ == "__main__":
