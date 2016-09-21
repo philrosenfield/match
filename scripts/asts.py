@@ -9,9 +9,9 @@ import sys
 
 import matplotlib.pylab as plt
 import numpy as np
-from .config import EXT
 from scipy.interpolate import interp1d
-from .utils import parse_pipeline
+from match.scripts.config import EXT
+from match.scripts.utils import parse_pipeline
 
 logger = logging.getLogger(__name__)
 

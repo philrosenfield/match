@@ -7,10 +7,10 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .config import EXT, match_base
-from .fileio import read_match_cmd
-from .graphics import match_plot
-from .utils import parse_pipeline
+from match.scripts.config import EXT, match_base
+from match.scripts.fileio import read_match_cmd
+from match.scripts.graphics import match_plot
+from match.scripts.utils import parse_pipeline
 
 __all__ = ['CMD']
 
