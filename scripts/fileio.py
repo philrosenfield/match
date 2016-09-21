@@ -56,7 +56,7 @@ def add_filename_info_to_file(fname, best=False, stats=False):
     names = 'Av IMF dmod lage logZ fit sfr'.split()
     df = pd.read_table(fname, names=names, delim_whitespace=True,
                        skiprows=ihead)
-    print(fname)
+    # print(fname)
     try:
         ibest, = np.where(df['Av'] == 'Best')[0]
     except TypeError:
@@ -74,7 +74,7 @@ def add_filename_info_to_file(fname, best=False, stats=False):
         df = df.iloc[:ibest].copy(deep=True)
 
     new_stuff = filename_data(fname)
-    print('adding columns: {}'.format(new_stuff.keys()))
+    # print('adding columns: {}'.format(new_stuff.keys()))
     for name, val in new_stuff.items():
         df[name] = val
 
@@ -123,16 +123,20 @@ def filename_data(fname, ext=None, skip=2, delimiter='_', exclude='imf'):
     d = {}
     for keyval in keyvals:
         kv = re.findall(r'\d+|[a-z]+', keyval)
-        neg = ''
-        if '-' in keyval:
-            neg = '-'
         if kv[0].lower() == exclude.lower():
             continue
+        neg = ''
+        if keyval.replace(kv[0], '').startswith('-'):
+            neg = '-'
+        if 'e' in keyval.replace(kv[0], ''):
+            str2float = keyval.replace(kv[0], '')
+        else:
+            str2float = neg + '.'.join(kv[1:])
+
         try:
-            d[kv[0]] = float(neg + '.'.join(kv[1:]))
+            d[kv[0]] = float(str2float)
         except ValueError:
-            # print e
-            # print(sys.exc_info()[1])
+            print(sys.exc_info()[1])
             pass
     return d
 
@@ -445,7 +449,7 @@ def get_files(src, search_string):
         logger.error('Can''t find %s in %s' % (search_string, src))
         sys.exit(2)
     files = [os.path.join(src, f)
-             for f in files if os.path.isfile(os.path.join(src, f), mad=False)]
+             for f in files if os.path.isfile(os.path.join(src, f))]
     return files
 
 

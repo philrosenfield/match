@@ -88,10 +88,21 @@ class SSP(object):
                 data = data.loc[data[key] == val].copy(deep=True)
 
         self.data = data
-        self.ibest = np.argmin(self.data['fit'])
-
-        self.absprob = \
-            np.exp(0.5 * (self.data['fit'].min() - self.data['fit']))
+        self.absprob = np.zeros(len(data))
+        relprob = None
+        if relprob is not None:
+            x = data[relprob]
+            un_x = np.unique(x)
+            for ix in un_x:
+                inds, = np.nonzero(x == ix)
+                self.absprob[inds] = \
+                    np.sum(np.exp(0.5 * self.data['fit'].iloc[inds].min() -
+                                  self.data['fit'].iloc[inds]))
+        else:
+            self.absprob = \
+                np.exp(0.5 * (data['fit'].min() - data['fit']))
+        self.ibest = np.argmax(self.absprob)
+        self.data = data
 
     def _getmarginals(self):
         """get the values to marginalize over that exist in the data"""
@@ -108,7 +119,7 @@ class SSP(object):
             ecode = False
         return ecode
 
-    def marginalize(self, attr, attr2=None):
+    def marginalize(self, attr, attr2=None, absprob=True):
         """Find the best fit for each unique value of attr"""
         assert self._haskey(attr), '{} not found'.format(attr)
         x = self.data[attr]
@@ -128,7 +139,13 @@ class SSP(object):
             for ix in unq_x:
                 for iy in unq_y:
                     inds, = np.nonzero((x == ix) & (y == iy))
-                    prob[k] = np.sum(self.absprob.iloc[inds])
+                    if absprob:
+                        prob[k] = np.sum(self.absprob.iloc[inds])
+                    else:
+                        prob[k] = \
+                            np.sum(np.exp(0.5 *
+                                          (self.data['fit'].iloc[inds].min() -
+                                           self.data['fit'].iloc[inds])))
                     vals_x[k] = ix
                     vals_y[k] = iy
                     k += 1
@@ -138,11 +155,17 @@ class SSP(object):
             # sum over probabilites for each unique grid value
             prob = np.zeros(len(unq_x))
             for i, ix in enumerate(unq_x):
-                prob[i] = np.sum(self.absprob[x == ix])
+                inds, = np.nonzero(x == ix)
+                if absprob:
+                    prob[i] = np.sum(self.absprob[inds])
+                else:
+                    prob[i] = \
+                        np.sum(np.exp(0.5 * self.data['fit'].iloc[inds].min() -
+                               self.data['fit'].iloc[inds]))
             vals = unq_x
 
-        # prob /= prob.sum()
-        return vals, prob, np.log(prob)
+        prob /= prob.sum()
+        return vals, prob
 
     def pdf_plot(self, *args, **kwargs):
         return pdf_plot(self, *args, **kwargs)
@@ -152,13 +175,19 @@ class SSP(object):
 
 
 def pdf_plot(SSP, attr, attr2=None, ax=None, sub=None, save=False,
-             truth=None):
+             truth=None, absprob=True, useweights=False, plt_kw=None):
     """Plot prob vs marginalized attr"""
+    plt_kw = plt_kw or {}
     do_cbar = False
     sub = sub or ''
     truth = truth or {}
 
-    vals, prob, _ = SSP.marginalize(attr, attr2=attr2)
+    vals, prob = SSP.marginalize(attr, attr2=attr2, absprob=absprob)
+
+    weights = None
+    if useweights:
+        weights = prob
+
     if len(np.unique(vals)) == 1:
         print('{} not varied.'.format(attr))
         return
@@ -174,8 +203,9 @@ def pdf_plot(SSP, attr, attr2=None, ax=None, sub=None, save=False,
         xedge = center_grid(vals)
 
         # 1D Historgram
-        ax.hist(vals, weights=prob, bins=xedge, histtype='step',
+        ax.hist(vals, weights=weights, bins=xedge, histtype='step',
                 lw=4, color='k')
+        #ax.plot(vals, prob, lw=4, color='k')
         ax.set_ylabel(r'$\rm{Probability}$')
     else:
         [vals, vals2] = vals
@@ -196,7 +226,7 @@ def pdf_plot(SSP, attr, attr2=None, ax=None, sub=None, save=False,
 
         # 2D histogram weighted by probabibily
         hist, xedge, yedge = np.histogram2d(vals, vals2, bins=[xedge, yedge],
-                                            weights=prob)
+                                            weights=weights)
         img = ax.imshow(hist.T, origin='low', interpolation='nearest',
                         extent=[xedge[0], xedge[-1], yedge[0], yedge[-1]],
                         cmap=plt.cm.Blues, aspect='auto')
@@ -229,7 +259,7 @@ def pdf_plot(SSP, attr, attr2=None, ax=None, sub=None, save=False,
 
 
 def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
-              text=None):
+              text=None, absprob=True):
     """Call pdf_plot2d for a list of attr and attr2"""
     text = text or ''
     sub = sub or ''
@@ -238,35 +268,37 @@ def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
 
     ndim = len(marg)
     if twod:
-        raxs = []
-
         fig, axs = plt.subplots(nrows=ndim, ncols=ndim)
-        [[ax.set_visible(False) for ax in axs[i, i:]] for i in range(ndim)]
         [[ax.tick_params(left='off', labelleft='off') for ax in axs.T[i]]
          for i in np.arange(ndim-1)+1]
         [ax.tick_params(bottom='off', labelbottom='off')
          for ax in axs[:-1].ravel()]
         [[ax.tick_params(right='off', top='off') for ax in axs[i+1, :i]]
          for i in range(ndim-1)]
-
-        for j in marg:
-            for i in marg:
+        raxs = []
+        for j, mj in enumerate(marg):
+            for i, mi in enumerate(marg):
                 # e.g., skip Av vs Av and Av vs IMF
                 # if already plotted IMF vs Av
-                iy, ix = np.sort([marg.index(j), marg.index(i)])
-                if i >= j:
-                    continue
-
-                    ax.tick_params(labelleft='off', labelbottom='off')
-                raxs.append(SSP.pdf_plot(i, attr2=j, sub=sub, truth=truth,
-                                         ax=axs[ix, iy]))
+                if i == j:
+                    raxs.append(ssp.pdf_plot(mj, ax=axs[i, j],
+                                             sub=sub, truth=truth,
+                                             absprob=False))
+                    # ax.tick_params(labelleft='off', labelbottom='off')
+                elif i > j:
+                    raxs.append(ssp.pdf_plot(mj, attr2=mi, ax=axs[i, j],
+                                             sub=sub, truth=truth,
+                                             absprob=True))
+                else:
+                    axs[i, j].set_visible(False)
     else:
         fig, axs = plt.subplots(ncols=ndim, figsize=(15, 3))
         [ax.tick_params(left='off', labelleft='off') for ax in axs[1:]]
         [ax.tick_params(right='off', labelright='off') for ax in axs[:-1]]
         [ax.tick_params(top='off') for ax in axs]
         axs[-1].tick_params(labelright='on')
-        raxs = [SSP.pdf_plot(i, sub=sub, truth=truth, ax=axs[marg.index(i)])
+        raxs = [SSP.pdf_plot(i, sub=sub, truth=truth, ax=axs[marg.index(i)],
+                             absprob=absprob)
                 for i in marg]
         [ax.set_ylabel('') for ax in axs[1:]]
         [ax.locator_params(axis='x', nbins=6) for ax in axs]

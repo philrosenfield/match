@@ -41,11 +41,14 @@ def put_a_line_on_it(ax, val, consty=False, color='black',
     return new_xarr, yarr
 
 
-def pcolor_(x, y, z, nanfunc=np.max, ax=None):
+def pcolor_(x, y, z, ax=None, statfunc=np.median):
     """
     Call plt.pcolor with 1D arrays shifting the grid so x, y are at bin center
-    nanfunc : function
-        f(z) to use for incomplete grid spaces
+    statfunc : function
+        f(z) to use for more than one value of z in a bin
+        for example, if z is -2 ln P, statfunc could be linprob:
+            def linprob(x):
+                return np.sum(np.exp(0.5 * (x.min() - x)))
     """
     def center_grid(a):
         """
@@ -68,14 +71,15 @@ def pcolor_(x, y, z, nanfunc=np.max, ax=None):
     X, Y = centered_meshgrid(x, y)
     ux = np.unique(x)
     uy = np.unique(y)
-    C = np.zeros(shape=(len(ux), len(uy))) + nanfunc(z)
+    C = np.zeros(shape=(len(ux), len(uy)))
     for i in range(len(ux)):
         for j in range(len(uy)):
             iz, = np.nonzero((x == ux[i]) & (y == uy[j]))
+            print(ux[i], uy[j], len(iz))
             if len(iz) > 0:
                 Z = z.iloc[iz]
                 if len(iz) > 1:
-                    Z = np.median(Z)
+                    Z = statfunc(Z)
                 C[i, j] = Z
 
     ax.pcolor(X, Y, C, cmap="Blues_r")
