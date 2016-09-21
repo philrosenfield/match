@@ -328,6 +328,9 @@ def main(argv):
     parser.add_argument('--sub', type=str, default='',
                         help='add substring to figure names')
 
+    parser.add_argument('--list', action='store_true',
+                        help='fnames is one file with a list of filenames')
+
     parser.add_argument('-c', '--sspcombine', action='store_true',
                         help='run sspcombine on the file(s) (and exit)')
 
@@ -349,28 +352,42 @@ def main(argv):
         import pdb
         pdb.set_trace()
 
+    # load filenames is it is a list (e.g., if $(ls *) is too long)
+    if args.list:
+        with open(args.fnames[0]) as inp:
+            fnames = [l.strip() for l in inp.readlines()]
+        args.fnames = fnames
+
+    # plot cmd files by best fit nmax is the max number of images to make
     if args.plotcmd:
         call_pgcmd_byfit(args.fnames, nmax=16)
         sys.exit(0)
 
+    # filter the ssp to only include sub
     filtdict = {}
     if args.sub is not '':
         filtdict = filename_data(args.sub, skip=0)
 
+    # combine the match ssp output into one file
     if args.format:
         fname = combine_files(args.fnames, outfile=args.outfile,
                               best=args.best)
+    # call match/sspcombine
     elif args.sspcombine:
         _ = [sspcombine(f, dry_run=False) for f in args.fnames]
         sys.exit(0)
     else:
+        # Load one.
         fname = args.fnames[0]
 
+    # load the combined ssp file or one match ssp output file
     ssp = SSP(filename=fname, filterby=filtdict)
 
+    # call 1-plotting
     if args.oned:
         ssp.pdf_plots(sub=args.sub)
 
+    # call 2-plotting
     if args.twod:
         ssp.pdf_plots(sub=args.sub, twod=args.twod)
 
