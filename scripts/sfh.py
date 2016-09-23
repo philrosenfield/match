@@ -9,9 +9,10 @@ import matplotlib.pyplot as plt
 
 from .config import EXT
 from .fileio import read_binned_sfh
-from .utils import convertz, parse_pipeline
+from .utils import convertz, parse_pipeline, float2sci
 
 logger = logging.getLogger()
+
 
 def mh2z(num):
     return 0.02 * 10 ** num
@@ -19,6 +20,7 @@ def mh2z(num):
 
 def quadriture(x):
     return np.sqrt(np.sum(x * x))
+
 
 class SFH(object):
     '''
@@ -80,7 +82,8 @@ class SFH(object):
         self.header = lines[0:6]
         self.footer = lines[-1]
         try:
-            bestfit, fout = self.header[0].replace(' ', '').split('=')[1].split('(')
+            bestfit, fout = \
+                self.header[0].replace(' ', '').split('=')[1].split('(')
             self.bestfit = float(bestfit)
             self.match_out = fout.split(')')[0]
 
@@ -117,11 +120,14 @@ class SFH(object):
             self.flag = 'zinc'
         return
 
+    def mh2z(self, num):
+        """nore really [M/H] """
+        return 0.02 * 10 ** num
+
     def plot_bins(self, val='sfr', err=False, convertz=False, offset=1.):
         '''make SFH bins for plotting'''
-        if type(val) == str:
+        if isinstance(val, str):
             if err:
-                #import pdb; pdb.set_trace()
                 valm = self.data['%s_errm' % val] * offset
                 valp = self.data['%s_errp' % val] * offset
             val = self.data[val] * offset
@@ -149,17 +155,13 @@ class SFH(object):
                  convertz=False, xlabel=None, ylabel=None,
                  sfr_offset=1e3):
 
-        def float2sci(num):
-            """mpl has a better way of doing this now..."""
-            return r'$%s}$' % ('%.0E' % num).replace('E', '0').replace('-0', '^{-').replace('+0', '^{').replace('O', '0')
-
-        plt_kw = dict({'lw': 3, 'color': 'black'}.items() + plt_kw.items())
+        plt_kw = dict({'lw': 3, 'color': 'black'}, **plt_kw)
         eplt_kw = plt_kw.copy()
         eplt_kw.update({'linestyle': 'None'})
 
         lages, sfrs = self.plot_bins(offset=sfr_offset)
-        rlages, (rsfrs, sfr_merrs, sfr_perrs) = self.plot_bins(err=True,
-                                                               offset=sfr_offset)
+        rlages, (rsfrs, sfr_merrs, sfr_perrs) = \
+            self.plot_bins(err=True, offset=sfr_offset)
 
         rlages = np.append(self.data['lagei'], self.data['lagef'][-1])
         rlages = rlages[:-1] + np.diff(rlages) / 2.
@@ -173,13 +175,13 @@ class SFH(object):
         if val != 'sfr':
             lages, vals = self.plot_bins(val=val, convertz=convertz)
             # mask values with no SF
-            isfr, = np.nonzero(sfrs==0)
+            isfr, = np.nonzero(sfrs == 0)
             vals[isfr] = np.nan
             if self.flag != 'setz':
-                rlages, (rvals, val_merrs, val_perrs) = self.plot_bins(val=val,
-                                                                       err=True)
+                rlages, (rvals, val_merrs, val_perrs) = \
+                    self.plot_bins(val=val, err=True)
                 # mask values with no SF
-                irsfr, = np.nonzero(rsfrs==0)
+                irsfr, = np.nonzero(rsfrs == 0)
                 val_merrs[irsfr] = 0.
                 val_perrs[irsfr] = 0.
                 if np.sum(val_merrs) == 0 or np.sum(val_perrs) == 0:
@@ -193,7 +195,7 @@ class SFH(object):
                     ylabel = r'$Z$'
         else:
             ylabel = r'$SFR\ %s\ (\rm{M_\odot/yr})$' % \
-                     float2sci(1./sfr_offset).replace('$','')
+                     float2sci(1. / sfr_offset).replace('$', '')
             vals = sfrs
             rvals = rsfrs
             val_merrs = rsfr_merrs
@@ -213,8 +215,7 @@ class SFH(object):
         return ax
 
     def plot_csfr(self, ax=None, errors=True, plt_kw={}, fill_between_kw={},
-                  xlim=(10 ** (10.15-9), 10 **(6.5-9)), ylim=(-0.01, 1.01),
-                  data=True):
+                  xlim=None, ylim=(-0.01, 1.01), data=True):
         '''cumulative sfr plot from match'''
         one_off = False
         if ax is None:
@@ -223,12 +224,12 @@ class SFH(object):
             ax.tick_params(direction='in')
             one_off = True
 
-        fill_between_kw = dict({'alpha': 1, 'color': 'gray'}.items() \
-                               + fill_between_kw.items())
+        fill_between_kw = dict({'alpha': 1, 'color': 'gray'},
+                               **fill_between_kw)
 
-        plt_kw = dict({'lw': 3}.items() + plt_kw.items())
+        plt_kw = dict({'lw': 3}, **plt_kw)
 
-        #lages, (csfh, csfh_errm, csfh_errp) = self.plot_bins(val='csfr',
+        # lages, (csfh, csfh_errm, csfh_errp) = self.plot_bins(val='csfr',
         #                                                     err=True)
 
         lages = self.data['lagei']
@@ -237,7 +238,7 @@ class SFH(object):
         csfh_errp = self.data['csfr_errp']
 
         age = 10 ** (lages - 9.)
-        #age = lages
+        # age = lages
         age = np.append(age, 10 ** (self.data['lagef'][-1] - 9))
         csfh = np.append(csfh, 0)
         csfh_errm = np.append(csfh_errm, 0)
@@ -249,18 +250,22 @@ class SFH(object):
         if data:
             ax.plot(age, csfh, **plt_kw)
 
-        ax.set_xlim(xlim)
+        if xlim is not None:
+            ax.set_xlim(xlim)
         ax.set_ylim(ylim)
-        #ax.set_xscale('log')
-        #ax.xaxis.set_major_locator(LogNLocator)
+        # ax.set_xscale('log')
+        # ax.xaxis.set_major_locator(LogNLocator)
         if one_off:
             ax.set_xlabel('$\\rm{Star\ Formation\ Time\ (Gyr)}$', fontsize=20)
             ax.set_ylabel('$\\rm{Culmulative\ Star\ Formation}$', fontsize=20)
             plt.legend(loc=0, frameon=False)
             if 'label' in plt_kw.keys():
-                outfile = '{}_csfr'.format(plt_kw['label'].replace('$', '').lower(), EXT)
+                outfile = \
+                    '{}_csfr'.format(plt_kw['label'].replace('$', '').lower(),
+                                     EXT)
             else:
-                outfile = '{}_csfr{}'.format(os.path.join(self.base, self.name), EXT)
+                outfile = \
+                    '{}_csfr{}'.format(os.path.join(self.base, self.name), EXT)
             plt.savefig(outfile)
             print('wrote {}'.format(outfile))
         return ax
@@ -300,7 +305,8 @@ class SFH(object):
         dic['filters'] = ','.join(filters)
 
         fyng, fyng_errp, fyng_errm = self.mass_fraction(0, agesplit[0])
-        fint, fint_errp, fint_errm = self.mass_fraction(agesplit[0], agesplit[1])
+        fint, fint_errp, fint_errm = self.mass_fraction(agesplit[0],
+                                                        agesplit[1])
 
         # logZ = 0 if there is no SF, that will add error to mean Fe/H
         iyng = self.nearest_age(agesplit[0], i=False)
@@ -328,9 +334,10 @@ class SFH(object):
                                                     [fyng_errp, fint_errp],
                                                     [fyng_errm, fint_errm])]
         dic['feh_yng'], dic['feh_int'] = \
-            [maf.format(v, p, m) for v, p, m in zip([feh_yng, feh_int],
-                                                    [feh_yng_errp, feh_int_errp],
-                                                    [feh_yng_errm, feh_int_errm])]
+            [maf.format(v, p, m) for v, p, m in
+                zip([feh_yng, feh_int],
+                    [feh_yng_errp, feh_int_errp],
+                    [feh_yng_errm, feh_int_errm])]
 
         line = ['{target}', '{filters}', '{Av: .2f}', '{dmod: .2f}',
                 '{fyng}', '{feh_yng}', '{fint}', '{feh_int}']
@@ -356,7 +363,8 @@ class SFH(object):
         idx = np.argmin(np.abs(age_arr - lage))
         difi = np.abs(age_arr[idx] - lage)
         if difi > tol:
-            logger.warning('input {}={} not found. Using {}'.format(msg, lage, age_arr[idx]))
+            logger.warning(('input {}={} not found. ',
+                            'Using {}').format(msg, lage, age_arr[idx]))
         return idx
 
     def mass_fraction(self, lagei, lagef):
@@ -373,13 +381,14 @@ class SFH(object):
         # higher precision than self.totalSF
         totalsf = np.sum(self.data.sfr * agebins)
         idxi = self.nearest_age(lagei)
-        idxf = self.nearest_age(lagef, i=False) + 1 # +1 is to include final bin
+        # +1 is to include final bin
+        idxf = self.nearest_age(lagef, i=False) + 1
 
-        fracsfr = np.sum(self.data.sfr[idxi:idxf] * \
+        fracsfr = np.sum(self.data.sfr[idxi:idxf] *
                          agebins[idxi:idxf]) / totalsf
-        fracsfr_errp = quadriture(self.data.sfr_errp[idxi:idxf] * \
+        fracsfr_errp = quadriture(self.data.sfr_errp[idxi:idxf] *
                                   agebins[idxi:idxf]) / totalsf
-        fracsfr_errm = quadriture(self.data.sfr_errm[idxi:idxf] * \
+        fracsfr_errm = quadriture(self.data.sfr_errm[idxi:idxf] *
                                   agebins[idxi:idxf]) / totalsf
 
         return fracsfr, fracsfr_errp, fracsfr_errm
@@ -413,8 +422,8 @@ def main(argv):
         if len(msfh.data) != 0:
             msfh.sfh_plot()
             msfh.plot_csfr()
-            #dic = msfh.param_table()
-            #print(dic['fmt'].format(**dic))
+            # dic = msfh.param_table()
+            # print(dic['fmt'].format(**dic))
 
 
 if __name__ == '__main__':

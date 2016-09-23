@@ -9,9 +9,9 @@ import sys
 
 import matplotlib.pylab as plt
 import numpy as np
-from .config import EXT
 from scipy.interpolate import interp1d
-from .utils import parse_pipeline
+from match.scripts.config import EXT
+from match.scripts.utils import parse_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +19,13 @@ __all__ = ['ast_correct_starpop', 'ASTs', 'parse_pipeline']
 
 plt.style.use('ggplot')
 
+
 def hess(color, mag, binsize, **kw):
     """Compute a hess diagram (surface-density CMD) on photometry data."""
     defaults = dict(mbin=None, cbin=None, verbose=False)
 
     for key in defaults:
-        if (not kw.has_key(key)):
+        if key not in kw:
             kw[key] = defaults[key]
 
     if kw['mbin'] is None:
@@ -87,10 +88,12 @@ def ast_correct_starpop(sgal, fake_file=None, outfile=None, overwrite=False,
     if asts_obj is None:
         sgal.fake_file = fake_file
         _, filter1, filter2 = parse_pipeline(fake_file)
-        if fmt.format(filter1) in sgal.data.keys() or fmt.format(filter2) in sgal.data.keys():
+        if fmt.format(filter1) in sgal.data.keys() or \
+           fmt.format(filter2) in sgal.data.keys():
             errfmt = '{}, {} ast corrections already in file.'
             logger.warning(errfmt.format(filter1, filter2))
-            return sgal.data[fmt.format(filter1)], sgal.data[fmt.format(filter2)]
+            return (sgal.data[fmt.format(filter1)],
+                    sgal.data[fmt.format(filter2)])
         ast = ASTs(fake_file)
     else:
         ast = asts_obj
@@ -109,8 +112,8 @@ def ast_correct_starpop(sgal, fake_file=None, outfile=None, overwrite=False,
 
     if diag_plot:
         from ..fileio.fileIO import replace_ext
-        plt_kw = dict({'color': 'navy', 'alpha': 0.3, 'label': 'sim'}.items() \
-                      + plt_kw.items())
+        plt_kw = dict({'color': 'navy', 'alpha': 0.3, 'label': 'sim'}.items() +
+                      plt_kw.items())
         axs = ast.magdiff_plot()
         mag1diff = cor_mag1 - mag1
         mag2diff = cor_mag2 - mag2
@@ -190,7 +193,7 @@ class ASTs(object):
             for name in names:
                 self.__setattr__(name, self.data[name])
         else:
-            assert not None in [self.filter1, self.filter2], \
+            assert None not in [self.filter1, self.filter2], \
                 'Must specify filter strings'
             self.data = fits.getdata(filename)
             self.mag1 = self.data['{}_IN'.format(self.filter1)]
@@ -244,7 +247,8 @@ class ASTs(object):
         Returns
         -------
         rands : array
-            len(nselections) of randomly selected from arr (duplicates included)
+            len(nselections) of randomly selected from arr
+            (duplicates included)
         '''
         rands = np.array([np.random.choice(arr) for i in range(nselections)])
         return rands
@@ -340,12 +344,12 @@ class ASTs(object):
             cor_mag2[obsbin] = obs_mag2[obsbin] + cor2
             # finite values only: not implemented because trilegal array should
             # maintain the same size.
-            #fin1, = np.nonzero(np.isfinite(cor_mag1))
-            #fin2, = np.nonzero(np.isfinite(cor_mag2))
-            #fin = list(set(fin1) & set(fin2))
+            # fin1, = np.nonzero(np.isfinite(cor_mag1))
+            # fin2, = np.nonzero(np.isfinite(cor_mag2))
+            # fin = list(set(fin1) & set(fin2))
         return cor_mag1, cor_mag2
 
-    def correct(self, obs_mag1, obs_mag2, bins=[100,200], xrange=[-0.5, 5.],
+    def correct(self, obs_mag1, obs_mag2, bins=[100, 200], xrange=[-0.5, 5.],
                 yrange=[15., 27.], not_rec_val=0., dxy=None):
         """
         apply AST correction to obs_mag1 and obs_mag2
@@ -397,7 +401,7 @@ class ASTs(object):
             bins[1] = len(np.arange(*yrange, step=dxy[1]))
 
         ckw = {'bins': bins, 'reverse_indices': True, 'xrange': xrange,
-                    'yrange': yrange}
+               'yrange': yrange}
         SH, _, _, sixy, sinds = chist(ast_color, self.mag2, **ckw)
         H, _, _, ixy, inds = chist(obs_color, obs_mag2, **ckw)
 
@@ -476,8 +480,8 @@ class ASTs(object):
         # set up array to evaluate interpolation
         # sometimes with few asts at bright mags the curve starts with low
         # completeness, reaches toward 1, and then declines as expected.
-        # To get around taking a value too bright, I search for values beginning
-        # at the faint end
+        # To get around taking a value too bright, I search for values
+        # beginning at the faint end
         search_arr = np.arange(bright_lim, 31, dmag)[::-1]
 
         # completeness in each filter, and the finite vals
@@ -497,8 +501,8 @@ class ASTs(object):
         comp2 = search_arr[ifin2][icomp2]
 
         if comp1 == bright_lim or comp2 == bright_lim:
-            logger.warning('Completeness fraction is at mag search limit and probably wrong. '
-                           'Try adjusting bright_lim')
+            logger.warning(('Completeness fraction is at mag search limit ',
+                            'and probably wrong. Try adjusting bright_lim'))
         return comp1, comp2
 
     def magdiff_plot(self, axs=None):
@@ -515,10 +519,10 @@ class ASTs(object):
 
         xlab = r'${{\rm Input}}\ {}$'
 
-        axs[0].set_xlabel(xlab.format(self.filter1), fontsize=20)
-        axs[1].set_xlabel(xlab.format(self.filter2), fontsize=20)
+        axs[0].set_xlabel(xlab.format(self.filter1))
+        axs[1].set_xlabel(xlab.format(self.filter2))
 
-        axs[0].set_ylabel(r'${{\rm Input}} - {{\rm Ouput}}$', fontsize=20)
+        axs[0].set_ylabel(r'${{\rm Input}} - {{\rm Ouput}}$')
         return axs
 
     def completeness_plot(self, ax=None, comp_fracs=None):
@@ -551,23 +555,36 @@ class ASTs(object):
         plt.legend(loc='lower left', frameon=False)
         return ax
 
-    def add_complines(self, ax, *fracs, **get_comp_frac_kw):
+    def add_complines(self, ax, fracs, cmd=False, get_cfrac_kw=None,
+                      yaxis='I'):
         """add verticle lines to a plot at given completeness fractions"""
+        get_comp_frac_kw = get_comp_frac_kw or {}
+        if not isinstance(fracs, list):
+            fracs = list(fracs)
+
         lblfmt = r'${frac}\ {filt}:\ {comp: .2f}$'
         for frac in fracs:
-            ax.hlines(frac, *ax.get_xlim(), alpha=0.5)
-            comp1, comp2 = self.get_completeness_fraction(frac,
-                                                          **get_comp_frac_kw)
-            for comp, filt in zip((comp1, comp2), (self.filter1, self.filter2)):
-                lab = lblfmt.format(frac=frac, filt=filt, comp=comp)
-                ax.vlines(comp, 0, 1, label=lab,
-                          color=next(ax._get_lines.color_cycle))
+            if cmd:
+                ycomp = comp1
+                if yaxis.upper() == 'I':
+                    ycomp = comp2
+                graphics.put_a_line_on_it()
+            else:
+                ax.hlines(frac, *ax.get_xlim(), alpha=0.5)
+                comp1, comp2 = self.get_completeness_fraction(frac,
+                                                              **get_cfrac_kw)
+                for comp, filt in zip((comp1, comp2),
+                                      (self.filter1, self.filter2)):
+                    lab = lblfmt.format(frac=frac, filt=filt, comp=comp)
+                    ax.vlines(comp, 0, 1, label=lab,
+                              color=next(ax._get_lines.color_cycle))
         plt.legend(loc='lower left', frameon=False)
         return ax
 
 
 def main(argv):
-    parser = argparse.ArgumentParser(description="Calculate completeness fraction, make AST plots")
+    desc = "Calculate completeness fraction, make AST plots"
+    parser = argparse.ArgumentParser(description=desc)
 
     parser.add_argument('-c', '--comp_frac', type=float, default=0.9,
                         help='completeness fraction to calculate')
@@ -579,7 +596,7 @@ def main(argv):
                         help='brighest mag to consider for completeness frac')
 
     parser.add_argument('-f', '--plot_fracs', type=str, default=None,
-                        help='comma separated completeness fractions to overplot')
+                        help=', separated completeness fractions to overplot')
 
     parser.add_argument('fake', type=str, nargs='*', help='match AST file(s)')
 
@@ -588,19 +605,22 @@ def main(argv):
         ast = ASTs(fake)
         ast.completeness(combined_filters=True, interpolate=True,
                          binsize=0.15)
-        comp1, comp2 = ast.get_completeness_fraction(args.comp_frac,
-                                                     bright_lim=args.bright_mag)
+        comp1, comp2 = \
+            ast.get_completeness_fraction(args.comp_frac,
+                                          bright_lim=args.bright_mag)
         print('{} {} completeness fraction:'.format(fake, args.comp_frac))
         print('{0:20s} {1:.4f} {2:.4f}'.format(ast.target, comp1, comp2))
 
         if args.makeplots:
-            comp_name = os.path.join(ast.base, ast.name + '_comp{}'.format(EXT))
-            ast_name = os.path.join(ast.base, ast.name + '_ast{}'.format(EXT))
+            comp_name = os.path.join(ast.base,
+                                     '{}_comp{}'.format(ast.name, EXT))
+            ast_name = os.path.join(ast.base, '{}_ast{}'.format(ast.name, EXT))
 
             ax = ast.completeness_plot()
             if args.plot_fracs is not None:
                 fracs = map(float, args.plot_fracs.split(','))
-                ast.add_complines(ax, *fracs, **{'bright_lim': args.bright_mag})
+                ast.add_complines(ax, fracs,
+                                  get_cfrac_kw={'bright_lim': args.bright_mag})
             plt.savefig(comp_name)
             plt.close()
 

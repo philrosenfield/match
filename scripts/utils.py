@@ -7,12 +7,24 @@ import sys
 
 import numpy as np
 
-from .fileio import read_match_cmd, read_binned_sfh
+try:
+    from .fileio import read_binned_sfh
+except SystemError:
+    from fileio import read_binned_sfh
 
 logger = logging.getLogger()
 
 
-__all__ = ['check_boundaries', 'strip_header', 'convertz']
+__all__ = ['check_boundaries', 'strip_header', 'convertz', 'center_grid']
+
+
+def center_grid(a):
+    """uniquify and shift a uniform array half a bin maintaining its size"""
+    x = np.unique(a)
+    dx = np.diff(x)[0]
+    x = np.append(x, x[-1] + dx)
+    x -= dx / 2
+    return x
 
 
 def process_match_sfh(sfhfile, outfile='processed_sfh.out', sarah_sim=False,
@@ -41,7 +53,7 @@ def process_match_sfh(sfhfile, outfile='processed_sfh.out', sarah_sim=False,
 
     # correct age for trilegal isochrones.
     # with PARSEC V1.1 and V1.2 no need!
-    #tf[tf == 10.15] = 10.13
+    # tf[tf == 10.15] = 10.13
 
     with open(outfile, 'w') as out:
         for i in range(len(to)):
@@ -138,7 +150,7 @@ def parse_argrange(strarr):
             # not a comma separated list
             arr = np.array([strarr])
     else:
-        arr = arangeit(strarr)
+        arr = arangeit(np.array(strarr, dtype=float))
     return arr
 
 
@@ -158,7 +170,7 @@ def convertz(z=None, oh=None, mh=None, feh=None, oh_sun=8.76, z_sun=0.01524,
 
     if oh is not None:
         feh = oh - oh_sun
-        z = z_sun * 10 **(feh)
+        z = z_sun * 10 ** (feh)
 
     if mh is not None:
         z = (1 - y0) / ((10**(-1. * mh) / 0.0207) + (1. + dy_dz))
@@ -213,7 +225,7 @@ def check_boundaries(param, scrn):
     msg = '{} / {}\n'.format(os.path.split(param)[1], os.path.split(scrn)[1])
     # parse scrn
     bfit = open(scrn).readlines()[-1]
-    if not 'Best' in bfit:
+    if 'Best' not in bfit:
         msg += 'error calcsfh not finished'
         retval = 1
     else:
@@ -224,11 +236,13 @@ def check_boundaries(param, scrn):
         # parse param
         pars = open(param).readline()
         try:
-            dmod0, dmod1, ddmod, av0, av1, dav = np.array(pars.split(), dtype=float)
+            dmod0, dmod1, ddmod, av0, av1, dav = \
+                np.array(pars.split(), dtype=float)
         except:
-            imf, dmod0, dmod1, ddmod, av0, av1, dav = np.array(pars.split(), dtype=float)
-            #print(sys.exc_info()[1], param)
-            #raise
+            imf, dmod0, dmod1, ddmod, av0, av1, dav = \
+                np.array(pars.split(), dtype=float)
+            # print(sys.exc_info()[1], param)
+            # raise
         retval, msg = betweenie(dmod, dmod1, dmod0, msg=msg)
         retval, msg = betweenie(av, av1, av0, retval=retval, msg=msg)
 
@@ -238,8 +252,15 @@ def check_boundaries(param, scrn):
 
 
 def float2sci(num):
-    """mpl has a better way of doing this now..."""
-    return r'$%s}$' % ('%.0E' % num).replace('E', '0').replace('-0', '^{-').replace('+0', '^{').replace('O', '0')
+    """mpl has a better way of doing this?"""
+    _, exnt = '{:.0e}'.format(num).split('e')
+    exnt = int(exnt)
+    if exnt == 0:
+        # 10 ** 0 = 1
+        retv = ''
+    else:
+        retv = r'$10^{{{:d}}}$'.format(exnt)
+    return retv
 
 
 def strip_header(ssp_file, skip_header=10):
@@ -251,7 +272,8 @@ def strip_header(ssp_file, skip_header=10):
         footer, = [i for i, l in enumerate(lines) if 'Best' in l]
     except:
         footer = None
-    np.savetxt(outfile, np.array(lines[skip_header:footer], dtype=str), fmt='%s')
+    np.savetxt(outfile, np.array(lines[skip_header:footer], dtype=str),
+               fmt='%s')
     return outfile
 
 
@@ -302,6 +324,7 @@ def ensure_file(f, mad=True):
         if mad:
             sys.exit()
     return test
+
 
 def cheat_fake(infakefile, outfakefile):
     """

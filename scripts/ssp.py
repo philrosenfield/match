@@ -17,17 +17,18 @@ import numpy as np
 
 from .config import EXT, match_base
 from .fileio import filename_data, add_filename_info_to_file
-from .utils import strip_header
+from .utils import strip_header, center_grid
 from .cmd import call_pgcmd_byfit
 
 __all__ = ['SSP']
 
 
-def combine_files(fnames, outfile='combined_files.csv', best=False):
+def combine_files(fnames, outfile='combined_files.csv', best=False,
+                  stats=False):
     """add files together including columns based on params in filename"""
     all_data = pd.DataFrame()
     for fname in fnames:
-        dframe = add_filename_info_to_file(fname, best=best)
+        dframe = add_filename_info_to_file(fname, best=best, stats=stats)
         all_data = all_data.append(dframe, ignore_index=True)
 
     all_data.to_csv(outfile, index=False)
@@ -62,7 +63,7 @@ class SSP(object):
     """
     Class for calcsfh -ssp outputs
     """
-    def __init__(self, filename, data=None, filterby=None):
+    def __init__(self, filename, data=None, filterby=None, gyr=False):
         """
         filenames are the calcsfh -ssp terminal or console output.
         They do not need to be stripped of their header or footer or
@@ -78,19 +79,35 @@ class SSP(object):
                                            'fit', 'sfr'])
                 data = pd.DataFrame(dat)
 
+        self.gyr = gyr
+        if gyr:
+            data['lage'] = (10 ** (data['lage'] - 9))
+
         if filterby is not None:
             for key, val in filterby.items():
-                data = data[data[key] == val].copy(deep=True)
+                data = data.loc[data[key] == val].copy(deep=True)
 
         self.data = data
-
-        self.ibest = np.argmin(self.data['fit'])
-
-        self.absprob = np.exp(0.5 * (self.data['fit'].min() - self.data['fit']))
+        self.absprob = np.zeros(len(data))
+        relprob = None
+        if relprob is not None:
+            x = data[relprob]
+            un_x = np.unique(x)
+            for ix in un_x:
+                inds, = np.nonzero(x == ix)
+                self.absprob[inds] = \
+                    np.sum(np.exp(0.5 * self.data['fit'].iloc[inds].min() -
+                                  self.data['fit'].iloc[inds]))
+        else:
+            self.absprob = \
+                np.exp(0.5 * (data['fit'].min() - data['fit']))
+        self.ibest = np.argmax(self.absprob)
+        self.data = data
 
     def _getmarginals(self):
         """get the values to marginalize over that exist in the data"""
-        # marg = np.array(['Av', 'IMF', 'dmod', 'lage', 'logZ', 'dav', 'ov', 'bf'])
+        # marg = np.array(['Av', 'IMF', 'dmod', 'lage', 'logZ', 'dav',
+        # 'ov', 'bf'])
         marg = np.array([k for k in self.data.keys() if k != 'fit'])
         inds = [i for i, m in enumerate(marg) if self._haskey(m)]
         return marg[inds]
@@ -102,7 +119,7 @@ class SSP(object):
             ecode = False
         return ecode
 
-    def marginalize(self, attr, attr2=None):
+    def marginalize(self, attr, attr2=None, absprob=True):
         """Find the best fit for each unique value of attr"""
         assert self._haskey(attr), '{} not found'.format(attr)
         x = self.data[attr]
@@ -122,7 +139,13 @@ class SSP(object):
             for ix in unq_x:
                 for iy in unq_y:
                     inds, = np.nonzero((x == ix) & (y == iy))
-                    prob[k] = np.sum(self.absprob.iloc[inds])
+                    if absprob:
+                        prob[k] = np.sum(self.absprob.iloc[inds])
+                    else:
+                        prob[k] = \
+                            np.sum(np.exp(0.5 *
+                                          (self.data['fit'].iloc[inds].min() -
+                                           self.data['fit'].iloc[inds])))
                     vals_x[k] = ix
                     vals_y[k] = iy
                     k += 1
@@ -132,78 +155,161 @@ class SSP(object):
             # sum over probabilites for each unique grid value
             prob = np.zeros(len(unq_x))
             for i, ix in enumerate(unq_x):
-                prob[i] = np.sum(self.absprob[x == ix])
+                inds, = np.nonzero(x == ix)
+                if absprob:
+                    prob[i] = np.sum(self.absprob[inds])
+                else:
+                    prob[i] = \
+                        np.sum(np.exp(0.5 * self.data['fit'].iloc[inds].min() -
+                               self.data['fit'].iloc[inds]))
             vals = unq_x
 
         prob /= prob.sum()
-        return vals, prob, np.log(prob)
+        return vals, prob
 
-    def pdf_plot(self, attr, attr2=None, ax=None, sub=''):
-        """Plot prob vs marginalized attr"""
-        vals, prob, _ = self.marginalize(attr, attr2=attr2)
-        if len(vals) == 1:
+    def pdf_plot(self, *args, **kwargs):
+        return pdf_plot(self, *args, **kwargs)
+
+    def pdf_plots(self, *args, **kwargs):
+        return pdf_plots(self, *args, **kwargs)
+
+
+def pdf_plot(SSP, attr, attr2=None, ax=None, sub=None, save=False,
+             truth=None, absprob=True, useweights=False, plt_kw=None):
+    """Plot prob vs marginalized attr"""
+    plt_kw = plt_kw or {}
+    do_cbar = False
+    sub = sub or ''
+    truth = truth or {}
+
+    vals, prob = SSP.marginalize(attr, attr2=attr2, absprob=absprob)
+
+    weights = None
+    if useweights:
+        weights = prob
+
+    if len(np.unique(vals)) == 1:
+        print('{} not varied.'.format(attr))
+        return
+
+    if attr2 is None:
+        # plot type is marginal probability.
+        ptype = 'marginal'
+        if ax is None:
+            _, ax = plt.subplots()
+            do_cbar = True
+
+        # grid edges
+        xedge = center_grid(vals)
+
+        # 1D Historgram
+        ax.hist(vals, weights=weights, bins=xedge, histtype='step',
+                lw=4, color='k')
+        #ax.plot(vals, prob, lw=4, color='k')
+        ax.set_ylabel(r'$\rm{Probability}$')
+    else:
+        [vals, vals2] = vals
+        if len(np.unique(vals2)) == 1 or len(np.unique(vals)) == 1:
             print('{} not varied.'.format(attr))
             return
 
-        save = False
-        if len(sub) > 0:
-            sub = '_' + sub
+        # plot type is joint probability.
+        ptype = '{}_joint'.format(attr2)
+
+        # grid edges
+        xedge = center_grid(vals)
+        yedge = center_grid(vals2)
 
         if ax is None:
             _, ax = plt.subplots()
-            save = True
+            docbar = True
 
-        if attr2 is None:
-            ax.hist(vals, weights=prob, bins=31, histtype='step',
-                    lw=4, color='k')
-            ax.set_ylabel(r'$\rm{Probability}$')
-            ptype = 'marginal'
-        else:
-            [vals, vals2] = vals
-            if len(np.unique(vals2)) == 1 or len(np.unique(vals)) == 1:
-                plt.close()
-                return
+        # 2D histogram weighted by probabibily
+        hist, xedge, yedge = np.histogram2d(vals, vals2, bins=[xedge, yedge],
+                                            weights=weights)
+        img = ax.imshow(hist.T, origin='low', interpolation='nearest',
+                        extent=[xedge[0], xedge[-1], yedge[0], yedge[-1]],
+                        cmap=plt.cm.Blues, aspect='auto')
 
-            hist, xedge, yedge = np.histogram2d(vals, vals2, weights=prob)
-            img = plt.imshow(hist.T, origin='low', interpolation='None',
-                             extent=[xedge[0], xedge[-1], yedge[0], yedge[-1]],
-                             cmap=plt.cm.Blues, aspect='auto')
-
+        if do_cbar:
             cbar = plt.colorbar(img)
             cbar.set_label(r'$\rm{Probability}$')
-            ax.set_ylabel(key2label(attr2))
-            ptype = '{}_joint'.format(attr2)
-        ax.set_xlabel(key2label(attr))
 
-        if save:
-            outname = '{}_{}{}_{}_gamma{}'.format(self.name.replace('.csv', ''),
-                                                  attr, sub, ptype, EXT)
-            plt.savefig(outname, bbox_inches='tight')
-            print('wrote {}'.format(outname))
-            plt.close()
-        return ax
+        ax.set_ylabel(key2label(attr2, gyr=SSP.gyr))
+        if attr2 in truth:
+            ax.axhline(truth[attr2], color='darkred', lw=3)
+        ax.set_ylim(yedge[0], yedge[-1])
 
-    def pdf_plots(self, marginals='default', sub='', twod=False):
-        """Call pdf_plot2d for a list of attr and attr2"""
-        if marginals == 'default':
-            marg = self._getmarginals()
-        else:
-            marg = marginals
+    if attr in truth:
+        ax.axvline(truth[attr], color='darkred', lw=3)
 
-        if twod:
-            for i, j in itertools.product(marg, marg):
-                # e.g., skip Av vs Av and Av vs IMF if already plotted IMF vs Av
-                if i >= j:
-                    continue
-
-                self.pdf_plot(i, attr2=j, sub=sub)
-        else:
-            _ = [self.pdf_plot(i, sub=sub) for i in marg]
-
-        return
+    ax.set_xlim(xedge[0], xedge[-1])
+    ax.set_xlabel(key2label(attr, gyr=SSP.gyr))
+    if save:
+        # add subdirectory to filename
+        if len(sub) > 0:
+            sub = '_' + sub
+        outfmt = '{}_{}{}_{}_gamma{}'
+        outname = outfmt.format(SSP.name.replace('.csv', ''),
+                                attr, sub, ptype, EXT)
+        plt.savefig(outname, bbox_inches='tight')
+        print('wrote {}'.format(outname))
+        plt.close()
+    return ax
 
 
-def key2label(string):
+def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
+              text=None, absprob=True):
+    """Call pdf_plot2d for a list of attr and attr2"""
+    text = text or ''
+    sub = sub or ''
+    truth = truth or {}
+    marg = marginals or SSP._getmarginals()
+
+    ndim = len(marg)
+    if twod:
+        fig, axs = plt.subplots(nrows=ndim, ncols=ndim)
+        [[ax.tick_params(left='off', labelleft='off') for ax in axs.T[i]]
+         for i in np.arange(ndim-1)+1]
+        [ax.tick_params(bottom='off', labelbottom='off')
+         for ax in axs[:-1].ravel()]
+        [[ax.tick_params(right='off', top='off') for ax in axs[i+1, :i]]
+         for i in range(ndim-1)]
+        raxs = []
+        for j, mj in enumerate(marg):
+            for i, mi in enumerate(marg):
+                # e.g., skip Av vs Av and Av vs IMF
+                # if already plotted IMF vs Av
+                if i == j:
+                    raxs.append(ssp.pdf_plot(mj, ax=axs[i, j],
+                                             sub=sub, truth=truth,
+                                             absprob=False))
+                    # ax.tick_params(labelleft='off', labelbottom='off')
+                elif i > j:
+                    raxs.append(ssp.pdf_plot(mj, attr2=mi, ax=axs[i, j],
+                                             sub=sub, truth=truth,
+                                             absprob=True))
+                else:
+                    axs[i, j].set_visible(False)
+    else:
+        fig, axs = plt.subplots(ncols=ndim, figsize=(15, 3))
+        [ax.tick_params(left='off', labelleft='off') for ax in axs[1:]]
+        [ax.tick_params(right='off', labelright='off') for ax in axs[:-1]]
+        [ax.tick_params(top='off') for ax in axs]
+        axs[-1].tick_params(labelright='on')
+        raxs = [SSP.pdf_plot(i, sub=sub, truth=truth, ax=axs[marg.index(i)],
+                             absprob=absprob)
+                for i in marg]
+        [ax.set_ylabel('') for ax in axs[1:]]
+        [ax.locator_params(axis='x', nbins=6) for ax in axs]
+        if text:
+            axs[-1].text(0.10, 0.90, '${}$'.format(text),
+                         transform=axs[-1].transAxes)
+        fig.subplots_adjust(bottom=0.2, left=0.05)
+    return fig, raxs
+
+
+def key2label(string, gyr=False):
     """latex labels for different strings"""
     def_fmt = r'${}$'
     convert = {'Av': r'$A_V$',
@@ -214,10 +320,16 @@ def key2label(string):
                'ov': r'$\Lambda_c$',
                'chi2': r'$\chi^2$',
                'bf': r'$\rm{Binary\ Fraction}$',
-               'dav': r'$dA_V$'}
+               'dav': r'$dA_V$',
+               'trueov': r'$\Lambda_c\ \rm{In}$'}
     if string not in convert.keys():
-        return def_fmt.format(string)
-    return convert[string]
+        convstr = def_fmt.format(string)
+    else:
+        convstr = convert[string]
+
+    if gyr:
+        convstr = convstr.replace('yr', 'Gyr').replace(r'\log\ ', '')
+    return convstr
 
 
 def main(argv):
@@ -230,7 +342,7 @@ def main(argv):
     parser = argparse.ArgumentParser(description="stats for calcsfh -ssp")
 
     parser.add_argument('-f', '--format', action='store_true',
-                        help='combine the files including data in the filename')
+                        help='combine the files including data from filename')
 
     parser.add_argument('-d', '--oned', action='store_true',
                         help='make val vs prob plots')
@@ -241,18 +353,18 @@ def main(argv):
     parser.add_argument('-b', '--best', action='store_true',
                         help='include best fits only')
 
-    parser.add_argument('-o', '--outfile', type=str,
+    parser.add_argument('--outfile', type=str,
                         default='combined_files.csv',
                         help='if -f file name to write to')
 
-    parser.add_argument('-s', '--sub', type=str, default='',
+    parser.add_argument('--sub', type=str, default='',
                         help='add substring to figure names')
-
-    parser.add_argument('-l', '--list', action='store_true',
-                        help='fnames is a file with a list of files to read')
 
     parser.add_argument('-c', '--sspcombine', action='store_true',
                         help='run sspcombine on the file(s) (and exit)')
+
+    parser.add_argument('-s', '--stats', action='store_true',
+                        help='with -f, use stats (see .cmd.main -c)')
 
     parser.add_argument('-p', '--plotcmd', action='store_true',
                         help='run pgcmd (need .out.cmd file) and exit')
@@ -269,9 +381,6 @@ def main(argv):
         import pdb
         pdb.set_trace()
 
-    if args.list:
-        args.fnames = map(str.strip, open(args.fnames[0], 'r').readlines())
-
     if args.plotcmd:
         call_pgcmd_byfit(args.fnames, nmax=16)
         sys.exit(0)
@@ -281,7 +390,8 @@ def main(argv):
         filtdict = filename_data(args.sub, skip=0)
 
     if args.format:
-        fname = combine_files(args.fnames, outfile=args.outfile, best=args.best)
+        fname = combine_files(args.fnames, outfile=args.outfile,
+                              best=args.best)
     elif args.sspcombine:
         _ = [sspcombine(f, dry_run=False) for f in args.fnames]
         sys.exit(0)
@@ -295,7 +405,6 @@ def main(argv):
 
     if args.twod:
         ssp.pdf_plots(sub=args.sub, twod=args.twod)
-
 
 if __name__ == "__main__":
     main(sys.argv[1:])
