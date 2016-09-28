@@ -11,5 +11,5 @@ PARAMEXT = '.param'
 
 match_base = '$HOME/match2.6/'
 calcsfh = "$HOME/match2.6/bin/calcsfh"
-#calcsfh_flag = "-PARSEC -dT=0.001 -dZ=0.01 -ssp -dAvy=0.0"
-calcsfh_flag = "-PARSEC -dT=0.001 -dZ=0.01 -ssp -full -dAvy=0.0"
+calcsfh_flag = "-PARSEC -dT=0.01 -dZ=0.05 -ssp -full -dAvy=0.0"
+#calcsfh_flag = "-PARSEC -dT=0.001 -dZ=0.01 -ssp -full -dAvy=0.0"

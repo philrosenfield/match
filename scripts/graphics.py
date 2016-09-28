@@ -5,6 +5,7 @@ import numpy as np
 
 from .config import EXT
 from .fileio import read_calcsfh_param
+from .utils import center_grid
 
 try:
     import seaborn
@@ -41,7 +42,7 @@ def put_a_line_on_it(ax, val, consty=False, color='black',
     return new_xarr, yarr
 
 
-def pcolor_(x, y, z, ax=None, statfunc=np.median):
+def pcolor_(x, y, z, ax=None, statfunc=np.median, cmap=None):
     """
     Call plt.pcolor with 1D arrays shifting the grid so x, y are at bin center
     statfunc : function
@@ -50,23 +51,13 @@ def pcolor_(x, y, z, ax=None, statfunc=np.median):
             def linprob(x):
                 return np.sum(np.exp(0.5 * (x.min() - x)))
     """
-    def center_grid(a):
-        """
-        uniquify and shift a uniform array half a bin maintaining its size
-        """
-        x = np.unique(a)
-        dx = np.diff(x)[0]
-        x = np.append(x, x[-1] + dx)
-        x -= dx / 2
-        return x
-
     def centered_meshgrid(x, y):
         """call meshgrid with bins shifted so x, y will be at bin center"""
         X, Y = np.meshgrid(center_grid(x), center_grid(y), indexing="ij")
         return X, Y
 
     if ax is None:
-        _, ax = plt.subplots()
+        fig, ax = plt.subplots()
 
     X, Y = centered_meshgrid(x, y)
     ux = np.unique(x)
@@ -75,17 +66,14 @@ def pcolor_(x, y, z, ax=None, statfunc=np.median):
     for i in range(len(ux)):
         for j in range(len(uy)):
             iz, = np.nonzero((x == ux[i]) & (y == uy[j]))
-            print(ux[i], uy[j], len(iz))
+            # print(ux[i], uy[j], len(iz))
             if len(iz) > 0:
-                Z = z.iloc[iz]
-                if len(iz) > 1:
-                    Z = statfunc(Z)
-                C[i, j] = Z
+                C[i, j] = statfunc(z.iloc[iz])
 
-    ax.pcolor(X, Y, C, cmap="Blues_r")
+    l = ax.pcolor(X, Y, C, cmap=cmap)
     ax.set_xlim(X.min(), X.max())
     ax.set_ylim(Y.min(), Y.max())
-    return ax
+    return ax, l
 
 
 def stitch_cmap(cmap1, cmap2, stitch_frac=0.5, dfrac=0.001):

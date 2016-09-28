@@ -19,6 +19,7 @@ from .config import EXT, match_base
 from .fileio import filename_data, add_filename_info_to_file
 from .utils import strip_header, center_grid
 from .cmd import call_pgcmd_byfit
+from .graphics import pcolor_
 
 __all__ = ['SSP']
 
@@ -142,10 +143,7 @@ class SSP(object):
                     if absprob:
                         prob[k] = np.sum(self.absprob.iloc[inds])
                     else:
-                        prob[k] = \
-                            np.sum(np.exp(0.5 *
-                                          (self.data['fit'].iloc[inds].min() -
-                                           self.data['fit'].iloc[inds])))
+                        prob[k] = approxprob(self.data.fit.iloc[inds])
                     vals_x[k] = ix
                     vals_y[k] = iy
                     k += 1
@@ -157,11 +155,9 @@ class SSP(object):
             for i, ix in enumerate(unq_x):
                 inds, = np.nonzero(x == ix)
                 if absprob:
-                    prob[i] = np.sum(self.absprob[inds])
+                    prob[k] = np.sum(self.absprob.iloc[inds])
                 else:
-                    prob[i] = \
-                        np.sum(np.exp(0.5 * self.data['fit'].iloc[inds].min() -
-                               self.data['fit'].iloc[inds]))
+                    prob[k] = approxprob(self.data.fit.iloc[inds])
             vals = unq_x
 
         prob /= prob.sum()
@@ -173,6 +169,9 @@ class SSP(object):
     def pdf_plots(self, *args, **kwargs):
         return pdf_plots(self, *args, **kwargs)
 
+def approxprob(x):
+    """sum of 2nd order taylor series expansion of e^-(x/2)"""
+    return np.sum(1. / (1. + x / 4 + x ** 2 / 8 + x ** 3 / 12 + x ** 4 / 48))
 
 def pdf_plot(SSP, attr, attr2=None, ax=None, sub=None, save=False,
              truth=None, absprob=True, useweights=False, plt_kw=None):
@@ -182,13 +181,10 @@ def pdf_plot(SSP, attr, attr2=None, ax=None, sub=None, save=False,
     sub = sub or ''
     truth = truth or {}
 
-    vals, prob = SSP.marginalize(attr, attr2=attr2, absprob=absprob)
+    x = SSP.data[attr]
+    z = SSP.data['fit']
 
-    weights = None
-    if useweights:
-        weights = prob
-
-    if len(np.unique(vals)) == 1:
+    if len(np.unique(x)) == 1:
         print('{} not varied.'.format(attr))
         return
 
@@ -197,53 +193,44 @@ def pdf_plot(SSP, attr, attr2=None, ax=None, sub=None, save=False,
         ptype = 'marginal'
         if ax is None:
             _, ax = plt.subplots()
-            do_cbar = True
-
         # grid edges
-        xedge = center_grid(vals)
+        ux = np.unique(x)
+        c = np.zeros(len(ux))
+        for i in range(len(ux)):
+            iz, = np.nonzero(x == ux[i])
+            c[i] = np.min(z.iloc[iz])
 
-        # 1D Historgram
-        ax.hist(vals, weights=weights, bins=xedge, histtype='step',
-                lw=4, color='k')
-        #ax.plot(vals, prob, lw=4, color='k')
+        l = ax.plot(ux, c, lw=4, color='k')
         ax.set_ylabel(r'$\rm{Probability}$')
     else:
-        [vals, vals2] = vals
-        if len(np.unique(vals2)) == 1 or len(np.unique(vals)) == 1:
-            print('{} not varied.'.format(attr))
+        y = SSP.data[attr2]
+        if len(np.unique(y)) == 1:
+            print('{} not varied.'.format(attr2))
             return
 
         # plot type is joint probability.
         ptype = '{}_joint'.format(attr2)
 
-        # grid edges
-        xedge = center_grid(vals)
-        yedge = center_grid(vals2)
-
         if ax is None:
             _, ax = plt.subplots()
             docbar = True
 
-        # 2D histogram weighted by probabibily
-        hist, xedge, yedge = np.histogram2d(vals, vals2, bins=[xedge, yedge],
-                                            weights=weights)
-        img = ax.imshow(hist.T, origin='low', interpolation='nearest',
-                        extent=[xedge[0], xedge[-1], yedge[0], yedge[-1]],
-                        cmap=plt.cm.Blues, aspect='auto')
+        ax, l = pcolor_(x, y, z, statfunc=np.min, ax=ax,
+                        cmap=plt.cm.Greys_r)
 
         if do_cbar:
-            cbar = plt.colorbar(img)
+            cbar = plt.colorbar(l)
             cbar.set_label(r'$\rm{Probability}$')
 
         ax.set_ylabel(key2label(attr2, gyr=SSP.gyr))
         if attr2 in truth:
             ax.axhline(truth[attr2], color='darkred', lw=3)
-        ax.set_ylim(yedge[0], yedge[-1])
+        # ax.set_ylim(yedge[0], yedge[-1])
 
     if attr in truth:
         ax.axvline(truth[attr], color='darkred', lw=3)
 
-    ax.set_xlim(xedge[0], xedge[-1])
+    # ax.set_xlim(xedge[0], xedge[-1])
     ax.set_xlabel(key2label(attr, gyr=SSP.gyr))
     if save:
         # add subdirectory to filename
@@ -259,8 +246,8 @@ def pdf_plot(SSP, attr, attr2=None, ax=None, sub=None, save=False,
 
 
 def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
-              text=None, absprob=True):
-    """Call pdf_plot2d for a list of attr and attr2"""
+              text=None):
+    """Call pdf_plot for a list of attr and attr2"""
     text = text or ''
     sub = sub or ''
     truth = truth or {}
@@ -268,7 +255,8 @@ def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
 
     ndim = len(marg)
     if twod:
-        fig, axs = plt.subplots(nrows=ndim, ncols=ndim)
+        fig, axs = plt.subplots(nrows=ndim, ncols=ndim,
+                                figsize=(ndim * 2, ndim * 2))
         [[ax.tick_params(left='off', labelleft='off') for ax in axs.T[i]]
          for i in np.arange(ndim-1)+1]
         [ax.tick_params(bottom='off', labelbottom='off')
@@ -280,17 +268,15 @@ def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
             for i, mi in enumerate(marg):
                 # e.g., skip Av vs Av and Av vs IMF
                 # if already plotted IMF vs Av
+                ax = axs[i, j]
                 if i == j:
-                    raxs.append(ssp.pdf_plot(mj, ax=axs[i, j],
-                                             sub=sub, truth=truth,
-                                             absprob=False))
-                    # ax.tick_params(labelleft='off', labelbottom='off')
+                    raxs.append(SSP.pdf_plot(mj, ax=ax, sub=sub, truth=truth))
+                    ax.tick_params(labelleft='off', labelbottom='off')
                 elif i > j:
-                    raxs.append(ssp.pdf_plot(mj, attr2=mi, ax=axs[i, j],
-                                             sub=sub, truth=truth,
-                                             absprob=True))
+                    raxs.append(SSP.pdf_plot(mj, attr2=mi, ax=ax, sub=sub,
+                                             truth=truth))
                 else:
-                    axs[i, j].set_visible(False)
+                    ax.set_visible(False)
     else:
         fig, axs = plt.subplots(ncols=ndim, figsize=(15, 3))
         [ax.tick_params(left='off', labelleft='off') for ax in axs[1:]]
@@ -316,7 +302,7 @@ def key2label(string, gyr=False):
                'dmod': r'$\mu$',
                'lage': r'$\log\ \rm{Age\ (yr)}$',
                'logZ': r'$\log\ \rm{Z}$',
-               'fit': r'$\rm{Fit\ Parameter}$',
+               'fit': r'$-2 \ln\ \rm{P}$',
                'ov': r'$\Lambda_c$',
                'chi2': r'$\chi^2$',
                'bf': r'$\rm{Binary\ Fraction}$',
