@@ -15,11 +15,11 @@ import pandas as pd
 import matplotlib.pylab as plt
 import numpy as np
 
-from .config import EXT, match_base
+from .config import match_base
 from .fileio import filename_data, add_filename_info_to_file
-from .utils import strip_header, center_grid
+from .utils import strip_header, centered_meshgrid, marg, marg2d
 from .cmd import call_pgcmd_byfit
-from .graphics import pcolor_
+from .graphics import pdf_plot, pdf_plots
 
 __all__ = ['SSP']
 
@@ -73,8 +73,10 @@ class SSP(object):
         self.base, self.name = os.path.split(filename)
         if data is None:
             if filename.endswith('.csv'):
+                # combined file of many calcsfh outputs
                 data = pd.read_csv(filename)
             else:
+                # one calcsfh output
                 dat = np.genfromtxt(filename, skip_header=10, skip_footer=2,
                                     names=['Av', 'IMF', 'dmod', 'lage', 'logZ',
                                            'fit', 'sfr'])
@@ -89,78 +91,50 @@ class SSP(object):
                 data = data.loc[data[key] == val].copy(deep=True)
 
         self.data = data
-        self.absprob = np.zeros(len(data))
-        relprob = None
-        if relprob is not None:
-            x = data[relprob]
-            un_x = np.unique(x)
-            for ix in un_x:
-                inds, = np.nonzero(x == ix)
-                self.absprob[inds] = \
-                    np.sum(np.exp(0.5 * self.data['fit'].iloc[inds].min() -
-                                  self.data['fit'].iloc[inds]))
-        else:
-            self.absprob = \
-                np.exp(0.5 * (data['fit'].min() - data['fit']))
+        self.absprob = np.exp(0.5 * (data['fit'].min() - data['fit']))
         self.ibest = np.argmax(self.absprob)
-        self.data = data
 
-    def _getmarginals(self):
+    def _getmarginals(self, avoid_list=['fit']):
         """get the values to marginalize over that exist in the data"""
         # marg = np.array(['Av', 'IMF', 'dmod', 'lage', 'logZ', 'dav',
         # 'ov', 'bf'])
-        marg = np.array([k for k in self.data.keys() if k != 'fit'])
-        inds = [i for i, m in enumerate(marg) if self._haskey(m)]
-        return marg[inds]
+        marg_ = np.array([k for k in self.data.columns if k not in avoid_list])
+        inds = [i for i, m in enumerate(marg_) if self._haskey(m)]
+        return marg_[inds]
 
     def _haskey(self, key):
         """test if the key requested is available"""
         ecode = True
-        if key not in self.data.keys():
+        if key not in self.data.columns:
             ecode = False
         return ecode
 
-    def marginalize(self, attr, attr2=None, absprob=True):
-        """Find the best fit for each unique value of attr"""
-        assert self._haskey(attr), '{} not found'.format(attr)
-        x = self.data[attr]
-        unq_x = np.unique(x)
+    def marginalize(self, xattr, yattr=None):
+        """
+        Marginalize over one or two quanitities
+        xattr : string
+            data column to marginalize over
+        yattr : string
+            data column to marginalize over
 
-        if attr2 is not None:
-            assert self._haskey(attr2), '{} not found'.format(attr)
-            y = self.data[attr2]
-            unq_y = np.unique(y)
+        Returns
+        vals : array or list of arrays
+            if yattr is passed, vals is output of utils.cantered_meshgrid
+            otherwise it's the unique values of data[xattr]
+        prob : the minimum -2 ln P in each bin
+        """
+        assert self._haskey(xattr), '{} not found'.format(xattr)
+        z = self.data.fit
+        x = self.data[xattr]
 
-            size = len(unq_x) * len(unq_y)
-            prob = np.zeros(size)
-            vals_x = np.zeros(size)
-            vals_y = np.zeros(size)
-
-            k = 0
-            for ix in unq_x:
-                for iy in unq_y:
-                    inds, = np.nonzero((x == ix) & (y == iy))
-                    if absprob:
-                        prob[k] = np.sum(self.absprob.iloc[inds])
-                    else:
-                        prob[k] = approxprob(self.data.fit.iloc[inds])
-                    vals_x[k] = ix
-                    vals_y[k] = iy
-                    k += 1
-            vals = [vals_x, vals_y]
+        if yattr is not None:
+            assert self._haskey(yattr), '{} not found'.format(yattr)
+            y = self.data[yattr]
+            vals = centered_meshgrid(x, y)
+            prob = marg2d(x, y, z)
         else:
-            # compute linear probabilites
-            # sum over probabilites for each unique grid value
-            prob = np.zeros(len(unq_x))
-            for i, ix in enumerate(unq_x):
-                inds, = np.nonzero(x == ix)
-                if absprob:
-                    prob[k] = np.sum(self.absprob.iloc[inds])
-                else:
-                    prob[k] = approxprob(self.data.fit.iloc[inds])
-            vals = unq_x
-
-        prob /= prob.sum()
+            vals = np.unique(x)
+            prob = marg(x, z)
         return vals, prob
 
     def pdf_plot(self, *args, **kwargs):
@@ -169,156 +143,8 @@ class SSP(object):
     def pdf_plots(self, *args, **kwargs):
         return pdf_plots(self, *args, **kwargs)
 
-def approxprob(x):
-    """sum of 2nd order taylor series expansion of e^-(x/2)"""
-    return np.sum(1. / (1. + x / 4 + x ** 2 / 8 + x ** 3 / 12 + x ** 4 / 48))
 
-def pdf_plot(SSP, attr, attr2=None, ax=None, sub=None, save=False,
-             truth=None, absprob=True, useweights=False, plt_kw=None):
-    """Plot prob vs marginalized attr"""
-    plt_kw = plt_kw or {}
-    do_cbar = False
-    sub = sub or ''
-    truth = truth or {}
-
-    x = SSP.data[attr]
-    z = SSP.data['fit']
-
-    if len(np.unique(x)) == 1:
-        print('{} not varied.'.format(attr))
-        return
-
-    if attr2 is None:
-        # plot type is marginal probability.
-        ptype = 'marginal'
-        if ax is None:
-            _, ax = plt.subplots()
-        # grid edges
-        ux = np.unique(x)
-        c = np.zeros(len(ux))
-        for i in range(len(ux)):
-            iz, = np.nonzero(x == ux[i])
-            c[i] = np.min(z.iloc[iz])
-
-        l = ax.plot(ux, c, lw=4, color='k')
-        ax.set_ylabel(r'$\rm{Probability}$')
-    else:
-        y = SSP.data[attr2]
-        if len(np.unique(y)) == 1:
-            print('{} not varied.'.format(attr2))
-            return
-
-        # plot type is joint probability.
-        ptype = '{}_joint'.format(attr2)
-
-        if ax is None:
-            _, ax = plt.subplots()
-            docbar = True
-
-        ax, l = pcolor_(x, y, z, statfunc=np.min, ax=ax,
-                        cmap=plt.cm.Greys_r)
-
-        if do_cbar:
-            cbar = plt.colorbar(l)
-            cbar.set_label(r'$\rm{Probability}$')
-
-        ax.set_ylabel(key2label(attr2, gyr=SSP.gyr))
-        if attr2 in truth:
-            ax.axhline(truth[attr2], color='darkred', lw=3)
-        # ax.set_ylim(yedge[0], yedge[-1])
-
-    if attr in truth:
-        ax.axvline(truth[attr], color='darkred', lw=3)
-
-    # ax.set_xlim(xedge[0], xedge[-1])
-    ax.set_xlabel(key2label(attr, gyr=SSP.gyr))
-    if save:
-        # add subdirectory to filename
-        if len(sub) > 0:
-            sub = '_' + sub
-        outfmt = '{}_{}{}_{}_gamma{}'
-        outname = outfmt.format(SSP.name.replace('.csv', ''),
-                                attr, sub, ptype, EXT)
-        plt.savefig(outname, bbox_inches='tight')
-        print('wrote {}'.format(outname))
-        plt.close()
-    return ax
-
-
-def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
-              text=None):
-    """Call pdf_plot for a list of attr and attr2"""
-    text = text or ''
-    sub = sub or ''
-    truth = truth or {}
-    marg = marginals or SSP._getmarginals()
-
-    ndim = len(marg)
-    if twod:
-        fig, axs = plt.subplots(nrows=ndim, ncols=ndim,
-                                figsize=(ndim * 2, ndim * 2))
-        [[ax.tick_params(left='off', labelleft='off') for ax in axs.T[i]]
-         for i in np.arange(ndim-1)+1]
-        [ax.tick_params(bottom='off', labelbottom='off')
-         for ax in axs[:-1].ravel()]
-        [[ax.tick_params(right='off', top='off') for ax in axs[i+1, :i]]
-         for i in range(ndim-1)]
-        raxs = []
-        for j, mj in enumerate(marg):
-            for i, mi in enumerate(marg):
-                # e.g., skip Av vs Av and Av vs IMF
-                # if already plotted IMF vs Av
-                ax = axs[i, j]
-                if i == j:
-                    raxs.append(SSP.pdf_plot(mj, ax=ax, sub=sub, truth=truth))
-                    ax.tick_params(labelleft='off', labelbottom='off')
-                elif i > j:
-                    raxs.append(SSP.pdf_plot(mj, attr2=mi, ax=ax, sub=sub,
-                                             truth=truth))
-                else:
-                    ax.set_visible(False)
-    else:
-        fig, axs = plt.subplots(ncols=ndim, figsize=(15, 3))
-        [ax.tick_params(left='off', labelleft='off') for ax in axs[1:]]
-        [ax.tick_params(right='off', labelright='off') for ax in axs[:-1]]
-        [ax.tick_params(top='off') for ax in axs]
-        axs[-1].tick_params(labelright='on')
-        raxs = [SSP.pdf_plot(i, sub=sub, truth=truth, ax=axs[marg.index(i)],
-                             absprob=absprob)
-                for i in marg]
-        [ax.set_ylabel('') for ax in axs[1:]]
-        [ax.locator_params(axis='x', nbins=6) for ax in axs]
-        if text:
-            axs[-1].text(0.10, 0.90, '${}$'.format(text),
-                         transform=axs[-1].transAxes)
-        fig.subplots_adjust(bottom=0.2, left=0.05)
-    return fig, raxs
-
-
-def key2label(string, gyr=False):
-    """latex labels for different strings"""
-    def_fmt = r'${}$'
-    convert = {'Av': r'$A_V$',
-               'dmod': r'$\mu$',
-               'lage': r'$\log\ \rm{Age\ (yr)}$',
-               'logZ': r'$\log\ \rm{Z}$',
-               'fit': r'$-2 \ln\ \rm{P}$',
-               'ov': r'$\Lambda_c$',
-               'chi2': r'$\chi^2$',
-               'bf': r'$\rm{Binary\ Fraction}$',
-               'dav': r'$dA_V$',
-               'trueov': r'$\Lambda_c\ \rm{In}$'}
-    if string not in convert.keys():
-        convstr = def_fmt.format(string)
-    else:
-        convstr = convert[string]
-
-    if gyr:
-        convstr = convstr.replace('yr', 'Gyr').replace(r'\log\ ', '')
-    return convstr
-
-
-def main(argv):
+def main(argv=None):
     """
     Main function for ssp.py plot or reformat ssp output.
 
@@ -410,4 +236,4 @@ def main(argv):
         ssp.pdf_plots(sub=args.sub, twod=args.twod)
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    sys.exit(main())
