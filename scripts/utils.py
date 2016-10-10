@@ -17,6 +17,42 @@ logger = logging.getLogger()
 
 __all__ = ['check_boundaries', 'strip_header', 'convertz', 'center_grid']
 
+def marg(x, z):
+    """
+    marginalize in 1d.
+    Does not normalize probability.
+    z should be -2 ln P
+    """
+    ux = np.unique(x)
+    prob = np.zeros(len(ux))
+    for i in range(len(ux)):
+        iz, = np.nonzero(x == ux[i])
+        # max liklihood i.e, min(-2 ln P) in each bin
+        prob[i] = np.min(z.iloc[iz])
+    return prob
+
+
+def marg2d(x, y, z):
+    """
+    marginalize in 2d.
+    Does not normalize probability.
+    z should be -2 ln P
+    """
+    ux = np.unique(x)
+    uy = np.unique(y)
+    prob = np.zeros(shape=(len(ux), len(uy)))
+    for i in range(len(ux)):
+        for j in range(len(uy)):
+            iz, = np.nonzero((x == ux[i]) & (y == uy[j]))
+            # print(ux[i], uy[j], len(iz))
+            if len(iz) > 0:
+                prob[i, j] = np.min(z.iloc[iz])
+    return prob
+
+def centered_meshgrid(x, y):
+    """call meshgrid with bins shifted so x, y will be at bin center"""
+    X, Y = np.meshgrid(center_grid(x), center_grid(y), indexing="ij")
+    return X, Y
 
 def center_grid(a):
     """uniquify and shift a uniform array half a bin maintaining its size"""

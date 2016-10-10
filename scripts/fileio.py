@@ -130,6 +130,7 @@ def filename_data(fname, ext=None, skip=2, delimiter='_', exclude='imf'):
         try:
             d[kv[0]] = float(keyval.replace(kv[0], ''))
         except ValueError:
+            # No need to worry about stuff like "814.gst" etc.
             # print(sys.exc_info()[1])
             pass
     return d
