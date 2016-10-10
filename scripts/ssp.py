@@ -121,6 +121,8 @@ class SSP(object):
 
     def marginalize(self, attr, attr2=None, absprob=True):
         """Find the best fit for each unique value of attr"""
+        def margprob():
+            pass
         assert self._haskey(attr), '{} not found'.format(attr)
         x = self.data[attr]
         unq_x = np.unique(x)
@@ -203,9 +205,9 @@ def pdf_plot(SSP, attr, attr2=None, ax=None, sub=None, save=False,
         xedge = center_grid(vals)
 
         # 1D Historgram
-        ax.hist(vals, weights=weights, bins=xedge, histtype='step',
-                lw=4, color='k')
-        #ax.plot(vals, prob, lw=4, color='k')
+        #ax.hist(vals, weights=weights, bins=xedge, histtype='step',
+        #        lw=4, color='k')
+        ax.plot(vals, prob, lw=4, color='k')
         ax.set_ylabel(r'$\rm{Probability}$')
     else:
         [vals, vals2] = vals

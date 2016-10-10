@@ -5,6 +5,7 @@ import numpy as np
 
 from .config import EXT
 from .fileio import read_calcsfh_param
+from .utils import center_grid
 
 try:
     import seaborn
@@ -50,16 +51,6 @@ def pcolor_(x, y, z, ax=None, statfunc=np.median):
             def linprob(x):
                 return np.sum(np.exp(0.5 * (x.min() - x)))
     """
-    def center_grid(a):
-        """
-        uniquify and shift a uniform array half a bin maintaining its size
-        """
-        x = np.unique(a)
-        dx = np.diff(x)[0]
-        x = np.append(x, x[-1] + dx)
-        x -= dx / 2
-        return x
-
     def centered_meshgrid(x, y):
         """call meshgrid with bins shifted so x, y will be at bin center"""
         X, Y = np.meshgrid(center_grid(x), center_grid(y), indexing="ij")

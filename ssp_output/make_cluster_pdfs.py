@@ -2,7 +2,10 @@ from __future__ import print_function
 import numpy as np
 import pylab as plt
 import pdb
-import seaborn as sns
+try:
+    import seaborn as sns
+except ImportError:
+    pass
 import sys
 import glob
 
@@ -64,7 +67,10 @@ def make2dpdfs(x, y, weights):
 def main():
 
     cm = plt.get_cmap('Blues')
-    sns.set_style("white")
+    try:
+        sns.set_style("white")
+    except:
+        pass
     #cm.set_gamma(0.2)
 
     # 
