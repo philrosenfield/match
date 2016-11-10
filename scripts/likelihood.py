@@ -21,6 +21,8 @@ def stellar_prob(obs, model, normalize=False):
     equals zero where m=n, we treat the Poisson probability in the same
     manner to get the above formula.
 
+    Returns
+    -2lnP, P, sig i.e., (sqrt(-2lnP) * sign(n-m))
     '''
     n = obs
     m = model
@@ -35,8 +37,7 @@ def stellar_prob(obs, model, normalize=False):
     d[smalln] = 2. * m[smalln]
 
     smallm = (m < 0.001) & (n != 0)
-    d[smallm] = 2. * (0.001 + n[smallm] *
-                      np.log(n[smallm] / 0.001) - n[smallm])
+    d[smallm] = 2. * (0.001 + n[smallm] * np.log(n[smallm] / 0.001) - n[smallm])
 
     sig = np.sqrt(d) * np.sign(n - m)
     # fit = np.sum(sig)
@@ -44,7 +45,7 @@ def stellar_prob(obs, model, normalize=False):
     # sum(d) = -2 ln P
     prob = np.exp(-1 * np.sum(d) / 2)
     # prob = np.sum(d) / float(len(np.concatenate(n)) - 1)
-    return d, prob  # , pct_dif, sig
+    return d, prob, sig
 
 
 def match_stats(sfh_file, match_cmd_file, nfp_nonsfr=5, nmc_runs=10000,

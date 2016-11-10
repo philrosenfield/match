@@ -20,6 +20,18 @@ __all__ = ['add_filename_info_to_file', 'add_gates', 'calcsfh_dict',
            'read_ssp_output']
 
 
+def combine_files(fnames, outfile='combined_files.csv', best=False,
+                  stats=False):
+    """add files together including columns based on params in filename"""
+    all_data = pd.DataFrame()
+    for fname in fnames:
+        dframe = add_filename_info_to_file(fname, best=best, stats=stats)
+        all_data = all_data.append(dframe, ignore_index=True)
+
+    all_data.to_csv(outfile, index=False)
+    return outfile
+
+
 def add_filename_info_to_file(fname, best=False, stats=False):
     """
     add filename info to the data.
@@ -355,31 +367,19 @@ def match_filters():
     return fdict
 
 
-def read_ssp_output(filename):
+def read_ssp_output(filename, names=None):
     """
     Read calcsfh -ssp console output.
     """
-    skip_header = 10
-    skip_footer = 1
-    colnames = ['Av', 'IMF', 'dmod', 'lage', 'logZ', 'fit', 'sfr', 'bg1',
-                'bg2']
-    try:
-        data = np.genfromtxt(filename, skip_header=skip_header,
-                             skip_footer=skip_footer, names=colnames)
-    except:
-        # no bg?
-        try:
-            data = np.genfromtxt(filename, skip_header=skip_header,
-                                 skip_footer=skip_footer, names=colnames[:-2])
-        except:
-            print('can not load file: {}'.format(filename))
-            return np.array([]), np.nan, np.nan, np.nan
-
-    bfline, = os.popen('tail -n 1 {}'.format(filename)).readlines()
-    Av, dmod, fit = \
-        np.array(bfline.strip().translate(None, '#Bestfit:Av=dmod').split(','),
-                 dtype=float)
-    return data, Av, dmod, fit
+    names = names or ['Av', 'IMF', 'dmod', 'lage', 'logZ', 'fit', 'sfr']
+    if filename.endswith('.csv'):
+        # combined file of many calcsfh outputs
+        data = pd.read_csv(filename)
+    else:
+        # one calcsfh output
+        data = pd.read_table(filename, delim_whitespace=True, skiprows=10,
+                             names=names, skipfooter=1, engine='python')
+    return data
 
 
 def read_binned_sfh(filename, hmc_file=None):

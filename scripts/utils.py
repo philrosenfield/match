@@ -17,46 +17,62 @@ logger = logging.getLogger()
 
 __all__ = ['check_boundaries', 'strip_header', 'convertz', 'center_grid']
 
-def marg(x, z):
+def marg(x, z, unx=None):
     """
     marginalize in 1d.
     Does not normalize probability.
-    z should be -2 ln P
+    z should be ssp.absprob or some linear probability
+    NOTE: this simple code only works on a grid with equally spaced data
     """
-    ux = np.unique(x)
+    ux = unx
+    if ux is None:
+        ux = np.unique(x)
     prob = np.zeros(len(ux))
     for i in range(len(ux)):
         iz, = np.nonzero(x == ux[i])
-        # max liklihood i.e, min(-2 ln P) in each bin
-        prob[i] = np.min(z.iloc[iz])
-    return prob
+        prob[i] = np.sum(z.iloc[iz])
+    return prob, ux
 
 
-def marg2d(x, y, z):
+def marg2d(x, y, z, unx=None, uny=None):
     """
     marginalize in 2d.
     Does not normalize probability.
-    z should be -2 ln P
+    z should be ssp.absprob or some linear probability
+    NOTE: this simple code only works on a grid with equally spaced data
     """
-    ux = np.unique(x)
-    uy = np.unique(y)
+    ux = unx
+    if ux is None:
+        ux = np.unique(x)
+    uy = uny
+    if uy is None:
+        uy = np.unique(y)
     prob = np.zeros(shape=(len(ux), len(uy)))
+    models = np.array([])
     for i in range(len(ux)):
         for j in range(len(uy)):
             iz, = np.nonzero((x == ux[i]) & (y == uy[j]))
-            # print(ux[i], uy[j], len(iz))
+            models = np.append(models, len(iz))
             if len(iz) > 0:
-                prob[i, j] = np.min(z.iloc[iz])
-    return prob
+                prob[i, j] = np.sum(z.iloc[iz])
+    unm = np.unique(models)
+    if len(unm) != 1:
+        print('Warning: Uneven grid')
+        print(unm)
+    return prob, ux, uy
 
-def centered_meshgrid(x, y):
+
+def centered_meshgrid(x, y, unx=None, uny=None):
     """call meshgrid with bins shifted so x, y will be at bin center"""
-    X, Y = np.meshgrid(center_grid(x), center_grid(y), indexing="ij")
+    X, Y = np.meshgrid(center_grid(x, unx=unx), center_grid(y, unx=uny), indexing="ij")
     return X, Y
 
-def center_grid(a):
+
+def center_grid(a, unx=None):
     """uniquify and shift a uniform array half a bin maintaining its size"""
-    x = np.unique(a)
+    x = unx
+    if x is None:
+        x = np.unique(a)
     dx = np.diff(x)[0]
     x = np.append(x, x[-1] + dx)
     x -= dx / 2
