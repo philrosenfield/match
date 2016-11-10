@@ -103,9 +103,9 @@ def add_filename_info_to_file(fname, best=False, stats=False):
 def filename_data(fname, ext=None, skip=2, delimiter='_', exclude='imf'):
     """
     return a dictionary of key and values from a filename.
-    E.g, ssp_imf4.85_bf0.3_dav0.0.fdat
-    returns bf: 0.3, dav: 0.0
-    NB: imf is excluded because it's already included in the file.
+    E.g, ssp_imf4.85_bf0.3_dav0.0_tbin5e+08.scrn
+    returns bf: 0.3, dav: 0.0, tbin: 50000000.0
+    NB: imf is default excluded because it's included in the calcsfh output.
 
     Parameters
     ----------
@@ -114,6 +114,7 @@ def filename_data(fname, ext=None, skip=2, delimiter='_', exclude='imf'):
 
     ext : str
         extension (sub string to remove from the tail)
+        if none passed, will remove extension.
 
     delimiter : str
         how the keyvals are separated '_' in example above
@@ -123,6 +124,7 @@ def filename_data(fname, ext=None, skip=2, delimiter='_', exclude='imf'):
 
     exclude : str
         do not include this key/value in the file (default: 'imf')
+        one string so 'imf tbin' will exclude imf, tbin.
 
     Returns
     -------
@@ -135,18 +137,10 @@ def filename_data(fname, ext=None, skip=2, delimiter='_', exclude='imf'):
     d = {}
     for keyval in keyvals:
         kv = re.findall(r'\d+|[a-z]+', keyval)
-        if kv[0].lower() == exclude.lower():
+        if kv[0].lower() in exclude.lower():
             continue
-        neg = ''
-        if keyval.replace(kv[0], '').startswith('-'):
-            neg = '-'
-        if 'e' in keyval.replace(kv[0], ''):
-            str2float = keyval.replace(kv[0], '')
-        else:
-            str2float = neg + '.'.join(kv[1:])
-
         try:
-            d[kv[0]] = float(str2float)
+            d[kv[0]] = float(keyval.replace(kv[0], ''))
         except ValueError:
             # No need to worry about stuff like "814.gst" etc.
             # print(sys.exc_info()[1])
