@@ -50,6 +50,7 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
         if not SSP.vdict[xattr]:
             return
         l = ax.plot(X, prob, **plt_kw)
+        SSP.build_posterior(xattr, X, prob)
         ax.set_xlim(X.min(), X.max())
         if save:
             ptype = 'marginal'
@@ -95,7 +96,7 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
 
 
 def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
-              text=None):
+              text=None, cmap=None, fig=None, axs=None):
     """Call pdf_plot for a list of xattr and yattr"""
     text = text or ''
     sub = sub or ''
@@ -116,7 +117,8 @@ def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
                     raxs.append(SSP.pdf_plot(mx, ax=ax, truth=truth))
                 else:
                     # off-diagonal
-                    raxs.append(SSP.pdf_plot(mx, yattr=my, ax=ax, truth=truth))
+                    raxs.append(SSP.pdf_plot(mx, yattr=my, ax=ax, truth=truth,
+                                             cmap=cmap))
 
                 if c == 0:
                     # left most column
@@ -129,7 +131,8 @@ def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
         fix_diagonal_axes(raxs, ndim)
     else:
         raxs = []
-        fig, axs = plt.subplots(ncols=ndim, figsize=(15, 3))
+        if fig is None and axs is None:
+            fig, axs = plt.subplots(ncols=ndim, figsize=(15, 3))
         [ax.tick_params(left='off', labelleft='off', right='off', top='off')
          for ax in axs]
         for i in marginals:

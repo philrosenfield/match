@@ -93,6 +93,15 @@ class SSP(object):
             ecode = False
         return ecode
 
+    def build_posterior(self, xattr, arr, prob):
+        if not hasattr(self, 'posterior'):
+            self.posterior = pd.DataFrame()
+        df = pd.DataFrame()
+        df[xattr] = arr
+        df['{:s}prob'.format(xattr)] = prob
+        self.posterior = self.posterior.append(df, ignore_index=True)
+        return
+
     def unique_(self, attr, uniq_attr='u{:s}', check=False):
         """
         call np.unique on self.data[attr] if it has not already been called.
@@ -114,7 +123,7 @@ class SSP(object):
             if check:
                 unc, cidx = np.unique(idx, return_index=True)
                 if len(unc) > 1:
-                    print('{} grid is uneven at {}'.format(attr, uns[cidx[1]]))
+                    print('{} grid is uneven: {}'.format(attr, uns[cidx[1:]]))
                     print(unc)
             self.__setattr__(uatr, uns)
         u = self.__getattribute__(uatr)
