@@ -3,108 +3,15 @@ from __future__ import print_function
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .config import EXT
-from .fileio import read_calcsfh_param
-from .utils import center_grid
+from ..config import EXT
+from ..fileio import read_calcsfh_param
+from ..utils import center_grid
 
 try:
     import seaborn
     seaborn.set()
 except ImportError:
     pass
-
-
-def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
-             truth=None, cmap=None, plt_kw=None):
-    """Plot prob vs marginalized attributes
-
-    SSP : SSP class instance
-
-    xattr, yattr : string, string
-        column names to marginalize and plot
-    ax : plt.Axes
-    sub : string
-        if save, add this string to the filename
-
-    save : bool
-        save the plot to file with axes lables.
-    truth : dict(attr : val)
-        truth dictionary to overplot as hline and vline on axes.
-    cmap : if yattr isn't None, call pcolor with this cmap.
-    plt_kw : if yattr is None, pass these kwargs to plt.plot
-
-    Returns
-    ax
-    """
-    def validate_arr(atr):
-        v = SSP.data[atr]
-        if len(np.unique(v)) == 1:
-            print('{} not varied.'.format(atr))
-            plt.close()
-            v = None
-        return v
-
-    x = validate_arr(xattr)
-    if x is None:
-        return
-    if yattr is not None:
-        y = validate_arr(yattr)
-        if y is None:
-            return
-    z = SSP.data['fit']
-
-    plt_kw = plt_kw or {'lw': 4, 'color': 'k'}
-    cmap = cmap or plt.cm.viridis_r
-    sub = sub or ''
-    truth = truth or {}
-    do_cbar = False
-
-    if ax is None:
-        _, ax = plt.subplots()
-        if yattr is not None:
-            do_cbar = True
-
-    if yattr is None:
-        # plot type is marginal probability. Attribute vs -2 ln P
-        # array bins
-        l = ax.plot(*SSP.marginalize(xattr), **plt_kw)
-        if save:
-            ptype = 'marginal'
-            ax.set_ylabel(key2label('fit'))
-    else:
-        # plot type is joint probability.
-        # Attribute1 vs Attribute2 colored by fit
-        [X, Y], prob = SSP.marginalize(xattr, yattr=yattr)
-        l = ax.pcolor(X, Y, prob, cmap=cmap)
-        ax.set_xlim(X.min(), X.max())
-        ax.set_ylim(Y.min(), Y.max())
-
-        if do_cbar:
-            cbar = plt.colorbar(l)
-            cbar.set_label(key2label('fit'))
-
-        if save:
-            ptype = '{}_joint'.format(yattr)
-            ax.set_ylabel(key2label(yattr, gyr=SSP.gyr))
-
-        if yattr in truth:
-            ax.axhline(truth[yattr], color='darkred', lw=3)
-
-    if xattr in truth:
-        ax.axvline(truth[attr], color='darkred', lw=3)
-
-    if save:
-        ax.set_xlabel(key2label(xattr, gyr=SSP.gyr))
-        # add subdirectory to filename
-        if len(sub) > 0:
-            sub = '_' + sub
-        outfmt = '{}_{}{}_{}{}'
-        outname = outfmt.format(SSP.name.replace('.csv', ''),
-                                xattr, sub, ptype, EXT)
-        plt.savefig(outname, bbox_inches='tight')
-        print('wrote {}'.format(outname))
-        plt.close()
-    return ax
 
 
 def corner_setup(ndim):
@@ -138,65 +45,29 @@ def corner_setup(ndim):
     return fig, axs
 
 
-def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
-              text=None):
-    """Call pdf_plot for a list of xattr and yattr"""
-    text = text or ''
-    sub = sub or ''
-    truth = truth or {}
-    marginals = marginals or SSP._getmarginals()
+def fix_diagonal_axes(raxs, ndim):
+    """
+    set diagonal xaxis limits to that of the off diagonal xaxis limits.
 
-    ndim = len(marginals)
-    if twod:
-        fig, axs = corner_setup(ndim)
-        raxs = []
-        for c, mx in enumerate(marginals):
-            for r, my in enumerate(marginals):
-                ax = axs[r, c]
-                if r == c:
-                    # diagonal
-                    my = 'fit'  # my is reset for ylabel call
-                    raxs.append(SSP.pdf_plot(mx, ax=ax, truth=truth))
-                else:
-                    # off-diagonal
-                    raxs.append(SSP.pdf_plot(mx, yattr=my, ax=ax, truth=truth))
-
-                if c == 0:
-                    # left most column
-                    ax.set_ylabel(key2label(my))
-
-                if r == ndim - 1:
-                    # bottom row
-                    ax.set_xlabel(key2label(mx))
-        [ax.locator_params(axis='y', nbins=6) for ax in axs.ravel()]
-    else:
-        fig, axs = plt.subplots(ncols=ndim, figsize=(15, 3))
-        [ax.tick_params(left='off', labelleft='off') for ax in axs[1:]]
-        [ax.tick_params(right='off', labelright='off') for ax in axs[:-1]]
-        [ax.tick_params(top='off') for ax in axs]
-        axs[-1].tick_params(labelright='on')
-        raxs = [SSP.pdf_plot(i, truth=truth, ax=axs[marginals.index(i)])
-                for i in marginals]
-        # need to add xlabels!
-        if text:
-            axs[-1].text(0.10, 0.90, '${}$'.format(text),
-                         transform=axs[-1].transAxes)
-        fig.subplots_adjust(bottom=0.2, left=0.05)
-
-    [ax.locator_params(axis='x', nbins=6) for ax in axs.ravel()]
-
-    return fig, raxs
-
+    With corner_meshgrid, the axes limits for the 2d plots will be slightly
+    different than the 1d plots.
+    """
+    nplots = len(raxs)
+    idiag = [i * (ndim + 1) for i in range(nplots // (ndim + 1))]
+    [raxs[i].set_xlim(raxs[i+1].get_xlim()) for i in idiag]
+    [raxs[nplots - 1].set_xlim(raxs[ndim - 1].get_ylim()) for i in idiag]
+    return
 
 def key2label(string, gyr=False):
     """latex labels for different strings"""
-    def_fmt = r'${}$'
+    def_fmt = r'$\rm{{{}}}$'
     convert = {'Av': r'$A_V$',
                'dmod': r'$\mu$',
                'lage': r'$\log\ \rm{Age\ (yr)}$',
                'logZ': r'$\log\ \rm{Z}$',
                'fit': r'$-2 \ln\ \rm{P}$',
                'ov': r'$\Lambda_c$',
+               'IMF': r'$\Gamma$',
                'chi2': r'$\chi^2$',
                'bf': r'$\rm{Binary\ Fraction}$',
                'dav': r'$dA_V$',
@@ -206,9 +77,10 @@ def key2label(string, gyr=False):
     else:
         convstr = convert[string]
 
-    if gyr:
+    if gyr and 'age' in string:
         convstr = convstr.replace('yr', 'Gyr').replace(r'\log\ ', '')
     return convstr
+
 
 
 def put_a_line_on_it(ax, val, consty=False, color='black',

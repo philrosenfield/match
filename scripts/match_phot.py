@@ -13,8 +13,15 @@ def match_fmt(data, filter1, filter2):
     return np.column_stack([data[filter1], data[filter2]])
 
 
-def load_asteca(filename):
-    pass
+def asteca2matchphot(filename):
+    """Convert asteca output to match photometic input"""
+    # Columns: ID x y mag e_mag col1 e_col1 memb_prob sel
+    # ASSUMING: mag == mag1 since asteca_fmt and match assumes that.
+    mag1, color = np.genfromtxt(filename, usecols=(3,5), unpack=True)
+    outfile = filename.replace('.dat', PHOTEXT)
+    np.savetxt(outfile, np.column_stack([mag1, mag1 - color]), fmt='%.3f')
+    print('wrote {0:s}'.format(outfile))
+    return
 
 
 def asteca_fmt(data, filter1, filter2, filterext='VEGA'):
@@ -27,7 +34,6 @@ def asteca_fmt(data, filter1, filter2, filterext='VEGA'):
     return np.column_stack([idx, data['RA'], data['DEC'],
                             data[filter1], data[filter1e],
                             color, colore])
-
 
 def outputfmt(data, filter1, filter2, asteca=False, filterext='VEGA'):
     """Choose either ASteCA or MATCH format photometry"""
@@ -100,13 +106,19 @@ def main(argv):
     parser.add_argument('--asteca', action='store_true',
                         help='format photometry for ASteCA')
 
+    parser.add_argument('--a2m', action='store_true',
+                        help='Convert ASteCA to matchphot')
+
     parser.add_argument('--dryrun', action='store_true',
                         help='only print filename that would be written')
 
     args = parser.parse_args(argv)
 
-    _ = [make_phot(fitsfile, dryrun=args.dryrun, asteca=args.asteca)
-         for fitsfile in args.fitsfiles]
+    if args.a2m:
+        asteca2matchphot(args.fitsfiles[0])
+    else:
+        _ = [make_phot(fitsfile, dryrun=args.dryrun, asteca=args.asteca)
+             for fitsfile in args.fitsfiles]
 
 if __name__ == "__main__":
     main(sys.argv[1:])

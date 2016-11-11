@@ -7,10 +7,11 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-from match.scripts.config import EXT, match_base
+from match.scripts.config import EXT
 from match.scripts.fileio import read_match_cmd
-from match.scripts.graphics import match_plot
+from match.scripts.graphics.graphics import match_plot
 from match.scripts.utils import parse_pipeline
+from match.scripts.wrappers.stats import call_stats
 
 __all__ = ['CMD']
 
@@ -21,11 +22,12 @@ class CMD(object):
     automatically make plots with the same color scale as other MATCH CMD
     files.
     """
-    def __init__(self, filename):
-        self.base, self.name = os.path.split(os.path.abspath(filename))
-        self.cmd, self.fit, self.colors, self.yfilter = \
-            read_match_cmd(filename)
-        self.load_match_cmd()
+    def __init__(self, filename=None):
+        if filename is not None:
+            self.base, self.name = os.path.split(os.path.abspath(filename))
+            self.cmd, self.fit, self.colors, self.yfilter = \
+                read_match_cmd(filename)
+            self.load_match_cmd()
 
     def set_labels(self):
         """Set up list of labels for pgpro"""
@@ -119,29 +121,6 @@ def call_pgcmd_byfit(cmdfns, nmax=5, outdir=None, logcounts=False):
         jstr = ('{}'.format(j)).zfill(4)
         cmd.pgcmd(figname='{}{}{}'.format(cmd.name, jstr, EXT),
                   outdir=outdir, logcounts=logcounts)
-    return
-
-
-def call_stats(cmdfiles, outdir=None, nfp=3, dryrun=False):
-    """ call match/bin/stats on a list of .cmd files"""
-    if type(cmdfiles) is not list:
-        cmdfiles = [cmdfiles]
-
-    stats = os.path.join(match_base, 'bin', 'stats')
-    assert os.path.isfile(stats), 'stats program not found. {}'.format(stats)
-
-    for cmdfile in cmdfiles:
-        outfile = cmdfile + '.stats'
-        if outdir is not None:
-            assert os.path.isdir(outdir), \
-                '{} directory not found'.format(outdir)
-            outfile = os.path.join(outdir, outfile)
-        cmd = '{:s} {:s} 0 {:d} > {:s}'.format(stats, cmdfile, nfp, outfile)
-        print(cmd)
-        if dryrun:
-            print(cmd)
-        else:
-            os.system(cmd)
     return
 
 

@@ -15,84 +15,63 @@ import pandas as pd
 import matplotlib.pylab as plt
 import numpy as np
 
-from .config import match_base
-from .fileio import filename_data, add_filename_info_to_file
-from .utils import strip_header, centered_meshgrid, marg, marg2d
+from .fileio import filename_data, read_ssp_output, combine_files
+from .utils import centered_meshgrid, marg, marg2d
 from .cmd import call_pgcmd_byfit
-from .graphics import pdf_plot, pdf_plots
+from .graphics.pdfs import pdf_plot, pdf_plots
+from .wrappers.sspcombine import sspcombine
 
 __all__ = ['SSP']
 
 
-def combine_files(fnames, outfile='combined_files.csv', best=False,
-                  stats=False):
-    """add files together including columns based on params in filename"""
-    all_data = pd.DataFrame()
-    for fname in fnames:
-        dframe = add_filename_info_to_file(fname, best=best, stats=stats)
-        all_data = all_data.append(dframe, ignore_index=True)
-
-    all_data.to_csv(outfile, index=False)
-    return outfile
-
-
-def sspcombine(fname, dry_run=True, outfile=None):
-    """
-    call bin/sspcombine
-    fname : string
-        input filename
-    outfile : None default: [fname].stats
-        output filename
-    dry_run : bool
-        do not actually run sspcombine
-    return string command to run sspcombine
-    """
-    sspname = strip_header(fname)
-    if outfile is None:
-        outfile = '> {}.stats'.format(fname)
-    else:
-        outfile = '>> {}'.format(outfile)
-    cmd = '{} {} {}'.format(os.path.join(match_base, 'bin/sspcombine'),
-                            sspname, outfile)
-    if not dry_run:
-        print('excecuting: {}'.format(cmd))
-        os.system(cmd)
-    return cmd
+def get_absprob(data):
+    """absprob is the posterior since the fit parameter is -2 ln (posterior)"""
+    data['absprob'] = np.exp(0.5 * (data['fit'].min() - data['fit']))
+    return data
 
 
 class SSP(object):
     """
     Class for calcsfh -ssp outputs
     """
-    def __init__(self, filename, data=None, filterby=None, gyr=False):
+    def __init__(self, filename=None, data=None, filterby=None, gyr=False):
         """
         filenames are the calcsfh -ssp terminal or console output.
         They do not need to be stripped of their header or footer or
         be concatenated as is typical in MATCH useage.
         """
-        self.base, self.name = os.path.split(filename)
-        if data is None:
-            if filename.endswith('.csv'):
-                # combined file of many calcsfh outputs
-                data = pd.read_csv(filename)
-            else:
-                # one calcsfh output
-                dat = np.genfromtxt(filename, skip_header=10, skip_footer=2,
-                                    names=['Av', 'IMF', 'dmod', 'lage', 'logZ',
-                                           'fit', 'sfr'])
-                data = pd.DataFrame(dat)
+        if filename is not None:
+            data = self.load_ssp(filename)
 
-        self.gyr = gyr
-        if gyr:
-            data['lage'] = (10 ** (data['lage'] - 9))
+        if data is not None:
+            self.gyr = gyr
+            if gyr:
+                data['lage'] = (10 ** (data['lage'] - 9))
 
-        if filterby is not None:
-            for key, val in filterby.items():
-                data = data.loc[data[key] == val].copy(deep=True)
+            if filterby is not None:
+                # Perhaps this should split into a dict instead of culling...
+                for key, val in filterby.items():
+                    data = data.loc[data[key] == val].copy(deep=True)
 
-        self.data = data
-        self.absprob = np.exp(0.5 * (data['fit'].min() - data['fit']))
-        self.ibest = np.argmax(self.absprob)
+            self.data = data
+
+    def check_grid(self, skip_cols=None):
+        """
+        utils.marg and utils.marg2d assume a uniform grid to marginalize
+        over. If, for example, the ssp file is a combination of calcsfh
+        calls that overlap parts of parameter space or are missing parts of
+        parameter space, the marginalized probabilities will not be correct,
+        even in a relative way.
+
+        This is a call to self.unique_ to check if the number of unique
+        elements in each attribute is the same.
+
+        Since the unique array is saved as an attribute, this will not add
+        much time to a pdf_plots call.
+        """
+        skip_cols = skip_cols or []
+        cols = [c for c in self.data.columns if not c in skip_cols]
+        [self.unique_(c, check=True) for c in cols]
 
     def _getmarginals(self, avoid_list=['fit']):
         """get the values to marginalize over that exist in the data"""
@@ -102,39 +81,90 @@ class SSP(object):
         inds = [i for i, m in enumerate(marg_) if self._haskey(m)]
         return marg_[inds]
 
+    def load_ssp(self, filename):
+        """call fileio.read_ssp_output add file base, name to self"""
+        self.base, self.name = os.path.split(filename)
+        return read_ssp_output(filename)
+
     def _haskey(self, key):
-        """test if the key requested is available"""
+        """test if the key requested is in self.data.columns"""
         ecode = True
         if key not in self.data.columns:
             ecode = False
         return ecode
 
+    def build_posterior(self, xattr, arr, prob):
+        if not hasattr(self, 'posterior'):
+            self.posterior = pd.DataFrame()
+        df = pd.DataFrame()
+        df[xattr] = arr
+        df['{:s}prob'.format(xattr)] = prob
+        self.posterior = self.posterior.append(df, ignore_index=True)
+        return
+
+    def unique_(self, attr, uniq_attr='u{:s}', check=False):
+        """
+        call np.unique on self.data[attr] if it has not already been called.
+
+        Will store the unique array as an attribute passed with uniq_attr.
+
+        check: print warning if there are number of unique array values
+        are not equal.
+
+        vdict is also added to self. It is a dictionary of attr: bool
+        where the bool is True if the attr has more than one value.
+        """
+        if not hasattr(self, 'vdict'):
+            self.vdict = {}
+        self.vdict[attr] = False
+        uatr = uniq_attr.format(attr)
+        if not hasattr(self, uatr):
+            uns, idx = np.unique(self.data[attr], return_counts=True)
+            if check:
+                unc, cidx = np.unique(idx, return_index=True)
+                if len(unc) > 1:
+                    print('{} grid is uneven: {}'.format(attr, uns[cidx[1:]]))
+                    print(unc)
+            self.__setattr__(uatr, uns)
+        u = self.__getattribute__(uatr)
+        if len(u) > 1:
+            self.vdict[attr] = True
+        return u
+
     def marginalize(self, xattr, yattr=None):
         """
         Marginalize over one or two quanitities
-        xattr : string
-            data column to marginalize over
-        yattr : string
+        xattr, yattr : string, string
             data column to marginalize over
 
         Returns
         vals : array or list of arrays
             if yattr is passed, vals is output of utils.cantered_meshgrid
             otherwise it's the unique values of data[xattr]
-        prob : the minimum -2 ln P in each bin
+        prob : return from utils.marg or utils.marg2d
+
+        NOTE:
+        marg/marg2d only work for values calculated with an equal spaced grid.
+        see self.check_grid
         """
         assert self._haskey(xattr), '{} not found'.format(xattr)
-        z = self.data.fit
+        if not self._haskey('absprob'):
+            self.data = get_absprob(self.data)
+
+        z = self.data.absprob
         x = self.data[xattr]
+        ux = self.unique_(xattr)
 
         if yattr is not None:
             assert self._haskey(yattr), '{} not found'.format(yattr)
             y = self.data[yattr]
-            vals = centered_meshgrid(x, y)
-            prob = marg2d(x, y, z)
+            uy = self.unique_(yattr)
+            prob, ux, uy = marg2d(x, y, z, unx=ux, uny=uy)
+            vals = centered_meshgrid(x, y, unx=ux, uny=uy)
         else:
-            vals = np.unique(x)
-            prob = marg(x, z)
+            prob, ux = marg(x, z, unx=ux)
+            vals = ux
+
         return vals, prob
 
     def pdf_plot(self, *args, **kwargs):
@@ -182,7 +212,7 @@ def parse_args(argv=None):
                         help='invoke pdb')
 
     parser.add_argument('fnames', nargs='*', type=str,
-                        help='ssp output(s) or formated output(s)')
+                        help='ssp output(s) or combined output')
 
     return parser.parse_args(argv)
 
