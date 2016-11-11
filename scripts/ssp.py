@@ -144,13 +144,7 @@ class SSP(object):
         return pdf_plots(self, *args, **kwargs)
 
 
-def main(argv=None):
-    """
-    Main function for ssp.py plot or reformat ssp output.
-
-    e.g., Reformat and then plot a OV=0.30 run:
-    python -m match.scripts.ssp -fot --sub=ov0.30 *scrn
-    """
+def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="stats for calcsfh -ssp")
 
     parser.add_argument('-f', '--format', action='store_true',
@@ -190,7 +184,18 @@ def main(argv=None):
     parser.add_argument('fnames', nargs='*', type=str,
                         help='ssp output(s) or formated output(s)')
 
-    args = parser.parse_args(argv)
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    """
+    Main function for ssp.py plot or reformat ssp output.
+
+    e.g., Reformat and then plot a OV=0.30 run:
+    python -m match.scripts.ssp -fot --sub=ov0.30 *scrn
+    """
+
+    args = parse_args(argv)
 
     if args.verbose:
         import pdb
@@ -205,7 +210,7 @@ def main(argv=None):
     # plot cmd files by best fit nmax is the max number of images to make
     if args.plotcmd:
         call_pgcmd_byfit(args.fnames, nmax=16)
-        sys.exit(0)
+        return
 
     # filter the ssp to only include sub
     filtdict = {}
@@ -219,9 +224,9 @@ def main(argv=None):
     # call match/sspcombine
     elif args.sspcombine:
         _ = [sspcombine(f, dry_run=False) for f in args.fnames]
-        sys.exit(0)
+        return
     else:
-        # Load one.
+        # Load one file
         fname = args.fnames[0]
 
     # load the combined ssp file or one match ssp output file
