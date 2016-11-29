@@ -58,6 +58,7 @@ def fix_diagonal_axes(raxs, ndim):
     [raxs[nplots - 1].set_xlim(raxs[ndim - 1].get_ylim()) for i in idiag]
     return
 
+
 def key2label(string, gyr=False):
     """latex labels for different strings"""
     def_fmt = r'$\rm{{{}}}$'
@@ -80,7 +81,6 @@ def key2label(string, gyr=False):
     if gyr and 'age' in string:
         convstr = convstr.replace('yr', 'Gyr').replace(r'\log\ ', '')
     return convstr
-
 
 
 def put_a_line_on_it(ax, val, consty=False, color='black',
@@ -111,7 +111,16 @@ def put_a_line_on_it(ax, val, consty=False, color='black',
     return new_xarr, yarr
 
 
-def stitch_cmap(cmap1, cmap2, stitch_frac=0.5, dfrac=0.001):
+def square_aspect(ax):
+    """
+    Set aspect ratio of a plot to have equal sized x and y axes length.
+    (I.e, a square figure)
+    """
+    ax.set_aspect(np.abs((np.diff(ax.get_xlim()) / (np.diff(ax.get_ylim())))))
+    return ax
+
+
+def stitch_cmap(cmap1, cmap2, stitch_frac=0.5, dfrac=0.001, transparent=False):
     '''
     Code adapted from Dr. Adrienne Stilp
     Stitch two color maps together:
@@ -136,13 +145,23 @@ def stitch_cmap(cmap1, cmap2, stitch_frac=0.5, dfrac=0.001):
 
     def new_seg(color):
         """combine left and right segments"""
-        seg = left(cmap1._segmentdata[color]) + \
-            right(cmap2._segmentdata[color])
+        seg = left(cmap1._segmentdata[color]) + right(cmap2._segmentdata[color])
         return seg
+
     rgb = ['blue', 'red', 'green']
-    return LinearSegmentedColormap('_'.join((cmap1.name, cmap2.name)),
-                                   dict([(key, new_seg(key)) for key in rgb]),
-                                   1024)
+    cname = '_'.join((cmap1.name, cmap2.name))
+    cdict = dict([(key, new_seg(key)) for key in rgb])
+    ncmap = LinearSegmentedColormap(cname, cdict, 1024)
+
+    if transparent:
+        # set the middle value to zero transparency.
+        # it's probably better if you set alpha on the call using the
+        # color map rather than change a single value.
+        ncmap._init()
+        ind = np.max([np.argmax(ncmap._lut.T[i])
+                      for i in range(len(ncmap._lut.T)-1)])
+        ncmap._lut[ind][-1] = 0
+    return ncmap
 
 
 def match_diagnostic(param, phot, fake=None, save=True):
@@ -201,10 +220,7 @@ def match_diagnostic(param, phot, fake=None, save=True):
 
 
 def add_inner_title(ax, title, loc, size=None):
-    '''
-    add a title to an ax inside to a location loc, which follows plt.legends
-    locations.
-    '''
+    '''add a label to an axes as if it were a legend (loc must be 1-11)'''
     from matplotlib.patheffects import withStroke
     from matplotlib.offsetbox import AnchoredText
 
@@ -218,56 +234,77 @@ def add_inner_title(ax, title, loc, size=None):
     return anct
 
 
-def match_plot(hesslist, extent, labels=None, imagegrid_kw=None,
+def zeroed_cmap(hess, cmap1=plt.cm.Reds_r, cmap2=plt.cm.Blues, dfrac=0.05,
+                transparent=False):
+    """make a diverging color map with white set to 0.0"""
+    fhess = hess[np.isfinite(hess)]
+    minfhess = np.abs(np.min(fhess))
+    # stitch to make a diverging color map with white set to 0.0
+    frac = minfhess / (minfhess + np.abs(np.max(fhess)))
+    return stitch_cmap(cmap1, cmap2, stitch_frac=frac, dfrac=dfrac,
+                       transparent=transparent)
+
+
+
+
+def setup_imgrid(figsize=[12, 3], nrows=1, ncols=4):
+    from mpl_toolkits.axes_grid1 import ImageGrid
+    igkw = {'nrows_ncols': (nrows, ncols),
+            'axes_pad': .7,
+            'label_mode': "all",
+            'share_all': True,
+            'cbar_location': "top",
+            'cbar_mode': "each",
+            'cbar_size': "7%",
+            'cbar_pad': "2%"}
+
+    fig = plt.figure(figsize=figsize)
+    grid = ImageGrid(fig, 111, **igkw)
+    return grid
+
+def match_plot(hesslist, extent, labels=None, twobytwo=True,
                xlabel=None, ylabel=None):
     '''plot four hess diagrams with indivdual color bars using ImageGrid'''
     from mpl_toolkits.axes_grid1 import ImageGrid
 
-    imagegrid_kw = imagegrid_kw or {}
+    if twobytwo:
+        figsize=[9, 9]
+        nrows = 2
+        ncols = 2
+    else:
+        figsize=[12, 3]
+        nrows = 1
+        ncols = 4
 
-    defaults = {'nrows_ncols': (2, 2),
-                'axes_pad': .7,
-                'label_mode': "all",
-                'share_all': True,
-                'cbar_location': "top",
-                'cbar_mode': "each",
-                'cbar_size': "7%",
-                'cbar_pad': "2%"}
-
-    defaults.update(imagegrid_kw)
-
-    fig = plt.figure(figsize=(9, 9))
-    grid = ImageGrid(fig, 111, **defaults)
+    grid = setup_imgrid(figsize=figsize, nrows=nrows, ncols=ncols)
 
     for i, (ax, hess) in enumerate(zip(grid, hesslist)):
         if i > 1:
             # bottom row: diff, sig
-            fhess = hess[np.isfinite(hess)]
-            minfhess = np.abs(np.min(fhess))
-            # stitch to make a diverging color map with white set to 0.0
-            frac = minfhess / (minfhess + np.abs(np.max(fhess)))
-            colors = stitch_cmap(plt.cm.Reds_r, plt.cm.Blues, stitch_frac=frac,
-                                 dfrac=0.05)
+            colors = zeroed_cmap(hess)
         else:
             # first row: data, model. White will be on the left of color bar
             if i == 0:
-                colors = plt.cm.Reds
-            if i == 1:
                 colors = plt.cm.Blues
+            if i == 1:
+                colors = plt.cm.Reds
             # colors = plt.cm.get_cmap('binary', 11)
 
-        aspect = abs((extent[1] - extent[0]) / (extent[3] - extent[2]))
-        img = ax.imshow(hess, origin='upper', extent=extent, aspect=aspect,
+        img = ax.imshow(hess, origin='upper', extent=extent,
                         interpolation="nearest", cmap=colors)
         ax.cax.colorbar(img)
         if labels is not None:
             _ = add_inner_title(ax, labels[i], loc=1)
 
-    ax.set_xlim(extent[0], extent[1])
-    ax.set_ylim(extent[2], extent[3])
+        ax.set_xlim(extent[0], extent[1])
+        ax.set_ylim(extent[2], extent[3])
+        ax = square_aspect(ax)
 
     if xlabel is not None:
-        _ = [ax.set_xlabel(xlabel) for ax in grid.axes_row[1]]
+        ind = 0
+        if twobytwo:
+            ind = 1
+        _ = [ax.set_xlabel(xlabel) for ax in grid.axes_row[ind]]
         grid.axes_all[0].xaxis.label.set_visible(True)
     if ylabel is not None:
         _ = [ax.set_ylabel(ylabel) for ax in grid.axes_column[0]]

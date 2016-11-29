@@ -41,6 +41,14 @@ class CMD(object):
         labels.append(r'$-2\ln P = {:g}$'.format(self.fit))
         return labels
 
+    def set_axis_labels(self, ax=None):
+        xlabel = r'$\rm{{{}}}$'.format(self.colors.replace('WFC', 'F').replace('UVIS', 'F'))
+        ylabel = r'$\rm{{{}}}$'.format(self.yfilter.replace('WFC', 'F').replace('UVIS', 'F'))
+        if ax is not None:
+            ax.set_xlabel(xlabel)
+            ax.set_ylabel(ylabel)
+        return xlabel, ylabel
+
     def load_match_cmd(self):
         """
         pgcmd needs hesses and extent. Optional are max_* which set the vmins
@@ -60,7 +68,8 @@ class CMD(object):
         # self.max_diff = np.nanmax(np.abs(self.diff))
         # self.max_sig = np.nanmax(np.abs(self.sig))
 
-    def pgcmd(self, labels=None, outdir=None, logcounts=False, figname=None):
+    def pgcmd(self, labels=None, outdir=None, logcounts=False, figname=None,
+              twobytwo=True):
         '''produce the image that pgcmd.pro makes'''
         labels = labels or self.set_labels()
 
@@ -75,11 +84,10 @@ class CMD(object):
             hesses[0] = np.log10(hesses[0])
             hesses[1] = np.log10(hesses[1])
 
-        xlabel = r'${}$'.format(self.colors)
-        ylabel = r'${}$'.format(self.yfilter)
+        xlabel, ylabel = self.set_axis_labels()
 
         grid = match_plot(hesses, self.extent, labels=labels, ylabel=ylabel,
-                          xlabel=xlabel)
+                          xlabel=xlabel, twobytwo=twobytwo)
 
         gates = self.cmd['gate']
         ugates = np.unique(gates)
@@ -89,6 +97,9 @@ class CMD(object):
                                        self.cmd['mag'][dinds == i],
                                        '.', alpha=0.3)
                  for i in range(len(dinds)) if i > 0]
+
+        for ax in grid.axes_all:
+            ax.locator_params(axis='x', nbins=6)
 
         plt.savefig(figname)
         plt.close()
