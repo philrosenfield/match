@@ -70,7 +70,7 @@ class SSP(object):
         much time to a pdf_plots call.
         """
         skip_cols = skip_cols or []
-        cols = [c for c in self.data.columns if not c in skip_cols]
+        cols = [c for c in self.data.columns if c not in skip_cols]
         [self.unique_(c, check=True) for c in cols]
 
     def _getmarginals(self, avoid_list=['fit']):
@@ -101,6 +101,13 @@ class SSP(object):
         df['{:s}prob'.format(xattr)] = prob
         self.posterior = self.posterior.append(df, ignore_index=True)
         return
+
+    def write_posterior(self, filename='post.dat'):
+        self.posterior.to_csv(filename, index=False)
+
+    def load_posterior(self, filename):
+        self.base, self.name = os.path.split(filename)
+        self.data = pd.read_csv(filename)
 
     def unique_(self, attr, uniq_attr='u{:s}', check=False):
         """
