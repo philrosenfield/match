@@ -1,8 +1,10 @@
 import matplotlib.pyplot as plt
+import numpy as np
 from .graphics import corner_setup, fix_diagonal_axes, key2label
 
+
 def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
-             truth=None, cmap=None, plt_kw=None):
+             truth=None, cmap=None, plt_kw=None, X=None, prob=None):
     """Plot -2 ln P vs marginalized attributes
 
     SSP : SSP class instance
@@ -46,11 +48,12 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
 
     if yattr is None:
         # plot type is marginal probability. Attribute vs -2 ln P
-        X, prob = SSP.marginalize(xattr)
-        if not SSP.vdict[xattr]:
-            return
+        if X is None and prob is None:
+            X, prob = SSP.marginalize(xattr)
+            if not SSP.vdict[xattr]:
+                return
+            SSP.build_posterior(xattr, X, prob)
         l = ax.plot(X, prob, **plt_kw)
-        SSP.build_posterior(xattr, X, prob)
         ax.set_xlim(X.min(), X.max())
         if save:
             ptype = 'marginal'
@@ -96,7 +99,7 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
 
 
 def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
-              text=None, cmap=None, fig=None, axs=None):
+              text=None, cmap=None, fig=None, axs=None, frompost=False):
     """Call pdf_plot for a list of xattr and yattr"""
     text = text or ''
     sub = sub or ''
@@ -135,14 +138,20 @@ def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
             fig, axs = plt.subplots(ncols=ndim, figsize=(15, 3))
         [ax.tick_params(left='off', labelleft='off', right='off', top='off')
          for ax in axs]
+        X = None
+        prob = None
         for i in marginals:
+            if frompost:
+                pattr = '{:s}prob'.format(i)
+                X = SSP.data[i][np.isfinite(SSP.data[i])]
+                prob = SSP.data[pattr][np.isfinite(SSP.data[pattr])]
             ax = axs[marginals.index(i)]
-            ax = SSP.pdf_plot(i, truth=truth, ax=ax)
+            ax = SSP.pdf_plot(i, truth=truth, ax=ax, X=X, prob=prob)
             ax.set_xlabel(key2label(i, gyr=SSP.gyr))
             raxs.append(ax)
 
         if text:
-            axs[-1].text(0.10, 0.90, '${}$'.format(text),
+            axs[-1].text(0.90, 0.10, '${}$'.format(text), ha='right',
                          transform=axs[-1].transAxes)
         fig.subplots_adjust(bottom=0.2, left=0.05)
 

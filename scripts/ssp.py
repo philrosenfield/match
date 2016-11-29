@@ -70,7 +70,7 @@ class SSP(object):
         much time to a pdf_plots call.
         """
         skip_cols = skip_cols or []
-        cols = [c for c in self.data.columns if not c in skip_cols]
+        cols = [c for c in self.data.columns if c not in skip_cols]
         [self.unique_(c, check=True) for c in cols]
 
     def _getmarginals(self, avoid_list=['fit']):
@@ -101,6 +101,13 @@ class SSP(object):
         df['{:s}prob'.format(xattr)] = prob
         self.posterior = self.posterior.append(df, ignore_index=True)
         return
+
+    def write_posterior(self, filename='post.dat'):
+        self.posterior.to_csv(filename, index=False)
+
+    def load_posterior(self, filename):
+        self.base, self.name = os.path.split(filename)
+        self.data = pd.read_csv(filename)
 
     def unique_(self, attr, uniq_attr='u{:s}', check=False):
         """
@@ -175,13 +182,7 @@ class SSP(object):
         return pdf_plots(self, *args, **kwargs)
 
 
-def main(argv=None):
-    """
-    Main function for ssp.py plot or reformat ssp output.
-
-    e.g., Reformat and then plot a OV=0.30 run:
-    python -m match.scripts.ssp -fot --sub=ov0.30 *scrn
-    """
+def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="stats for calcsfh -ssp")
 
     parser.add_argument('-f', '--format', action='store_true',
@@ -221,7 +222,18 @@ def main(argv=None):
     parser.add_argument('fnames', nargs='*', type=str,
                         help='ssp output(s) or combined output')
 
-    args = parser.parse_args(argv)
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    """
+    Main function for ssp.py plot or reformat ssp output.
+
+    e.g., Reformat and then plot a OV=0.30 run:
+    python -m match.scripts.ssp -fot --sub=ov0.30 *scrn
+    """
+
+    args = parse_args(argv)
 
     if args.verbose:
         import pdb
@@ -252,7 +264,7 @@ def main(argv=None):
         _ = [sspcombine(f, dry_run=False) for f in args.fnames]
         return
     else:
-        # Load one.
+        # Load one file
         fname = args.fnames[0]
 
     # load the combined ssp file or one match ssp output file
