@@ -61,7 +61,7 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
         # Attribute1 vs Attribute2 colored by fit
         [X, Y], prob = SSP.marginalize(xattr, yattr=yattr)
         if not SSP.vdict[xattr] or not SSP.vdict[yattr]:
-            return
+            return ax
         l = ax.pcolor(X, Y, prob, cmap=cmap)
         ax.set_xlim(X.min(), X.max())
         ax.set_ylim(Y.min(), Y.max())

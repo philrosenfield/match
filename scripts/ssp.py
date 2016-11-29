@@ -119,6 +119,7 @@ class SSP(object):
         self.vdict[attr] = False
         uatr = uniq_attr.format(attr)
         if not hasattr(self, uatr):
+            self.data[attr] = np.array(self.data[attr], dtype=float)
             uns, idx = np.unique(self.data[attr], return_counts=True)
             if check:
                 unc, cidx = np.unique(idx, return_index=True)

@@ -20,19 +20,18 @@ __all__ = ['add_filename_info_to_file', 'add_gates', 'calcsfh_dict',
            'read_ssp_output']
 
 
-def combine_files(fnames, outfile='combined_files.csv', best=False,
-                  stats=False):
+def combine_files(fnames, outfile='combined_files.csv', best=False):
     """add files together including columns based on params in filename"""
     all_data = pd.DataFrame()
     for fname in fnames:
-        dframe = add_filename_info_to_file(fname, best=best, stats=stats)
+        dframe = add_filename_info_to_file(fname, best=best)
         all_data = all_data.append(dframe, ignore_index=True)
 
     all_data.to_csv(outfile, index=False)
     return outfile
 
 
-def add_filename_info_to_file(fname, best=False, stats=False):
+def add_filename_info_to_file(fname, best=False):
     """
     add filename info to the data.
     E.g, ssp_imf4.85_bf0.3_dav0.0.dat
@@ -52,7 +51,10 @@ def add_filename_info_to_file(fname, best=False, stats=False):
 
     """
     def getheader(infile):
-        """get the length of the header"""
+        """
+        get the length of the header
+        (read file until incurring a line of floats)
+        """
         idx = -1
         with open(infile) as inp:
             while True:
@@ -65,38 +67,37 @@ def add_filename_info_to_file(fname, best=False, stats=False):
                     pass
 
     ihead = getheader(fname)
-    names = 'Av IMF dmod lage logZ fit sfr'.split()
+    names = ['Av', 'IMF', 'dmod', 'lage', 'logZ', 'fit', 'sfr']
     df = pd.read_table(fname, names=names, delim_whitespace=True,
                        skiprows=ihead)
-    # print(fname)
+    # import pdb; pdb.set_trace()
     try:
-        ibest, = np.where(df['Av'] == 'Best')[0]
+        ibest, = np.where(df['Av'] == 'Best')
     except TypeError:
-        print('{} may not have finished, no "Best fit" string'.format(fname))
-        print(sys.exc_info()[1])
-        return df
-    # av, dmod, fit = map(float, [d.replace(',','':.split('=')[1]
-    #                             for d in df.iloc[ibest].values
-    # d                            if type(d) == str and '=' in d])
-    if best:
-        # only best fit line
-        df = df.iloc[ibest+1].copy(deep=True)
-    else:
-        # delete best line and below (it's a duplicate entry)
-        df = df.iloc[:ibest].copy(deep=True)
+        print('{}: no "Best fit" string'.format(fname))
+        ibest = []
+
+        if len(ibest) == 0:
+            print('{}: no "Best fit" string'.format(fname))
+            print(sys.exc_info()[1])
+        else:
+            if best:
+                # only best fit line
+                df = df.iloc[ibest].copy(deep=True)
+            else:
+                # delete best line(s) (it's a duplicate entry)
+                # there would only be more than one if e.g.:
+                # $ cat scrn1 scrn2 > scrn3
+                # if a calcsfh run needed to extend in parameter search space
+                # that is internally varied in match e.g., (Av, dmod, Age, Z)
+                # and not e.g., (bf, IMF)
+                df = df.drop[ibest].copy(deep=True)
 
     new_stuff = filename_data(fname)
     # print('adding columns: {}'.format(new_stuff.keys()))
     for name, val in new_stuff.items():
         df[name] = val
 
-    if stats:
-        try:
-            cmdfile, = get_files(fname.replace(SCRNEXT, '.out.cmd.stats'))
-        except:
-            print('{} not found.'.format(cmdfile))
-            return df
-        data = read_cmd_stats(cmdfile)
     return df
 
 
@@ -369,6 +370,13 @@ def read_ssp_output(filename, names=None):
     if filename.endswith('.csv'):
         # combined file of many calcsfh outputs
         data = pd.read_csv(filename)
+        try:
+            ibest, = np.where(data['Av'] == 'Best')
+            data = data.drop(ibest)
+        except TypeError:
+            print('{}: no "Best fit" string'.format(filename))
+            ibest = []
+
     else:
         # one calcsfh output
         data = pd.read_table(filename, delim_whitespace=True, skiprows=10,

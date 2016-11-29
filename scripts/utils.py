@@ -17,6 +17,14 @@ logger = logging.getLogger()
 
 __all__ = ['check_boundaries', 'strip_header', 'convertz', 'center_grid']
 
+def combine_outputs(scrn1fn, scrn2fn, output):
+    scrn1 = strip_header(scrn1fn, return_lines=True)
+    scrn2 = strip_header(scrn2fn, return_lines=True)
+    # scrnout =
+    # scrn1.extend(scrn2)
+    # writeout.
+
+
 def marg(x, z, unx=None):
     """
     marginalize in 1d.
@@ -315,7 +323,7 @@ def float2sci(num):
     return retv
 
 
-def strip_header(ssp_file, skip_header=10):
+def strip_header(ssp_file, skip_header=10, return_lines=False):
     outfile = ssp_file + '.dat'
     with open(ssp_file, 'r') as infile:
         lines = [l.strip() for l in infile.readlines()]
@@ -324,9 +332,13 @@ def strip_header(ssp_file, skip_header=10):
         footer, = [i for i, l in enumerate(lines) if 'Best' in l]
     except:
         footer = None
-    np.savetxt(outfile, np.array(lines[skip_header:footer], dtype=str),
-               fmt='%s')
-    return outfile
+    lines = lines[skip_header:footer]
+    if return_lines:
+        retv = lines
+    else:
+        np.savetxt(outfile, np.array(lines, dtype=str), fmt='%s')
+        retv = outfile
+    return retv
 
 
 def writeorappend(outfile, line):
