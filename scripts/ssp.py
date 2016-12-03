@@ -40,13 +40,13 @@ class SSP(object):
         They do not need to be stripped of their header or footer or
         be concatenated as is typical in MATCH useage.
         """
+        self.gyr = gyr
         if filename is not None:
             data = self.load_ssp(filename)
 
         if data is not None:
-            self.gyr = gyr
             if gyr:
-                data['lage'] = (10 ** (data['lage'] - 9))
+                data['lage'] = (10 ** (np.array(data['lage'], dtype=float) - 9))
 
             if filterby is not None:
                 # Perhaps this should split into a dict instead of culling...

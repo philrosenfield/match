@@ -49,6 +49,47 @@ class CMD(object):
             ax.set_ylabel(ylabel)
         return xlabel, ylabel
 
+    def load_cmd_fromfake(self, filename, dcol=0.05, dmag=0.1, ymag='V',
+                          yfilter=None, colors=None, xlim=None, ylim=None):
+        self.data = None
+        self.diff = None
+        self.sig = None
+        self.colors = colors
+        self.yfilter = yfilter
+
+        mag1, mag2 = np.loadtxt(filename, unpack=True)
+        inds, = np.nonzero((mag1 < 30) & (mag2 < 30))
+        mag1 = mag1[inds]
+        mag2 = mag2[inds]
+        color = mag1 - mag2
+        if ymag.upper() == 'V':
+            mag = mag1
+        elif ymag.upper() == 'I':
+            mag = mag2
+        else:
+            print('Error: ymag needs to be V or I')
+            return
+
+        if xlim is None:
+            cmin = np.min(color)
+            cmax = np.max(color)
+        else:
+            cmin, cmax = xlim
+        if ylim is None:
+            mmax = np.max(mag)
+            mmin = np.min(mag)
+        else:
+            mmin, mmax = np.sort(ylim)
+
+        cbins = np.arange(cmin, cmax, dcol)
+        mbins = np.arange(mmin, mmax, dmag)
+        H, ce, me = np.histogram2d(color, mag, bins=[cbins, mbins])
+
+        self.model = H.T
+        self.extent = [cmin, cmax, mmax, mmin]
+        self.nmagbin = len(mbins)
+        self.ncolbin = len(cbins)
+
     def load_match_cmd(self):
         """
         pgcmd needs hesses and extent. Optional are max_* which set the vmins

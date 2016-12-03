@@ -245,8 +245,6 @@ def zeroed_cmap(hess, cmap1=plt.cm.Reds_r, cmap2=plt.cm.Blues, dfrac=0.05,
                        transparent=transparent)
 
 
-
-
 def setup_imgrid(figsize=[12, 3], nrows=1, ncols=4):
     from mpl_toolkits.axes_grid1 import ImageGrid
     igkw = {'nrows_ncols': (nrows, ncols),
@@ -262,8 +260,9 @@ def setup_imgrid(figsize=[12, 3], nrows=1, ncols=4):
     grid = ImageGrid(fig, 111, **igkw)
     return grid
 
+
 def match_plot(hesslist, extent, labels=None, twobytwo=True,
-               xlabel=None, ylabel=None):
+               xlabel=None, ylabel=None, cmap=None, logcounts=False):
     '''plot four hess diagrams with indivdual color bars using ImageGrid'''
     from mpl_toolkits.axes_grid1 import ImageGrid
 
@@ -279,17 +278,21 @@ def match_plot(hesslist, extent, labels=None, twobytwo=True,
     grid = setup_imgrid(figsize=figsize, nrows=nrows, ncols=ncols)
 
     for i, (ax, hess) in enumerate(zip(grid, hesslist)):
-        if i > 1:
-            # bottom row: diff, sig
-            colors = zeroed_cmap(hess)
+        if cmap is None:
+            if i > 1:
+                # bottom row: diff, sig
+                colors = zeroed_cmap(hess)
+            else:
+                # first row: data, model. White will be on the left of color bar
+                if i == 0:
+                    colors = plt.cm.Blues
+                if i == 1:
+                    colors = plt.cm.Reds
+                # colors = plt.cm.get_cmap('binary', 11)
         else:
-            # first row: data, model. White will be on the left of color bar
-            if i == 0:
-                colors = plt.cm.Blues
-            if i == 1:
-                colors = plt.cm.Reds
-            # colors = plt.cm.get_cmap('binary', 11)
-
+            colors = cmap
+        if logcounts:
+            hess = np.log10(hess)
         img = ax.imshow(hess, origin='upper', extent=extent,
                         interpolation="nearest", cmap=colors)
         ax.cax.colorbar(img)

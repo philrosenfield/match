@@ -51,7 +51,7 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
         if X is None and prob is None:
             X, prob = SSP.marginalize(xattr)
             if not SSP.vdict[xattr]:
-                return
+                return ax
             SSP.build_posterior(xattr, X, prob)
         l = ax.plot(X, prob, **plt_kw)
         ax.set_xlim(X.min(), X.max())

@@ -24,6 +24,7 @@ def combine_files(fnames, outfile='combined_files.csv', best=False):
     """add files together including columns based on params in filename"""
     all_data = pd.DataFrame()
     for fname in fnames:
+        print(fname)
         dframe = add_filename_info_to_file(fname, best=best)
         all_data = all_data.append(dframe, ignore_index=True)
 
@@ -61,37 +62,39 @@ def add_filename_info_to_file(fname, best=False):
                 line = inp.readline()
                 try:
                     idx += 1
-                    np.array(line.strip().split(), dtype=float)
-                    return idx
+                    t = np.array(line.strip().split(), dtype=float)
+                    return idx, len(t)
                 except ValueError:
                     pass
 
-    ihead = getheader(fname)
+    ihead, ncols = getheader(fname)
     names = ['Av', 'IMF', 'dmod', 'lage', 'logZ', 'fit', 'sfr']
+    if ncols == 8:
+        names.append('bg')
+
     df = pd.read_table(fname, names=names, delim_whitespace=True,
                        skiprows=ihead)
-    # import pdb; pdb.set_trace()
     try:
         ibest, = np.where(df['Av'] == 'Best')
     except TypeError:
         print('{}: no "Best fit" string'.format(fname))
         ibest = []
 
-        if len(ibest) == 0:
-            print('{}: no "Best fit" string'.format(fname))
-            print(sys.exc_info()[1])
+    if len(ibest) == 0:
+        print('{}: no "Best fit" string'.format(fname))
+        print(sys.exc_info()[1])
+    else:
+        if best:
+            # only best fit line
+            df = df.iloc[ibest].copy(deep=True)
         else:
-            if best:
-                # only best fit line
-                df = df.iloc[ibest].copy(deep=True)
-            else:
-                # delete best line(s) (it's a duplicate entry)
-                # there would only be more than one if e.g.:
-                # $ cat scrn1 scrn2 > scrn3
-                # if a calcsfh run needed to extend in parameter search space
-                # that is internally varied in match e.g., (Av, dmod, Age, Z)
-                # and not e.g., (bf, IMF)
-                df = df.drop[ibest].copy(deep=True)
+            # delete best line(s) (it's a duplicate entry)
+            # there would only be more than one if e.g.:
+            # $ cat scrn1 scrn2 > scrn3
+            # if a calcsfh run needed to extend in parameter search space
+            # that is internally varied in match e.g., (Av, dmod, Age, Z)
+            # and not e.g., (bf, IMF)
+            df = df.drop(ibest).copy(deep=True)
 
     new_stuff = filename_data(fname)
     # print('adding columns: {}'.format(new_stuff.keys()))
