@@ -11,7 +11,13 @@ try:
 except ImportError:
     pass
 
-import pandas as pd
+yeahpd = True
+try:
+    import pandas as pd
+except ImportError:
+    print('some SSP functions (-f, pdf plots) will be missing without pandas')
+    yeahpd = False
+
 import matplotlib.pylab as plt
 import numpy as np
 
@@ -94,6 +100,7 @@ class SSP(object):
         return ecode
 
     def build_posterior(self, xattr, arr, prob):
+        assert yeahpd, 'posterior functions need pandas'
         if not hasattr(self, 'posterior'):
             self.posterior = pd.DataFrame()
         df = pd.DataFrame()
@@ -103,9 +110,11 @@ class SSP(object):
         return
 
     def write_posterior(self, filename='post.dat'):
+        assert yeahpd, 'posterior functions need pandas'
         self.posterior.to_csv(filename, index=False)
 
     def load_posterior(self, filename):
+        assert yeahpd, 'posterior functions need pandas'
         self.base, self.name = os.path.split(filename)
         self.data = pd.read_csv(filename)
 

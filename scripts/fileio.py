@@ -6,7 +6,13 @@ import glob
 import sys
 import logging
 
-import pandas as pd
+yeahpd = True
+try:
+    import pandas as pd
+except ImportError:
+    print('some SSP functions (combine_files, pdf_plots) will not work without pandas')
+    yeahpd = False
+
 import numpy as np
 
 from .config import SCRNEXT
@@ -22,6 +28,7 @@ __all__ = ['add_filename_info_to_file', 'add_gates', 'calcsfh_dict',
 
 def combine_files(fnames, outfile='combined_files.csv', best=False):
     """add files together including columns based on params in filename"""
+    assert yeahpd, 'Need pandas to combine files'
     all_data = pd.DataFrame()
     for fname in fnames:
         print(fname)
@@ -51,6 +58,7 @@ def add_filename_info_to_file(fname, best=False):
         data with new columns attached
 
     """
+    assert yeahpd, 'Need pandas to add columns to a DataFrame'
     def getheader(infile):
         """
         get the length of the header
