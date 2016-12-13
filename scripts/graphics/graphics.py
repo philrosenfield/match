@@ -290,7 +290,10 @@ def match_plot(hesslist, extent, labels=None, twobytwo=True,
                     colors = plt.cm.Reds
                 # colors = plt.cm.get_cmap('binary', 11)
         else:
-            colors = cmap
+            if isinstance(cmap, list):
+                colors = cmap[i]
+            else:
+                colors = cmap
         if logcounts:
             hess = np.log10(hess)
         img = ax.imshow(hess, origin='upper', extent=extent,

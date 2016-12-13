@@ -393,9 +393,13 @@ class SFH(object):
 
         return fracsfr, fracsfr_errp, fracsfr_errm
 
-    def sfh_plot(self):
+    def sfh_plot(self, axs=None):
         from matplotlib.ticker import NullFormatter
-        _, (ax1, ax2) = plt.subplots(nrows=2)
+
+        if axs is None:
+            _, (ax1, ax2) = plt.subplots(nrows=2)
+        else:
+            ax1, ax2 = axs
         self.age_plot(ax=ax1)
         self.age_plot(val='mh', convertz=False, ax=ax2)
         ax1.xaxis.set_major_formatter(NullFormatter())
@@ -403,8 +407,7 @@ class SFH(object):
         figname = os.path.join(self.base, self.name + EXT)
         print('wrote {}'.format(figname))
         plt.savefig(figname)
-        plt.close()
-
+        return [ax1, ax2]
 
 def main(argv):
     """
@@ -415,13 +418,17 @@ def main(argv):
     parser.add_argument('sfh_files', nargs='*', type=str,
                         help='ssp output(s) or formated output(s)')
 
-    args = parser.parse_args(argv)
+    parser.add_argument('--oneplot', action='store_true',
+                        help='overlay on one plot')
 
+    args = parser.parse_args(argv)
+    axs = None
+    axp = None
     for sfh_file in args.sfh_files:
         msfh = SFH(sfh_file)
         if len(msfh.data) != 0:
-            msfh.sfh_plot()
-            msfh.plot_csfr()
+            axs = msfh.sfh_plot(axs=axs)
+            axp = msfh.plot_csfr(ax=axp)
             # dic = msfh.param_table()
             # print(dic['fmt'].format(**dic))
 
