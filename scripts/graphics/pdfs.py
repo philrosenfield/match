@@ -1,3 +1,4 @@
+from __future__ import print_function, absolute_import
 import matplotlib.pyplot as plt
 import numpy as np
 from .graphics import corner_setup, fix_diagonal_axes, key2label

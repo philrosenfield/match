@@ -1,5 +1,5 @@
 """Stats and visualization of calcsfh -ssp runs"""
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 import argparse
 import itertools
 import os
@@ -100,7 +100,9 @@ class SSP(object):
         return ecode
 
     def build_posterior(self, xattr, arr, prob):
-        assert yeahpd, 'posterior functions need pandas'
+        if not yeahpd:
+            print('posterior functions need pandas')
+            return
         if not hasattr(self, 'posterior'):
             self.posterior = pd.DataFrame()
         df = pd.DataFrame()
@@ -110,12 +112,17 @@ class SSP(object):
         return
 
     def write_posterior(self, filename='post.dat'):
-        assert yeahpd, 'posterior functions need pandas'
-        self.posterior.to_csv(filename, index=False)
+        if not yeahpd:
+            print('posterior functions need pandas')
+        else:
+            self.posterior.to_csv(filename, index=False)
 
     def load_posterior(self, filename):
-        assert yeahpd, 'posterior functions need pandas'
         self.base, self.name = os.path.split(filename)
+        if not yeahpd:
+            print('posterior functions need pandas, but a csv reader could go here.')
+            self.data = None
+            return
         self.data = pd.read_csv(filename)
 
     def unique_(self, attr, uniq_attr='u{:s}', check=False):

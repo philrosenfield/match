@@ -1,5 +1,5 @@
 """Methods to read and write MATCH files"""
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 import json
 import os
 import glob
@@ -10,7 +10,7 @@ yeahpd = True
 try:
     import pandas as pd
 except ImportError:
-    print('some SSP functions (combine_files, pdf_plots) will not work without pandas')
+    print('some SSP functions (combine_files) will not work without pandas')
     yeahpd = False
 
 import numpy as np
@@ -28,7 +28,9 @@ __all__ = ['add_filename_info_to_file', 'add_gates', 'calcsfh_dict',
 
 def combine_files(fnames, outfile='combined_files.csv', best=False):
     """add files together including columns based on params in filename"""
-    assert yeahpd, 'Need pandas to combine files'
+    if not yeahpd:
+        print('Need pandas to combine files')
+        return outfile
     all_data = pd.DataFrame()
     for fname in fnames:
         print(fname)
@@ -58,7 +60,9 @@ def add_filename_info_to_file(fname, best=False):
         data with new columns attached
 
     """
-    assert yeahpd, 'Need pandas to add columns to a DataFrame'
+    if not yeahpd:
+        print('Need pandas to add columns to a DataFrame')
+        return []
     def getheader(infile):
         """
         get the length of the header
