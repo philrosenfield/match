@@ -311,7 +311,7 @@ def calcsfh_input_parameter(zinc=False, power_law_imf=True, **params):
     fmt += '{ninclude_gates:d} {include_gates:s} \n'
     #    Metallicity information not yet supported
     fmt += '{ntbins:d}\n'
-    fmt += ''.join(['   {:.6f} {:.6f}\n'.format(i, j) for i, j in
+    fmt += ''.join(['   {0:.6f} {1:.6f}\n'.format(i, j) for i, j in
                     zip(dtarr[:], dtarr[1:])
                     if np.round(i, 4) != np.round(j, 4)])
     fmt += footer

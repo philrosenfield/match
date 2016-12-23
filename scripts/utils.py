@@ -282,7 +282,7 @@ def check_boundaries(param, scrn):
             retval += 1
         return retval, msg
 
-    msg = '{} / {}\n'.format(os.path.split(param)[1], os.path.split(scrn)[1])
+    msg = '{0:s} / {1:s}\n'.format(os.path.split(param)[1], os.path.split(scrn)[1])
     # parse scrn
     bfit = open(scrn).readlines()[-1]
     if 'Best' not in bfit:
@@ -313,13 +313,13 @@ def check_boundaries(param, scrn):
 
 def float2sci(num):
     """mpl has a better way of doing this?"""
-    _, exnt = '{:.0e}'.format(num).split('e')
+    _, exnt = '{0:.0e}'.format(num).split('e')
     exnt = int(exnt)
     if exnt == 0:
         # 10 ** 0 = 1
         retv = ''
     else:
-        retv = r'$10^{{{:d}}}$'.format(exnt)
+        retv = r'$10^{{{0:d}}}$'.format(exnt)
     return retv
 
 
@@ -350,7 +350,7 @@ def writeorappend(outfile, line):
         wrote = 'appended'
     with open(outfile, wstr) as outp:
         outp.write(line)
-    print('{} {}'.format(wrote, outfile))
+    print('{0:s} {1:s}'.format(wrote, outfile))
     return
 
 
@@ -384,7 +384,7 @@ def ensure_file(f, mad=True):
     '''
     test = os.path.isfile(f)
     if test is False:
-        logger.warning('{} not found'.format(f))
+        logger.warning('{0:s} not found'.format(f))
         if mad:
             sys.exit()
     return test
