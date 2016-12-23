@@ -17,7 +17,7 @@ except SystemError:
     from fileio import read_calcsfh_param, calcsfh_input_parameter
 
 
-def write_slurm(cmdscript, outdir='slurm', istart=1):
+def write_slurm(cmdscript, outdir='slurm', istart=1, use_bg=False):
     """
     Read a calcsfh_ssp script (output of varyparams) and split calls into
     separate calcsfh_*.sh scripts to be called in a job array.
@@ -56,6 +56,9 @@ def write_slurm(cmdscript, outdir='slurm', istart=1):
         copys.append(param)
         copys.append(phot)
         copys.append(fake)
+
+    if use_bg:
+        copys.append('bg.dat')
 
     for c in np.unique(copys):
         os.system('cp {0:s} {1:s}/{0:s}'.format(c, outdir))
@@ -260,6 +263,9 @@ def main(argv):
     parser.add_argument('--slurmstart', type=int, default=1,
                         help='start the slurm numbering [1]')
 
+    parser.add_argument('--use_bg', action='store_true',
+                        help='use backgound file named bg.dat with smoothing=5')
+
     args = parser.parse_args(argv)
 
     if args.destination is not None:
@@ -285,6 +291,10 @@ def main(argv):
         power_law_imf = True
 
     cparams = {'tmin': args.tmin, 'tmax': args.tmax}
+
+    if args.use_bg:
+        cparams.update({'use_bg': True, 'bg_file': 'bg.dat', 'bg_smooth': 5})
+
     # do the "internal" matchparam varying
     params = vary_matchparam(args.param_file, varyarrs=varyarrs,
                              params=cparams, power_law_imf=power_law_imf)
@@ -296,7 +306,7 @@ def main(argv):
     if args.slurm:
         if args.calcsfh == calcsfh:
             print('Warning: calcsfh path is default -- {}'.format(calcsfh))
-        write_slurm(args.outfile, istart=args.slurmstart)
+        write_slurm(args.outfile, istart=args.slurmstart, use_bg=args.use_bg)
     return
 
 

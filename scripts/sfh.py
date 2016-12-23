@@ -426,6 +426,9 @@ def main(argv):
     axp = None
     for sfh_file in args.sfh_files:
         msfh = SFH(sfh_file)
+        if not args.oneplot:
+            axs = None
+            axp = None
         if len(msfh.data) != 0:
             axs = msfh.sfh_plot(axs=axs)
             axp = msfh.plot_csfr(ax=axp)
