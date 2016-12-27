@@ -397,16 +397,19 @@ class SFH(object):
         from matplotlib.ticker import NullFormatter
 
         if axs is None:
+            save=True
             _, (ax1, ax2) = plt.subplots(nrows=2)
         else:
+            save=False
             ax1, ax2 = axs
         self.age_plot(ax=ax1)
         self.age_plot(val='mh', convertz=False, ax=ax2)
         ax1.xaxis.set_major_formatter(NullFormatter())
         plt.subplots_adjust(hspace=0.1)
-        figname = os.path.join(self.base, self.name + EXT)
-        print('wrote {}'.format(figname))
-        plt.savefig(figname)
+        if save:
+            figname = os.path.join(self.base, self.name + EXT)
+            print('wrote {}'.format(figname))
+            plt.savefig(figname)
         return [ax1, ax2]
 
 def main(argv):

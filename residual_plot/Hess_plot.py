@@ -3,6 +3,17 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as cl
 import sys
 
+depwarn = """
+Hess_plot is deprecated. To make hess diagram plots (ala pgpro) of the .cmd
+output files from MATCH please use scripts/cmd.py from the command line
+(with -h for options).
+
+The main plotting function is in scripts/graphics/match_plot.py
+"""
+
+import warnings
+warnings.warn(depwarn, DeprecationWarning)
+
 cmdfile_name = sys.argv[1]
 plot_name = sys.argv[2]
 figsize=(8, 8)

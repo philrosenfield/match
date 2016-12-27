@@ -9,7 +9,7 @@ import numpy as np
 
 from match.scripts.config import EXT
 from match.scripts.fileio import read_match_cmd
-from match.scripts.graphics.graphics import match_plot
+from match.scripts.graphics.match_plot import match_plot
 from match.scripts.utils import parse_pipeline
 from match.scripts.wrappers.stats import call_stats
 
@@ -18,7 +18,7 @@ __all__ = ['CMD']
 
 class CMD(object):
     """
-    A quikly made object to read the MATCH CMD file and hold paramters to
+    An object to read the MATCH CMD file and hold paramters to
     automatically make plots with the same color scale as other MATCH CMD
     files.
     """
@@ -110,8 +110,14 @@ class CMD(object):
         # self.max_sig = np.nanmax(np.abs(self.sig))
 
     def pgcmd(self, labels=None, outdir=None, logcounts=False, figname=None,
-              twobytwo=True):
-        '''produce the image that pgcmd.pro makes'''
+              twobytwo=True, sig=True):
+        '''produce the image that pgcmd.pro makes
+        enhances graphics.match_plot.match_plot:
+            automatic titles for each panel
+            automatic axes labels
+            add exclude/include gates
+            logcounts only applies to data, model, not diff and sig.
+        '''
         labels = labels or self.set_labels()
 
         if figname is None:
@@ -128,12 +134,12 @@ class CMD(object):
         xlabel, ylabel = self.set_axis_labels()
 
         grid = match_plot(hesses, self.extent, labels=labels, ylabel=ylabel,
-                          xlabel=xlabel, twobytwo=twobytwo)
+                          xlabel=xlabel, twobytwo=twobytwo, sig=sig)
 
         gates = self.cmd['gate']
         ugates = np.unique(gates)
         if len(ugates) > 1:
-            dinds = np.digitize(gates, bins=np.unique(gates, right=True))
+            dinds = np.digitize(gates, bins=np.unique(gates), right=True)
             _ = [grid.axes_all[0].plot(self.cmd['color'][dinds == i],
                                        self.cmd['mag'][dinds == i],
                                        '.', alpha=0.3)
