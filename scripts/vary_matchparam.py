@@ -46,10 +46,10 @@ def write_slurm(cmdscript, outdir='slurm', istart=1, use_bg=False):
     copys = []
     num = istart
     for i, cmd in enumerate(cmds):
-        # num = ('{}'.format(i + 1)).zfill(4)
+        # num = ('{0:d}'.format(i + 1)).zfill(4)
         _, param, phot, fake = cmd.split()[:4]
-        cmdfn = os.path.join(outdir, 'calcsfh_{}.sh'.format(num))
-        cmd = cmd.replace('ssp.', 'ssp{}.'.format(num))
+        cmdfn = os.path.join(outdir, 'calcsfh_{0:d}.sh'.format(num))
+        cmd = cmd.replace('ssp.', 'ssp{0:d}.'.format(num))
         with open(cmdfn, 'w') as outp:
             outp.write(cmd)
         num += 1
@@ -86,13 +86,13 @@ def getflags(dav=None, sub=None, imf=None):
     flag = calcsfh_flag
 
     if dav is not None:
-        flag += " -dAv={:.2f}".format(dav)
+        flag += " -dAv={0:.2f}".format(dav)
 
     if sub is not None:
-        flag += "  -sub={}".format(sub)
+        flag += "  -sub={0:s}".format(sub)
 
     if isinstance(imf, str) and imf == 'kroupa' or imf == 'chabrier':
-        flag += " -{}".format(imf)
+        flag += " -{0:s}".format(imf)
 
     return flag
 
@@ -137,15 +137,15 @@ def vary_matchparam(param_file, varyarrs=None, power_law_imf=True,
         for i, val in enumerate(vals):
             key = list(varyarrs.keys())[i].replace('arr', '')
             template[key] = val
-            name.append('{}{:g}'.format(key, val))
+            name.append('{0:s}{1:g}'.format(key, val))
 
         new_param = calcsfh_input_parameter(power_law_imf=power_law_imf,
                                             **template)
-        new_name = '{}_{}.{}'.format(pname, '_'.join(np.sort(name)), ext)
+        new_name = '{0:s}_{1:s}.{2:s}'.format(pname, '_'.join(np.sort(name)), ext)
 
         with open(new_name, 'w') as outp:
             outp.write(new_param)
-        # print('wrote {}'.format(new_name))
+        # print('wrote {0:s}'.format(new_name))
         new_names.append(new_name)
     return new_names
 
@@ -158,14 +158,14 @@ def vary_calcsfh_calls(phot, fake, params, outfile, subs, davs,
     parameters that vary that are not in the calcsfh parameter file.
     """
     runtot = len(params) * len(davs) * len(subs)
-    print('Requested {} calcsfh calls'.format(runtot))
+    print('Requested {0:d} calcsfh calls'.format(runtot))
 
     line = ''
     inproc = 0
     for sub in subs:
         subfmt = ''
         if sub is not None:
-            subfmt = '_{}'.format(sub)
+            subfmt = '_{0:s}'.format(sub)
         for dav in davs:
             for param in params:
                 parfile = param
@@ -173,15 +173,15 @@ def vary_calcsfh_calls(phot, fake, params, outfile, subs, davs,
                     parfile = os.path.join(destination,
                                            os.path.split(param)[1])
                 prefx, _ = splitext(parfile)
-                suffx = 'dav{:g}{}{}_ssp'.format(dav, subfmt, extra)
+                suffx = 'dav{0:g}{1:s}{2:s}_ssp'.format(dav, subfmt, extra)
 
                 name = '_'.join([prefx, suffx])
 
-                out = '{}{}'.format(name, OUTEXT)
-                scrn = '{}{}'.format(name, SCRNEXT)
+                out = '{0:s}{1:s}'.format(name, OUTEXT)
+                scrn = '{0:s}{1:s}'.format(name, SCRNEXT)
 
                 if check and os.path.isfile(out):
-                    print('{} exists, not overwriting'.format(out))
+                    print('{0:s} exists, not overwriting'.format(out))
                 else:
                     inproc += 1
                     flags = getflags(dav, sub=sub, imf=imf)
@@ -274,7 +274,7 @@ def main(argv):
 
     extra = ''
     if len(args.extra) > 0:
-        extra = '_{}'.format(args.extra)
+        extra = '_{0:s}'.format(args.extra)
 
     # get the array or calculate arange
     subs = parse_argrange(args.sub)
@@ -305,7 +305,7 @@ def main(argv):
 
     if args.slurm:
         if args.calcsfh == calcsfh:
-            print('Warning: calcsfh path is default -- {}'.format(calcsfh))
+            print('Warning: calcsfh path is default -- {0:s}'.format(calcsfh))
         write_slurm(args.outfile, istart=args.slurmstart, use_bg=args.use_bg)
     return
 
