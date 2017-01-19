@@ -178,13 +178,15 @@ def read_fake(filename):
     return data
 
 
-def read_match_cmd(filename):
+def read_match_cmd(filename, onlyheader=False):
     '''read MATCH .cmd file'''
     if not filename.endswith('.cmd'):
         print('Warning: {} might not be a .cmd file'.format(filename))
     names = ['mag', 'color', 'Nobs', 'Nsim', 'diff', 'sig', 'gate']
-    cmd = np.genfromtxt(filename, skip_header=4, names=names,
-                        invalid_raise=False)
+    cmd = np.array([])
+    if not onlyheader:
+        cmd = np.genfromtxt(filename, skip_header=4, names=names,
+                            invalid_raise=False)
     with open(filename, 'r') as inp:
         header = [next(inp).strip() for _ in range(4)]
     fit = float(header[0].split()[0])

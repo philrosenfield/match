@@ -17,7 +17,7 @@ sns.set_style('ticks')
 sns.set_context('paper', font_scale=1.5)
 
 
-def comp_cmd(cmd0, cmd, label=None):
+def comp_cmd(cmd0, cmd, label=None, figname=None):
     """Make a hess diagram of the difference between two cmd.models"""
     extent = cmd0.extent
     aspect = abs((extent[1] - extent[0]) / (extent[3] - extent[2]))
@@ -35,6 +35,8 @@ def comp_cmd(cmd0, cmd, label=None):
         add_inner_title(ax, label, loc=4)
     cb = plt.colorbar(im)
     cmd0.set_axis_labels(ax=ax)
+    if figname is not None:
+        plt.savefig(figname)
     return fig, ax
 
 
@@ -45,19 +47,22 @@ def diff_(cmd0, cmd1, ssp=None):
     if ssp is not None:
         d0.update(ssp.data.iloc[np.argmin(np.abs(ssp.data.fit - cmd0.fit))].to_dict())
         d1.update(ssp.data.iloc[np.argmin(np.abs(ssp.data.fit - cmd1.fit))].to_dict())
-    a = {o: (d1[o], d0[o]) for o in set(d0.keys()).intersection(d1.keys())
+    a = {o : '{0:g}, {1:g}'.format(d1[o], d0[o]) for o in set(d0.keys()).intersection(d1.keys())
          if d0[o] != d1[o]}
     return a
 
 
 def main(argv=None):
     """main function for compare_cmds"""
+    # shouldn't this be a 3 panel plot?
     args = parse_args(argv)
     cmd1 = CMD(args.cmd1)
     cmd2 = CMD(args.cmd2)
     fig, ax = comp_cmd(cmd1, cmd2)
     fig.savefig(args.figname)
-    print(diff_(cmd1, cmd2))
+    if args.ssp is not None:
+        ssp = SSP(args.ssp)
+    print(diff_(cmd1, cmd2, ssp=ssp))
     return
 
 
@@ -72,6 +77,8 @@ def parse_args(argv=None):
     parser.add_argument('cmd1', type=str, help='cmd file')
 
     parser.add_argument('cmd2', type=str, help='cmd file')
+
+    parser.add_argument('--ssp', type=str, help='combined ssp_file file')
 
     return parser.parse_args(argv)
 

@@ -57,6 +57,10 @@ class SSP(object):
             if filterby is not None:
                 # Perhaps this should split into a dict instead of culling...
                 for key, val in filterby.items():
+                    if len(np.nonzero(data[key] == val)[0]) == 0:
+                        print('can not filter by {0:s}={1:g}: no matching values'.format(key, val))
+                        print('available values:', np.unique(data[key]))
+                        sys.exit(1)
                     data = data.loc[data[key] == val].copy(deep=True)
 
             self.data = data
@@ -100,6 +104,7 @@ class SSP(object):
         return ecode
 
     def build_posterior(self, xattr, arr, prob):
+        """save the posterior in a DataFrame"""
         if not yeahpd:
             print('posterior functions need pandas')
             return
@@ -112,12 +117,14 @@ class SSP(object):
         return
 
     def write_posterior(self, filename='post.dat'):
+        """write the posterior to a csv"""
         if not yeahpd:
             print('posterior functions need pandas')
         else:
             self.posterior.to_csv(filename, index=False)
 
     def load_posterior(self, filename):
+        """read the posterior csv, see bulid_posterior and wrote_posterior"""
         self.base, self.name = os.path.split(filename)
         if not yeahpd:
             print('posterior functions need pandas, but a csv reader could go here.')

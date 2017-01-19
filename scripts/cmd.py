@@ -22,12 +22,14 @@ class CMD(object):
     automatically make plots with the same color scale as other MATCH CMD
     files.
     """
-    def __init__(self, filename=None):
+    def __init__(self, filename=None, onlyheader=False):
         if filename is not None:
             self.base, self.name = os.path.split(os.path.abspath(filename))
             self.cmd, self.fit, self.colors, self.yfilter = \
-                read_match_cmd(filename)
-            self.load_match_cmd()
+                read_match_cmd(filename, onlyheader=onlyheader)
+            if not onlyheader:
+                # self.cmd will be an empty array if onlyheader
+                self.load_match_cmd()
 
     def set_labels(self):
         """Set up list of labels for pgpro"""
@@ -154,6 +156,37 @@ class CMD(object):
         return grid
 
 
+def sortbyfit(cmdfns, onlyheader=False):
+    """
+    Order CMDs fit parameter given a list of CMDs or their filenames
+
+    Parameters:
+
+    cmdfns: list (of string filesnames or CMDs)
+        if list of strings will initialize and return list of CMDs
+
+    onlyheader : bool (False)
+        passed to CMD.__init__() if cmdfns in list of strings.
+        Only read the header of the CMD file (which contains fit parameter)
+
+    Returns:
+        CMDs or CMD filenames sorted by increasing fit parameter
+    """
+    assert isinstance(cmdfns, list), 'Need a list to sort. {}'.format(cmdfns)
+
+    retv = np.array(cmdfns)
+    if isinstance(cmdfns[0], str):
+        cmds = np.array([CMD(cmdfn, onlyheader=onlyheader) for cmdfn in cmdfns])
+    else:
+        cmds = cmdfns
+
+    try:
+        icmd = np.argsort(np.concatenate([cmd.fit for cmd in cmds]))
+    except ValueError:
+        icmd = np.argsort([cmd.fit for cmd in cmds])
+    return retv[icmd]
+
+
 def call_pgcmd_byfit(cmdfns, nmax=5, outdir=None, logcounts=False):
     """
     Call pgcmd with filename order them by increasing best fit value.
@@ -168,15 +201,13 @@ def call_pgcmd_byfit(cmdfns, nmax=5, outdir=None, logcounts=False):
         cmd.pgcmd(outdir=outdir, logcounts=logcounts)
         return
 
-    cmds = np.array([CMD(cmdfn) for cmdfn in cmdfns])
-    try:
-        icmd = np.argsort(np.concatenate([cmd.fit for cmd in cmds]))
-    except ValueError:
-        icmd = np.argsort([cmd.fit for cmd in cmds])
-    for j, cmd in enumerate(cmds[icmd]):
+    cmds = sortbyfit(cmdfns)
+
+    for j, cmd in enumerate(cmds):
         if j > nmax:
             break
         jstr = ('{}'.format(j)).zfill(4)
+        cmd = CMD(cmd)
         cmd.pgcmd(figname='{}{}{}'.format(cmd.name, jstr, EXT),
                   outdir=outdir, logcounts=logcounts)
     return
