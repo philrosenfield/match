@@ -45,7 +45,7 @@ def diff_(cmd0, cmd1, ssp=None):
     if ssp is not None:
         d0.update(ssp.data.iloc[np.argmin(np.abs(ssp.data.fit - cmd0.fit))].to_dict())
         d1.update(ssp.data.iloc[np.argmin(np.abs(ssp.data.fit - cmd1.fit))].to_dict())
-    a = {o : (d1[o], d0[o]) for o in set(d0.keys()).intersection(d1.keys())
+    a = {o: (d1[o], d0[o]) for o in set(d0.keys()).intersection(d1.keys())
          if d0[o] != d1[o]}
     return a
 
@@ -60,11 +60,13 @@ def main(argv=None):
     print(diff_(cmd1, cmd2))
     return
 
+
 def parse_args(argv=None):
     """parse_args for main"""
     parser = argparse.ArgumentParser(description="plot cmd file")
 
-    parser.add_argument('-o', '--figname', type=str, default='comp_cmd{}'.format(EXT),
+    parser.add_argument('-o', '--figname', type=str,
+                        default='comp_cmd{}'.format(EXT),
                         help='name of figure')
 
     parser.add_argument('cmd1', type=str, help='cmd file')
