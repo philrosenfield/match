@@ -8,7 +8,8 @@ try:
 except:
     pass
 
-def match_diagnostic(param, phot, fake=None, save=True, xlim=None, ylim=None):
+def match_diagnostic(param, phot, fake=None, save=True, xlim=None, ylim=None,
+                     good=True):
     """
     make two panel cmd figure (ymag = mag1, mag2)
     from match photometery and cmd parameter space from the match param drawn
@@ -16,7 +17,15 @@ def match_diagnostic(param, phot, fake=None, save=True, xlim=None, ylim=None):
     moff = 0.1
     off = 0.1
     mag1, mag2 = np.loadtxt(phot, unpack=True)
+    if good:
+        im1, = np.nonzero(mag1 < 40)
+        im2, = np.nonzero(mag2 < 40)
+        inds = np.intersect1d(im1, im2)
+        mag1 = mag1[inds]
+        mag2 = mag2[inds]
+
     color = mag1 - mag2
+
 
     params = read_calcsfh_param(param)
 

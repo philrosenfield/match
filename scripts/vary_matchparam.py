@@ -67,7 +67,7 @@ def write_slurm(cmdscript, outdir='slurm', istart=1, use_bg=False):
     line += "#SBATCH -n 2\n"
     line += "#SBATCH -N 1\n"
     line += "#SBATCH -t 36:00:00\n"
-    line += "#SBATCH --mem 190000\n"
+    line += "#SBATCH --mem 60000\n"
     line += "#SBATCH -p conroy\n"
     line += "#SBATCH --array={0:d}-{1:d}\n".format(istart, iend)
     line += "#SBATCH -o calcsfh_%a.o\n"
@@ -218,13 +218,13 @@ def main(argv):
                         help='dAv min, max, ddAv or list')
 
     parser.add_argument('--tbin', type=float, nargs='*', default=[0.01],
-                        help='dAv min, max, ddAv')
+                        help='time min, max, ddAv')
 
     parser.add_argument('--vstep', type=float, nargs='*', default=[0.15],
-                        help='dAv min, max, ddAv')
+                        help='vstep min, max, ddAv')
 
     parser.add_argument('--vistep', type=float, nargs='*', default=[0.05],
-                        help='dAv min, max, ddAv')
+                        help='v-i step min, max, ddAv')
 
     parser.add_argument('--tmin', type=float, default=6.6,
                         help='min log age')
