@@ -5,7 +5,8 @@ from .graphics import corner_setup, fix_diagonal_axes, key2label
 
 
 def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
-             truth=None, cmap=None, plt_kw=None, X=None, prob=None):
+             truth=None, cmap=None, plt_kw=None, X=None, prob=None,
+             logp=True):
     """Plot -2 ln P vs marginalized attributes
 
     SSP : SSP class instance
@@ -41,7 +42,9 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
     sub = sub or ''
     truth = truth or {}
     do_cbar = False
-
+    pstr = ''
+    if log:
+        pstr = 'Log '
     if ax is None:
         _, ax = plt.subplots()
         if yattr is not None:
@@ -50,7 +53,7 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
     if yattr is None:
         # plot type is marginal probability. Attribute vs -2 ln P
         if X is None and prob is None:
-            X, prob = SSP.marginalize(xattr)
+            X, prob = SSP.marginalize(xattr, log=logp)
             if not SSP.vdict[xattr]:
                 return ax
             SSP.build_posterior(xattr, X, prob)
@@ -59,11 +62,11 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
         if save:
             ptype = 'marginal'
             # ax.set_ylabel(key2label('fit'))
-            ax.set_ylabel(key2label('Probability'))
+            ax.set_ylabel(key2label(pstr+'Probability'))
     else:
         # plot type is joint probability.
         # Attribute1 vs Attribute2 colored by fit
-        [X, Y], prob = SSP.marginalize(xattr, yattr=yattr)
+        [X, Y], prob = SSP.marginalize(xattr, yattr=yattr, log=logp)
         if not SSP.vdict[xattr] or not SSP.vdict[yattr]:
             return ax
         l = ax.pcolor(X, Y, prob, cmap=cmap)
@@ -73,7 +76,7 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
         if do_cbar:
             cbar = plt.colorbar(l)
             # cbar.set_label(key2label('fit'))
-            cbar.set_label(key2label('Probability'))
+            cbar.set_label(key2label(pstr+'Probability'))
 
         if save:
             ptype = '{}_joint'.format(yattr)

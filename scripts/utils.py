@@ -17,15 +17,13 @@ logger = logging.getLogger()
 
 __all__ = ['check_boundaries', 'strip_header', 'convertz', 'center_grid']
 
-def combine_outputs(scrn1fn, scrn2fn, output):
-    scrn1 = strip_header(scrn1fn, return_lines=True)
-    scrn2 = strip_header(scrn2fn, return_lines=True)
-    # scrnout =
-    # scrn1.extend(scrn2)
-    # writeout.
+def lnprob(prob):
+    prob = 2 * np.log(prob)
+    prob[np.isinf(prob)] = np.min(np.ravel(prob)[(np.isfinite(np.ravel(prob)))])
+    return prob
 
 
-def marg(x, z, unx=None):
+def marg(x, z, unx=None, log=True):
     """
     marginalize in 1d.
     Does not normalize probability.
@@ -39,10 +37,12 @@ def marg(x, z, unx=None):
     for i in range(len(ux)):
         iz, = np.nonzero(x == ux[i])
         prob[i] = np.sum(z.iloc[iz])
+    if log:
+        prob = lnprob(prob)
     return prob, ux
 
 
-def marg2d(x, y, z, unx=None, uny=None):
+def marg2d(x, y, z, unx=None, uny=None, log=True):
     """
     marginalize in 2d.
     Does not normalize probability.
@@ -67,6 +67,8 @@ def marg2d(x, y, z, unx=None, uny=None):
     if len(unm) != 1:
         print('Warning: Uneven grid')
         print(unm)
+    if log:
+        prob = lnprob(prob)
     return prob, ux, uy
 
 

@@ -11,14 +11,17 @@ except:
     from scripts.config import match_base
 
 
-def zlimits_from_makemod(model='PARSEC', dz=0.01):
+def zlimits_from_makemod(model='PARSEC', dz=0.01, modeldir=None):
     """Get zmin zmax from makemod"""
     def parse_line(string):
         """Parse the static const int modelIZm... line to get value"""
         return int(string.split('=')[-1].replace(';', ''))
 
     here = os.getcwd()
-    modeldir = os.path.join(match_base, model)
+    modeldir = modeldir or os.path.join(match_base, model)
+
+    if 'data' in modeldir:
+        modeldir = modeldir.split('data')[0]
     os.chdir(modeldir)
 
     with open('makemod.cpp') as inp:
@@ -42,8 +45,8 @@ def filenames_loop(logt0, logt1, dlogt, z0, z1, dz, mod='mod1', quiet=False,
     bmissing = 0
     for logt in np.arange(logt0, logt1, dlogt):
         for z in np.arange(z0, z1, dz):
-            fname = '{}_{:6.4f}_{:6.4f}_{:5.3f}_0.005'.format(mod, logt,
-                                                              (logt + dlogt), z)
+            fname = '{}_{:6.4f}_{:6.4f}_{:5.3f}_{:5.3f}'.format(mod, logt,
+                                                              (logt + dlogt), z, dz/2)
             res = glob.glob(fname)
             if len(res) == 0:
                 if not quiet:
@@ -76,7 +79,7 @@ def check_mods(model='PARSEC', dz=0.01, dlogt=0.001, sub=None,
     assert os.path.isdir(datadir), 'Data directory not found {}'.format(datadir)
 
     os.chdir(datadir)
-    z0, z1 = zlimits_from_makemod(model=model, dz=dz)
+    z0, z1 = zlimits_from_makemod(model=model, dz=dz, modeldir=datadir)
     filenames_loop(logt0, logt1, dlogt, z0, z1, dz, mod=mod, quiet=quiet,
                    checkmodb=checkmodb)
     os.chdir(here)
@@ -106,7 +109,7 @@ def main(argv):
                         help='time resolution')
 
     parser.add_argument('-a', '--agelimits', type=float, nargs=2,
-                        default=[7.001, 10.25],
+                        default=[7.00, 10.25],
                         help='makemod log age limits')
 
     parser.add_argument('-s', '--sub', type=str,
