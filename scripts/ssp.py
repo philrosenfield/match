@@ -5,6 +5,15 @@ import itertools
 import os
 import sys
 
+import matplotlib.pylab as plt
+import numpy as np
+
+from .fileio import filename_data, read_ssp_output, combine_files
+from .utils import centered_meshgrid, marg, marg2d
+from .cmd import call_pgcmd_byfit
+from .graphics.pdfs import pdf_plot, pdf_plots
+from .wrappers.sspcombine import sspcombine
+
 try:
     import seaborn
     seaborn.set()
@@ -17,15 +26,6 @@ try:
 except ImportError:
     print('some SSP functions (-f, pdf plots) will be missing without pandas')
     yeahpd = False
-
-import matplotlib.pylab as plt
-import numpy as np
-
-from .fileio import filename_data, read_ssp_output, combine_files
-from .utils import centered_meshgrid, marg, marg2d
-from .cmd import call_pgcmd_byfit
-from .graphics.pdfs import pdf_plot, pdf_plots
-from .wrappers.sspcombine import sspcombine
 
 __all__ = ['SSP']
 
@@ -52,7 +52,8 @@ class SSP(object):
 
         if data is not None:
             if gyr:
-                data['lage'] = (10 ** (np.array(data['lage'], dtype=float) - 9))
+                data['lage'] = (10 ** (np.array(data['lage'],
+                                                dtype=float) - 9))
 
             if filterby is not None:
                 # Perhaps this should split into a dict instead of culling...
