@@ -15,7 +15,7 @@ import matplotlib.pylab as plt
 from ..scripts.config import EXT
 
 
-def plot_mods(sub=None, pref='mod1_*', overwrite=False):
+def plot_mods(sub=None, pref='mod1_*', overwrite=False, lims=True):
     """
     make a plot of Mbol vs Log Te of tracks to go to MATCH or the
     MATCH tracks themselves
@@ -80,8 +80,9 @@ def plot_mods(sub=None, pref='mod1_*', overwrite=False):
             ax.plot(data[i], data[j], color='k')
         ax.set_xlim(ax.get_xlim()[::-1])
         ax.set_ylim(ax.get_ylim()[::-1])
-        ax.set_ylim(13, -14.0)
-        ax.set_xlim(5.5, 3.0)
+        if lims:
+            ax.set_ylim(13, -14.0)
+            ax.set_xlim(5.5, 3.0)
 
         ax.set_title(fname.replace('_', r'\_'))
         ax.set_xlabel('Log T')
@@ -105,6 +106,9 @@ def main(argv):
     parser.add_argument('-f', '--overwrite', action='store_true',
                         help='overwrite plots')
 
+    parser.add_argument('-l', '--lims', action='store_false',
+                    help='do not set plot limits automatically')
+
     parser.add_argument('-p', '--pref', type=str, default='mod1*',
                         help='search string for mod files')
 
@@ -118,7 +122,8 @@ def main(argv):
         subs = [s for s in os.listdir('.') if os.path.isdir(s)]
 
     for sub in subs:
-        plot_mods(sub=sub, pref=args.pref, overwrite=args.overwrite)
+        plot_mods(sub=sub, pref=args.pref, overwrite=args.overwrite,
+                  lims=args.lims)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
