@@ -18,8 +18,13 @@ logger = logging.getLogger()
 __all__ = ['check_boundaries', 'strip_header', 'convertz', 'center_grid']
 
 def lnprob(prob):
+    lenp = len(prob)
+    prob[prob == 0] = 1e-323
     prob = 2 * np.log(prob)
-    prob[np.isinf(prob)] = np.min(np.ravel(prob)[(np.isfinite(np.ravel(prob)))])
+    pmin = np.min(np.ravel(prob)[(np.isfinite(np.ravel(prob)))])
+    # prob[np.isneginf(prob)] = pmin
+    prob -= pmin
+    assert len(prob) == lenp, 'lnprob has changed array shape of prob.'
     return prob
 
 
@@ -74,7 +79,9 @@ def marg2d(x, y, z, unx=None, uny=None, log=True):
 
 def centered_meshgrid(x, y, unx=None, uny=None):
     """call meshgrid with bins shifted so x, y will be at bin center"""
-    X, Y = np.meshgrid(center_grid(x, unx=unx), center_grid(y, unx=uny), indexing="ij")
+    X, Y = np.meshgrid(center_grid(x, unx=unx),
+                       center_grid(y, unx=uny),
+                       indexing="ij")
     return X, Y
 
 

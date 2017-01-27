@@ -3,10 +3,59 @@ import matplotlib.pyplot as plt
 import numpy as np
 from .graphics import corner_setup, fix_diagonal_axes, key2label
 
+def add_quantiles(SSP, ax, attrs, uvalss=None, probs=None,
+                  twod=False):
+    """
+    attrs must go [xattr, yattr]
+    """
+    attrs = np.atleast_1d(attrs)
+    if uvalss is None:
+        uvalss = [None] * len(attrs)
+    else:
+        uvalss = np.atleast_1d(uvalss)
+
+    if probs is None:
+        probs = [None] * len(attrs)
+    else:
+        probs = np.atleast_1d(probs)
+
+    pltkw = {'color': 'k'}
+    linefuncs = [ax.axvline, ax.axhline]
+    pts = []
+    for i, (attr, uvals, prob) in enumerate(zip(attrs, uvalss, probs)):
+        if attr is None:
+            continue
+        gatr = '{:s}g'.format(attr)
+        if not hasattr(SSP, gatr):
+            g = SSP.fitgauss1D(attr, uvals, prob)
+        else:
+            g = SSP.__getattribute__(gatr)
+
+        lines = [g.mean, g.mean + g.stddev / 2, g.mean - g.stddev / 2]
+        lstys = ['-', '--', '--']
+
+        if twod:
+            lines = [g.mean + g.stddev / 2, g.mean - g.stddev / 2]
+            lstys = ['--', '--']
+            pts.append(g.mean)
+
+        [linefuncs[i](l, ls=ls, **pltkw) for (l, ls) in zip(lines, lstys)]
+
+    if twod:
+        ax.plot(*pts, 'o', color='white', mec='k', mew=1)
+    else:
+        X = uvalss[0]
+        prob = probs[0]
+        # plot the Gaussian 10 steps beyond the calculated limits.
+        dx = 10 * np.diff(X)[0]
+        xx = np.linspace(X.min() - dx, X.max() + dx, 100)
+        ax.plot(xx, g(xx), color='darkred')
+    return ax
+
 
 def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
              truth=None, cmap=None, plt_kw=None, X=None, prob=None,
-             logp=True):
+             logp=True, gauss1D=False):
     """Plot -2 ln P vs marginalized attributes
 
     SSP : SSP class instance
@@ -43,8 +92,9 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
     truth = truth or {}
     do_cbar = False
     pstr = ''
-    if log:
-        pstr = 'Log '
+    if logp:
+        pstr = '\ln\ '
+
     if ax is None:
         _, ax = plt.subplots()
         if yattr is not None:
@@ -58,7 +108,13 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
                 return ax
             SSP.build_posterior(xattr, X, prob)
         l = ax.plot(X, prob, **plt_kw)
+        if gauss1D:
+            ax = add_quantiles(SSP, ax, xattr, uvalss=[X], probs=[prob])
         ax.set_xlim(X.min(), X.max())
+        # yaxis max is the larger of 10% higher than the max val or current ylim.
+        ymax = np.max([prob[prob>0].max() + (prob[prob>0].max() * 0.1),
+                                             ax.get_ylim()[1]])
+        ax.set_ylim(prob[prob>0].min(), ymax)
         if save:
             ptype = 'marginal'
             # ax.set_ylabel(key2label('fit'))
@@ -70,6 +126,8 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
         if not SSP.vdict[xattr] or not SSP.vdict[yattr]:
             return ax
         l = ax.pcolor(X, Y, prob, cmap=cmap)
+        if gauss1D:
+            add_quantiles(SSP, ax, [xattr, yattr], twod=True)
         ax.set_xlim(X.min(), X.max())
         ax.set_ylim(Y.min(), Y.max())
 
@@ -103,14 +161,26 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
 
 
 def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
-              text=None, cmap=None, fig=None, axs=None, frompost=False):
+              text=None, cmap=None, fig=None, axs=None, frompost=False,
+              logp=True, gauss1D=False):
     """Call pdf_plot for a list of xattr and yattr"""
     text = text or ''
     sub = sub or ''
     truth = truth or {}
     marginals = marginals or SSP._getmarginals()
-
+    pstr = ''
+    if logp:
+        pstr = '\ln\ '
+    if not hasattr(SSP, 'vdict'):
+        SSP.check_grid()
+    valid_margs = [k for (k, v) in list(SSP.vdict.items()) if v]
     ndim = len(marginals)
+    if ndim != len(valid_margs):
+        bad_margs = [m for m in marginals if m not in valid_margs]
+        marginals = [m for m in marginals if m in valid_margs]
+        print('Warning: {} does not vary and will be skipped.'.format(bad_margs))
+        ndim = len(marginals)
+
     if twod:
         fig, axs = corner_setup(ndim)
         raxs = []
@@ -120,12 +190,14 @@ def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
                 if r == c:
                     # diagonal
                     # my = 'fit'  # my is reset for ylabel call
-                    my = 'Probability'
-                    raxs.append(SSP.pdf_plot(mx, ax=ax, truth=truth))
+                    my = pstr+'Probability'
+                    raxs.append(SSP.pdf_plot(mx, ax=ax, truth=truth, logp=logp,
+                                             gauss1D=gauss1D))
                 else:
                     # off-diagonal
                     raxs.append(SSP.pdf_plot(mx, yattr=my, ax=ax, truth=truth,
-                                             cmap=cmap))
+                                             cmap=cmap, logp=logp,
+                                             gauss1D=gauss1D))
 
                 if c == 0:
                     # left most column
@@ -150,14 +222,15 @@ def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
                 X = SSP.data[i][np.isfinite(SSP.data[i])]
                 prob = SSP.data[pattr][np.isfinite(SSP.data[pattr])]
             ax = axs[marginals.index(i)]
-            ax = SSP.pdf_plot(i, truth=truth, ax=ax, X=X, prob=prob)
+            ax = SSP.pdf_plot(i, truth=truth, ax=ax, X=X, prob=prob, logp=logp,
+                              gauss1D=gauss1D)
             ax.set_xlabel(key2label(i, gyr=SSP.gyr))
             raxs.append(ax)
 
         if text:
             axs[-1].text(0.90, 0.10, '${}$'.format(text), ha='right',
                          transform=axs[-1].transAxes)
-        fig.subplots_adjust(bottom=0.2, left=0.05)
+        fig.subplots_adjust(bottom=0.22, left=0.05)
 
         raxs[0].set_ylabel(key2label('Probability'))
     [ax.locator_params(axis='x', nbins=6) for ax in axs.ravel()]

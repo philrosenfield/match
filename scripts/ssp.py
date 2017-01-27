@@ -47,8 +47,11 @@ class SSP(object):
         be concatenated as is typical in MATCH useage.
         """
         self.gyr = gyr
+        self.frompost = False
         if filename is not None:
             data = self.load_ssp(filename)
+            if 'post' in filename:
+                self.frompost = True
 
         if data is not None:
             if gyr:
@@ -81,7 +84,7 @@ class SSP(object):
         much time to a pdf_plots call.
         """
         skip_cols = skip_cols or []
-        cols = [c for c in self.data.columns if c not in skip_cols]
+        cols = [c for c in self.data.columns if c not in skip_cols or 'prob' in c]
         [self.unique_(c, check=True) for c in cols]
 
     def _getmarginals(self, avoid_list=['fit']):
@@ -117,6 +120,40 @@ class SSP(object):
         self.posterior = self.posterior.append(df, ignore_index=True)
         return
 
+    def fitgauss1D(self, xattr, ux, prob):
+        """Fit a 1D Gaussian to a marginalized probability
+        Parameters
+
+        xattr : str
+            column name (and will be attribute name)
+        ux :
+            unique xattr values
+        prob :
+            marginalized probability at ux.
+
+        Returns
+
+        g : astropy.models.Gaussian1D object
+        sets g as attribute 'xattr'g
+        """
+        assert ux is not None, \
+            'need to supply values and probability to fitgauss1D'
+        from astropy.modeling import models, fitting
+        weights = np.ones(len(ux))
+        fit_g = fitting.LevMarLSQFitter()
+        g_init = models.Gaussian1D(amplitude=1.,
+                                   mean=np.mean(ux),
+                                   stddev=np.diff(ux)[0])
+        weights[prob == 2 * np.log(1e-323)] = 0.
+        g = fit_g(g_init, ux, prob, weights=weights)
+        self.__setattr__('{0:s}g'.format(xattr), g)
+        return g
+
+    def marg_table(filename=None, gauss1D=True):
+        if filename is not None:
+            self.load_posterior(filename)
+
+
     def write_posterior(self, filename='post.dat'):
         """write the posterior to a csv"""
         if not yeahpd:
@@ -147,6 +184,9 @@ class SSP(object):
         """
         if not hasattr(self, 'vdict'):
             self.vdict = {}
+        if self.frompost:
+            self.vdict[attr] = True
+            return self.data[attr]
         self.vdict[attr] = False
         uatr = uniq_attr.format(attr)
         if not hasattr(self, uatr):
@@ -163,7 +203,7 @@ class SSP(object):
             self.vdict[attr] = True
         return u
 
-    def marginalize(self, xattr, yattr=None):
+    def marginalize(self, xattr, yattr=None, **kwargs):
         """
         Marginalize over one or two quanitities
         xattr, yattr : string, string
@@ -191,10 +231,10 @@ class SSP(object):
             assert self._haskey(yattr), '{} not found'.format(yattr)
             y = self.data[yattr]
             uy = self.unique_(yattr)
-            prob, ux, uy = marg2d(x, y, z, unx=ux, uny=uy)
+            prob, ux, uy = marg2d(x, y, z, unx=ux, uny=uy, **kwargs)
             vals = centered_meshgrid(x, y, unx=ux, uny=uy)
         else:
-            prob, ux = marg(x, z, unx=ux)
+            prob, ux = marg(x, z, unx=ux, **kwargs)
             vals = ux
 
         return vals, prob
