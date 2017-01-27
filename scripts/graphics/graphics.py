@@ -117,6 +117,7 @@ def square_aspect(ax):
     (I.e, a square figure)
     """
     ax.set_aspect(np.abs((np.diff(ax.get_xlim()) / (np.diff(ax.get_ylim())))))
+    # ax.set_aspect(np.abs((extent[1] - extent[0])/(extent[3] - extent[2])))
     return ax
 
 

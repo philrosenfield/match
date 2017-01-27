@@ -21,6 +21,13 @@ def setup_imgrid(figsize=[12, 3], nrows=1, ncols=4):
     grid = ImageGrid(fig, 111, **igkw)
     return grid
 
+def mpl_hack(ax):
+    import matplotlib
+    ver = float(matplotlib.__version__[:3])
+    if ver <= 1.3:
+        ax.set_adjustable('box-forced')
+        ax.autoscale(False)
+    return
 
 def match_plot(hesslist, extent, labels=None, twobytwo=True, sig=True,
                xlabel=None, ylabel=None, cmap=None, logcounts=False):
@@ -45,7 +52,6 @@ def match_plot(hesslist, extent, labels=None, twobytwo=True, sig=True,
     logcounts: bool [False]
         pass np.log10(hess) to imshow instead of hess
     '''
-
     if twobytwo:
         figsize = [9, 9]
         nrows = 2
@@ -81,8 +87,10 @@ def match_plot(hesslist, extent, labels=None, twobytwo=True, sig=True,
                 colors = cmap
         if logcounts:
             hess = np.log10(hess)
+
         img = ax.imshow(hess, origin='upper', extent=extent,
                         interpolation="nearest", cmap=colors)
+        mpl_hack(ax)
         ax.cax.colorbar(img)
         if labels is not None:
             _ = add_inner_title(ax, labels[i], loc=1)
@@ -90,7 +98,6 @@ def match_plot(hesslist, extent, labels=None, twobytwo=True, sig=True,
         ax.set_xlim(extent[0], extent[1])
         ax.set_ylim(extent[2], extent[3])
         ax = square_aspect(ax)
-
     if xlabel is not None:
         ind = 0
         if twobytwo:
