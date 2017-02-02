@@ -1,12 +1,39 @@
 from __future__ import print_function, absolute_import
 import matplotlib.pyplot as plt
 import numpy as np
-from .graphics import corner_setup, fix_diagonal_axes, key2label
+from .graphics import (corner_setup, fix_diagonal_axes, key2label,
+                       add_inner_title)
 
 def add_quantiles(SSP, ax, attrs, uvalss=None, probs=None,
-                  twod=False):
+                  twod=False, gauss=False):
     """
-    attrs must go [xattr, yattr]
+    Add some lines!
+
+    Parameters
+    ----------
+    SSP : ssp.SSP instance
+    ax : plt.axes instance
+        add lines/points to this plot
+    attrs: 1 or 2D str array
+        (marginalized) SSP.data columns to plot
+        NB: attrs must go [xattr, yattr] for 2d plotting
+    uvalls: 1 or 2D float array
+        unique values of attrs
+    probs: 1 or 2D float array
+        marginalized probabilities corresponding to attrs
+    twod:
+        add lines
+    gauss: bool (False)
+        fit or access gaussian fit of the attribute(s) and add lines
+        for the mean and +/- stdev / 2
+        or (default)
+        add 16 and 84 percentile as well as maximum posterior probability.
+        if twod, the mean or max post. prob will be plotted as point.
+
+    Returns
+    -------
+    ax : plt.axes instance
+    (may add attributes to SSP if quantiles or fittgauss1D had not been called)
     """
     attrs = np.atleast_1d(attrs)
     if uvalss is None:
@@ -20,42 +47,65 @@ def add_quantiles(SSP, ax, attrs, uvalss=None, probs=None,
         probs = np.atleast_1d(probs)
 
     pltkw = {'color': 'k'}
+    # why order matteres: xattr yattr will plot vline and hline
     linefuncs = [ax.axvline, ax.axhline]
+    # mean or max post. prob to plot as points
     pts = []
     for i, (attr, uvals, prob) in enumerate(zip(attrs, uvalss, probs)):
         if attr is None:
+            # for second loop 1D
             continue
+        # look up value
         gatr = '{:s}g'.format(attr)
         if not hasattr(SSP, gatr):
-            g = SSP.fitgauss1D(attr, uvals, prob)
+            if gauss:
+                # fit 1D Gaussian
+                g = SSP.fitgauss1D(attr, uvals, prob)
+            else:
+                # go with quantiles (default 0.16, 0.84)
+                # g = SSP.quantiles(attr, uvals, prob, maxp=True, k=1, ax=ax)
+                g = SSP.quantiles(attr, uvals, prob, maxp=True, k=1)
         else:
             g = SSP.__getattribute__(gatr)
 
-        lines = [g.mean, g.mean + g.stddev / 2, g.mean - g.stddev / 2]
+        if gauss:
+            lines = [g.mean, g.mean + g.stddev / 2, g.mean - g.stddev / 2]
+        else:
+            # if maxp=False when SSP.quantiles called
+            # this will raise a value error because g will be length 2.
+            lines = [g[2], g[0], g[1]]
         lstys = ['-', '--', '--']
 
         if twod:
-            lines = [g.mean + g.stddev / 2, g.mean - g.stddev / 2]
+            if gauss:
+                lines = [g.mean + g.stddev / 2, g.mean - g.stddev / 2]
+                pts.append(g.mean)
+            else:
+                lines = [g[0], g[1]]
+                pts.append(g[2])
             lstys = ['--', '--']
-            pts.append(g.mean)
 
+        # plot.
         [linefuncs[i](l, ls=ls, **pltkw) for (l, ls) in zip(lines, lstys)]
 
     if twod:
+        # plot mean or max post prob
         ax.plot(*pts, 'o', color='white', mec='k', mew=1)
     else:
-        X = uvalss[0]
-        prob = probs[0]
-        # plot the Gaussian 10 steps beyond the calculated limits.
-        dx = 10 * np.diff(X)[0]
-        xx = np.linspace(X.min() - dx, X.max() + dx, 100)
-        ax.plot(xx, g(xx), color='darkred')
+        if gauss:
+            # over plot Gaussian fit
+            X = uvalss[0]
+            prob = probs[0]
+            # plot the Gaussian 10 steps beyond the calculated limits.
+            dx = 10 * np.diff(X)[0]
+            xx = np.linspace(X.min() - dx, X.max() + dx, 100)
+            ax.plot(xx, g(xx), color='darkred')
     return ax
 
 
 def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
              truth=None, cmap=None, plt_kw=None, X=None, prob=None,
-             logp=True, gauss1D=False):
+             logp=True, quantile=False, gauss1D=False):
     """Plot -2 ln P vs marginalized attributes
 
     SSP : SSP class instance
@@ -108,13 +158,13 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
                 return ax
             SSP.build_posterior(xattr, X, prob)
         l = ax.plot(X, prob, **plt_kw)
-        if gauss1D:
-            ax = add_quantiles(SSP, ax, xattr, uvalss=[X], probs=[prob])
+        if gauss1D or quantile:
+            ax = add_quantiles(SSP, ax, xattr, uvalss=[X], probs=[prob],
+                               gauss=gauss1D)
         ax.set_xlim(X.min(), X.max())
         # yaxis max is the larger of 10% higher than the max val or current ylim.
-        ymax = np.max([prob[prob>0].max() + (prob[prob>0].max() * 0.1),
-                                             ax.get_ylim()[1]])
-        ax.set_ylim(prob[prob>0].min(), ymax)
+        ymax = np.max([prob.max() + (prob.max() * 0.1), ax.get_ylim()[1]])
+        ax.set_ylim(prob.min(), ymax)
         if save:
             ptype = 'marginal'
             # ax.set_ylabel(key2label('fit'))
@@ -126,8 +176,8 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
         if not SSP.vdict[xattr] or not SSP.vdict[yattr]:
             return ax
         l = ax.pcolor(X, Y, prob, cmap=cmap)
-        if gauss1D:
-            add_quantiles(SSP, ax, [xattr, yattr], twod=True)
+        if gauss1D or quantile:
+            add_quantiles(SSP, ax, [xattr, yattr], twod=True, gauss=gauss1D)
         ax.set_xlim(X.min(), X.max())
         ax.set_ylim(Y.min(), Y.max())
 
@@ -162,15 +212,18 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
 
 def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
               text=None, cmap=None, fig=None, axs=None, frompost=False,
-              logp=True, gauss1D=False):
+              logp=True, gauss1D=False, quantile=False):
     """Call pdf_plot for a list of xattr and yattr"""
     text = text or ''
     sub = sub or ''
     truth = truth or {}
     marginals = marginals or SSP._getmarginals()
     pstr = ''
+    plkw = {'logp': logp, 'gauss1D': gauss1D, 'quantile': quantile}
+
     if logp:
         pstr = '\ln\ '
+
     if not hasattr(SSP, 'vdict'):
         SSP.check_grid()
     valid_margs = [k for (k, v) in list(SSP.vdict.items()) if v]
@@ -191,13 +244,11 @@ def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
                     # diagonal
                     # my = 'fit'  # my is reset for ylabel call
                     my = pstr+'Probability'
-                    raxs.append(SSP.pdf_plot(mx, ax=ax, truth=truth, logp=logp,
-                                             gauss1D=gauss1D))
+                    raxs.append(SSP.pdf_plot(mx, ax=ax, truth=truth, **plkw))
                 else:
                     # off-diagonal
                     raxs.append(SSP.pdf_plot(mx, yattr=my, ax=ax, truth=truth,
-                                             cmap=cmap, logp=logp,
-                                             gauss1D=gauss1D))
+                                             cmap=cmap, **plkw))
 
                 if c == 0:
                     # left most column
@@ -222,16 +273,13 @@ def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
                 X = SSP.data[i][np.isfinite(SSP.data[i])]
                 prob = SSP.data[pattr][np.isfinite(SSP.data[pattr])]
             ax = axs[marginals.index(i)]
-            ax = SSP.pdf_plot(i, truth=truth, ax=ax, X=X, prob=prob, logp=logp,
-                              gauss1D=gauss1D)
+            ax = SSP.pdf_plot(i, truth=truth, ax=ax, X=X, prob=prob, **plkw)
             ax.set_xlabel(key2label(i, gyr=SSP.gyr))
             raxs.append(ax)
 
         if text:
-            axs[-1].text(0.90, 0.10, '${}$'.format(text), ha='right',
-                         transform=axs[-1].transAxes)
+            add_inner_title(axs[-1], '${}$'.format(text), 3, size=None)
         fig.subplots_adjust(bottom=0.22, left=0.05)
-
         raxs[0].set_ylabel(key2label('Probability'))
     [ax.locator_params(axis='x', nbins=6) for ax in axs.ravel()]
     return fig, raxs

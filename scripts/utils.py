@@ -15,7 +15,75 @@ except SystemError:
 logger = logging.getLogger()
 
 
-__all__ = ['check_boundaries', 'strip_header', 'convertz', 'center_grid']
+__all__ = ['check_boundaries', 'strip_header', 'convertz', 'center_grid',
+           'quantiles', 'fitgauss1D']
+
+
+def quantiles(ux, prob, qs=[0.16, 0.84], res=200, maxp=False,
+              ax=None, k=3):
+    """
+    Calculate quantiles, or lines at qs fraction of total area under prob curve.
+
+    Parameters
+    ----------
+    ux : 1D array
+        vector assciated with prob
+    prob : 1D array
+        probability of ux
+    qs : list or array
+        quantiles
+    res :
+        number of resolution points for interpolation
+    maxp : bool (False)
+        append maximum posterior probability to returned quantile array
+    ax : plt.Axes instance
+        plot the interpolation
+    Returns
+    -------
+    interpolated ux evaluated at qs
+    """
+    from scipy.interpolate import splprep, splev
+    ((tckp, u), fp, ier, msg) = splprep([ux, prob], k=k, full_output=1)
+    iux, iprob = splev(np.linspace(0, 1, res), tckp)
+
+    fac = np.cumsum(iprob) / np.sum(iprob)
+    ipts = [np.argmin(np.abs(fac - q)) for q in qs]
+    g = iux[ipts]
+    if maxp:
+        g = np.append(g, ux[np.argmax(prob)])
+    if ax is not None:
+        # useful for debugging or by-eye checking of interpolation
+        ax.plot(iux, iprob, color='r')
+    return g
+
+def fitgauss1D(ux, prob):
+    """Fit a 1D Gaussian to a marginalized probability
+    Parameters
+
+    xattr : str
+        column name (and will be attribute name)
+    ux :
+        unique xattr values
+    prob :
+        marginalized probability at ux.
+
+    Returns
+
+    g : astropy.models.Gaussian1D object
+    sets g as attribute 'xattr'g
+    """
+    assert ux is not None, \
+        'need to supply values and probability to fitgauss1D'
+    from astropy.modeling import models, fitting
+    weights = np.ones(len(ux))
+    fit_g = fitting.LevMarLSQFitter()
+    g_init = models.Gaussian1D(amplitude=1.,
+                               mean=np.mean(ux),
+                               stddev=np.diff(ux)[0])
+    noweight, = np.nonzero(prob == 2 * np.log(1e-323))
+    weights[noweight] = 0.
+    return fit_g(g_init, ux, prob, weights=weights)
+
 
 def lnprob(prob):
     lenp = len(prob)

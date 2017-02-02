@@ -8,8 +8,8 @@ import sys
 import matplotlib.pylab as plt
 import numpy as np
 
+from . import utils
 from .fileio import filename_data, read_ssp_output, combine_files
-from .utils import centered_meshgrid, marg, marg2d
 from .cmd import call_pgcmd_byfit
 from .graphics.pdfs import pdf_plot, pdf_plots
 from .wrappers.sspcombine import sspcombine
@@ -122,30 +122,17 @@ class SSP(object):
 
     def fitgauss1D(self, xattr, ux, prob):
         """Fit a 1D Gaussian to a marginalized probability
-        Parameters
-
-        xattr : str
-            column name (and will be attribute name)
-        ux :
-            unique xattr values
-        prob :
-            marginalized probability at ux.
-
-        Returns
-
-        g : astropy.models.Gaussian1D object
-        sets g as attribute 'xattr'g
+        see .utils.fitgauss1D
+        sets attribute 'xattr'g
         """
-        assert ux is not None, \
-            'need to supply values and probability to fitgauss1D'
-        from astropy.modeling import models, fitting
-        weights = np.ones(len(ux))
-        fit_g = fitting.LevMarLSQFitter()
-        g_init = models.Gaussian1D(amplitude=1.,
-                                   mean=np.mean(ux),
-                                   stddev=np.diff(ux)[0])
-        weights[prob == 2 * np.log(1e-323)] = 0.
-        g = fit_g(g_init, ux, prob, weights=weights)
+        g = utils.fitgauss1D(ux, prob)
+        self.__setattr__('{0:s}g'.format(xattr), g)
+        return g
+
+    def quantiles(self, xattr, ux, prob, qs=[0.16, 0.84], res=200, maxp=False,
+                  ax=None, k=3):
+        g = utils.quantiles(ux, prob, qs=qs, res=res, maxp=maxp, ax=ax,
+                            k=k)
         self.__setattr__('{0:s}g'.format(xattr), g)
         return g
 
@@ -231,10 +218,10 @@ class SSP(object):
             assert self._haskey(yattr), '{} not found'.format(yattr)
             y = self.data[yattr]
             uy = self.unique_(yattr)
-            prob, ux, uy = marg2d(x, y, z, unx=ux, uny=uy, **kwargs)
-            vals = centered_meshgrid(x, y, unx=ux, uny=uy)
+            prob, ux, uy = utils.marg2d(x, y, z, unx=ux, uny=uy, **kwargs)
+            vals = utils.centered_meshgrid(x, y, unx=ux, uny=uy)
         else:
-            prob, ux = marg(x, z, unx=ux, **kwargs)
+            prob, ux = utils.marg(x, z, unx=ux, **kwargs)
             vals = ux
 
         return vals, prob

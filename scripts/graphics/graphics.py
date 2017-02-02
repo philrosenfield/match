@@ -41,7 +41,8 @@ def corner_setup(ndim):
     # Turn off upper triangle axes
     [[ax.set_visible(False) for ax in axs[k, k+1:]] for k in range(ndim)]
 
-    fig.subplots_adjust(left=0.1, bottom=0.1, top=0.95, right=0.95)
+    if ndim > 2:
+        fig.subplots_adjust(left=0.1, bottom=0.1, top=0.95, right=0.95)
     return fig, axs
 
 
@@ -166,7 +167,19 @@ def stitch_cmap(cmap1, cmap2, stitch_frac=0.5, dfrac=0.001, transparent=False):
 
 
 def add_inner_title(ax, title, loc, size=None):
-    '''add a label to an axes as if it were a legend (loc must be 1-11)'''
+    '''
+    add a label to an axes as if it were a legend (loc must be 1-11)
+        'upper right'     1
+        'upper left'      2
+        'lower left'      3
+        'lower right'     4
+        'right'           5
+        'center left'     6
+        'center right'    7
+        'lower center'    8
+        'upper center'    9
+        'center'          10
+    '''
     from matplotlib.patheffects import withStroke
     from matplotlib.offsetbox import AnchoredText
 
