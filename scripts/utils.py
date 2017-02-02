@@ -50,7 +50,7 @@ def quantiles(ux, prob, qs=[0.16, 0.84], res=200, maxp=False,
     ipts = [np.argmin(np.abs(fac - q)) for q in qs]
     g = iux[ipts]
     if maxp:
-        g = np.append(g, ux[np.argmax(prob)])
+        g = np.append(g, iux[np.argmax(iprob)])
     if ax is not None:
         # useful for debugging or by-eye checking of interpolation
         ax.plot(iux, iprob, color='r')

@@ -83,7 +83,7 @@ class SSP(object):
         Since the unique array is saved as an attribute, this will not add
         much time to a pdf_plots call.
         """
-        skip_cols = skip_cols or []
+        skip_cols = skip_cols or ['None']
         cols = [c for c in self.data.columns if c not in skip_cols or 'prob' in c]
         [self.unique_(c, check=True) for c in cols]
 
@@ -131,15 +131,11 @@ class SSP(object):
 
     def quantiles(self, xattr, ux, prob, qs=[0.16, 0.84], res=200, maxp=False,
                   ax=None, k=3):
+        """Add quantiles, see .utils.quantiles"""
         g = utils.quantiles(ux, prob, qs=qs, res=res, maxp=maxp, ax=ax,
                             k=k)
         self.__setattr__('{0:s}g'.format(xattr), g)
         return g
-
-    def marg_table(filename=None, gauss1D=True):
-        if filename is not None:
-            self.load_posterior(filename)
-
 
     def write_posterior(self, filename='post.dat'):
         """write the posterior to a csv"""

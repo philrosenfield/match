@@ -90,7 +90,7 @@ def add_quantiles(SSP, ax, attrs, uvalss=None, probs=None,
 
     if twod:
         # plot mean or max post prob
-        ax.plot(*pts, 'o', color='white', mec='k', mew=1)
+        ax.plot(pts[0], pts[1], 'o', color='white', mec='k', mew=1)
     else:
         if gauss:
             # over plot Gaussian fit
@@ -153,11 +153,12 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
     if yattr is None:
         # plot type is marginal probability. Attribute vs -2 ln P
         if X is None and prob is None:
-            X, prob = SSP.marginalize(xattr, log=logp)
             if not SSP.vdict[xattr]:
                 return ax
+            X, prob = SSP.marginalize(xattr, log=logp)
             SSP.build_posterior(xattr, X, prob)
         l = ax.plot(X, prob, **plt_kw)
+
         if gauss1D or quantile:
             ax = add_quantiles(SSP, ax, xattr, uvalss=[X], probs=[prob],
                                gauss=gauss1D)
@@ -165,6 +166,7 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
         # yaxis max is the larger of 10% higher than the max val or current ylim.
         ymax = np.max([prob.max() + (prob.max() * 0.1), ax.get_ylim()[1]])
         ax.set_ylim(prob.min(), ymax)
+
         if save:
             ptype = 'marginal'
             # ax.set_ylabel(key2label('fit'))
@@ -172,9 +174,9 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
     else:
         # plot type is joint probability.
         # Attribute1 vs Attribute2 colored by fit
-        [X, Y], prob = SSP.marginalize(xattr, yattr=yattr, log=logp)
         if not SSP.vdict[xattr] or not SSP.vdict[yattr]:
             return ax
+        [X, Y], prob = SSP.marginalize(xattr, yattr=yattr, log=logp)
         l = ax.pcolor(X, Y, prob, cmap=cmap)
         if gauss1D or quantile:
             add_quantiles(SSP, ax, [xattr, yattr], twod=True, gauss=gauss1D)
@@ -234,9 +236,9 @@ def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
         print('Warning: {} does not vary and will be skipped.'.format(bad_margs))
         ndim = len(marginals)
 
+    raxs = []
     if twod:
         fig, axs = corner_setup(ndim)
-        raxs = []
         for c, mx in enumerate(marginals):
             for r, my in enumerate(marginals):
                 ax = axs[r, c]
@@ -260,9 +262,8 @@ def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
         [ax.locator_params(axis='y', nbins=6) for ax in axs.ravel()]
         fix_diagonal_axes(raxs, ndim)
     else:
-        raxs = []
         if fig is None and axs is None:
-            fig, axs = plt.subplots(ncols=ndim, figsize=(15, 3))
+            fig, axs = plt.subplots(ncols=ndim, figsize=(ndim * 3., ndim * 0.6))
         [ax.tick_params(left='off', labelleft='off', right='off', top='off')
          for ax in axs]
         X = None
@@ -278,7 +279,7 @@ def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
             raxs.append(ax)
 
         if text:
-            add_inner_title(axs[-1], '${}$'.format(text), 3, size=None)
+            add_inner_title(raxs[-1], '${}$'.format(text), 3, size=None)
         fig.subplots_adjust(bottom=0.22, left=0.05)
         raxs[0].set_ylabel(key2label('Probability'))
     [ax.locator_params(axis='x', nbins=6) for ax in axs.ravel()]
