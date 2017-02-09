@@ -190,44 +190,110 @@ def find_gates(mag1, mag2, param):
     print('wrote %s' % param)
 
 
+def check_filters(filters, hstflag=None):
+    """
+    Assign filters, check against templates/match_filters.json, and
+    add HST instrument if format is from UW pipline filename.
+
+    Paramters
+    ---------
+    filters : str list
+        str list of vfilter, ifilter -- only two filter are currently supported
+
+    hstflag : str (wfc, uvis, or hrc)
+        UW pipeline filenames follow format of F???W no matter WFC3, HRC, or
+        UVIS.
+        However in MATCH, F???W specifically selects WFPC2. Pass this flag
+        if the filter is in format F???W but NOT from WFPC2 instrument.
+        Otherwise, pass WFC???W, UVIS???W, HRC???W format.
+
+    Returns
+    -------
+    vfilter, ifilter : (str, str)
+        filters selected for calcsfh
+    """
+    hstflag = hstflag or ''
+    vfilter = filters[0]
+    ifilter = filters[1]
+
+    if 'wfc' in hstflag.lower():
+        cam = 'WFC'
+    elif 'uvis' in hstflag.lower():
+        cam = 'UVIS'
+    elif 'hrc' in hstflag.lower():
+        cam = 'HRC'
+    else:
+        cam = ''
+
+    if len(cam) > 0:
+        vfilter = vfilter.replace('F', cam)
+        ifilter = ifilter.replace('F', cam)
+
+    if vfilter.startswith('F') and vfilter.endswith('W'):
+        cam = 'WFPC2'
+
+    print('filters set to {0:s}, {1:s}'.format(vfilter, ifilter))
+    if len(cam) > 0:
+        print('assuming HST instrument: {0:s}'.format(cam))
+
+    return vfilter, ifilter
+
+
+
 def match_param(mag1, mag2, filters, param, interactive=False, fake=None,
                 comp_frac=0.5, param_kw=None, power_law_imf=False, zinc=False,
-                bright_lim=20., clobber=False):
+                bright_lim=20., overwrite=False, hstflag=None, max_tbins=100):
     """
     Make match param file
 
-    Note:
     Will check filter list against templates/match_filters.json
     Will check the CMD limits against the AST limits (if fake is passed)
 
+    Parameters
+    ----------
     mag1, mag2 : array, array
         v mag and i mag (extrema used for CMD limits)
+
     filters : list of strings
         v and i filter names
+
     param : string
         template parameter file or if clobber parameter file name
+
     interactive : bool
-        choose cmd limits interactively
+        choose cmd limits interactively [not tested in py3+]
+
     fake : string
         matchfake filename if using comp_frac or want to check CMD limits
         are within fake limits (see FK overflow in MATCH README)
+
     comp_frac : float
         completeness fraction to set faint mag limit
+
     param_kw : dict
         parameters of template/calcsfh_input_parameter.json to write
+
     power_law_imf : bool
         passed to fileio.calcsfh_input_parameter
+
     zinc : bool
         passed to fileio.calcsfh_input_parameter
+
     bright_lim : float
         passed to asts.ast.get_completeness_fraction
-    clobber : bool
+
+    overwrite : bool
         overwrite param file if exisiting
     """
+    def write_param(fn, pstr):
+        with open(fn, 'w') as out:
+            out.write(pstr)
+        print('wrote {}'.format(fn))
+        return
+
     param_kw = param_kw or {}
 
-    print('Using filters {}, {}'.format(*filters))
-    if os.path.isfile(param) and not clobber:
+    if os.path.isfile(param) and not overwrite:
         template = read_calcsfh_param(param)
         if param_kw['tbin'] is not None:
             print(template['ntbins'])
@@ -235,6 +301,8 @@ def match_param(mag1, mag2, filters, param, interactive=False, fake=None,
         template.update(param_kw)
     else:
         template = param_kw
+
+    template['v'], template['i'] = check_filters(filters, hstflag=hstflag)
 
     if interactive:
         vimin, vimax, vmin, vmax, imin, imax = find_match_limits(mag1, mag2)
@@ -250,10 +318,10 @@ def match_param(mag1, mag2, filters, param, interactive=False, fake=None,
             dove = 'data'
         else:
             from .asts import ASTs
-            ast = ASTs(fake)
+            ast = ASTs(filename=fake, filter1=filters[0], filter2=filters[1])
             ast.completeness(combined_filters=True, interpolate=True)
-            print('Using {} completeness fraction from {}'.format(comp_frac,
-                                                                  fake))
+            print('Using {0:f} completeness fraction from {1:s}'
+                  .format(comp_frac, fake))
             vmax, imax = ast.get_completeness_fraction(comp_frac,
                                                        bright_lim=bright_lim)
             dove = 'completeness'
@@ -265,41 +333,25 @@ def match_param(mag1, mag2, filters, param, interactive=False, fake=None,
     template['imin'] = imin
     template['vmax'] = vmax
     template['imax'] = imax
+    # if fake color and mag limits within color and mag limits above:
     if fake is not None:
         template = within_limits(template, fake)
-    template['v'] = filters[0]
-    template['i'] = filters[1]
 
-    # HACK!! Is it WFC3 or UVIS?
-    # (calcsfh_input_parameter will throw assertion for unrecognized filters)
-    # First: UW Pipeline says FXXXW, MATCH would think that's WFPC2
-    # So this won't work with WFPC2 data.
-    #  If it's not WFC3, both are UVIS.
-    # However, this is a bad way to do it, should have a -wfc or -uvis flag.
-    itsuvis = False
-    possible_filters = match_filters()['filters']
-    if filters[0].startswith('F') and filters[0].endswith('W'):
-        template['v'] = filters[0].replace('F', 'WFC')
-    if not template['v'] in possible_filters:
-        template['v'] = filters[0].replace('F', 'UVIS')
-        itsuvis = True
+    param_files = calcsfh_input_parameter(power_law_imf=power_law_imf,
+                                          zinc=zinc, max_tbins=max_tbins,
+                                          **template)
 
-    if filters[1].startswith('F') and filters[1].endswith('W'):
-        template['i'] = filters[1].replace('F', 'WFC')
-    if not template['i'] in possible_filters or itsuvis:
-        template['i'] = filters[1].replace('F', 'UVIS')
-
-    with open(param, 'w') as out:
-        # see fileio.match_param_fmt for dictionary defaults
-        out.write(calcsfh_input_parameter(power_law_imf=power_law_imf,
-                                          zinc=zinc,
-                                          **template))
-    print('wrote {}'.format(param))
+    param_files = np.atleast_1d(param_files)
+    for i, pstr in enumerate(param_files):
+        if i == 0:
+            fn = param
+        else:
+            fn = param.replace(PARAMEXT, '_{0:d}{1:s}'.format(i, PARAMEXT))
+        write_param(fn, pstr)
     return param
 
 
-def main(argv):
-    """main function for match_param"""
+def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="make calcsfh param file",
                                      fromfile_prefix_chars='@')
 
@@ -327,10 +379,10 @@ def main(argv):
     parser.add_argument('--zinc', action='store_true',
                         help='use zinc [False]')
 
-    parser.add_argument('--dmod', type=float, nargs=2,
+    parser.add_argument('--dmod', type=float, nargs=2, default=[10., 10.],
                         help='dmod0, dmod1')
 
-    parser.add_argument('--av', type=float, nargs=2,
+    parser.add_argument('--av', type=float, nargs=2, default=[0.0, 0.0],
                         help='av0, av1')
 
     parser.add_argument('--dav', type=float, default=0.05,
@@ -364,12 +416,24 @@ def main(argv):
     parser.add_argument('-p', '--param', type=str,
                         help='template match param file')
 
-    parser.add_argument('--clobber', action='store_true',
+    parser.add_argument('--hstflag', type=str,
+                        help='if HST filters: uvis or wfc')
+
+    parser.add_argument('--overwrite', action='store_true',
                         help='overwrite')
+
+    parser.add_argument('--max_tbins', type=int, default=100,
+                        help=('maximum time bins per param file '
+                              '(would create more parameter files)'))
 
     parser.add_argument('phot', type=str, help='photometry file match or fits')
 
-    args = parser.parse_args(argv)
+    return parser.parse_args(argv)
+
+def main(argv=None):
+    """main function for match_param"""
+    args = parse_args(argv)
+
     assert(not isinstance(args.imf, str)), 'Only set IMF if it is a power law.'
     if args.phot.endswith('fits'):
         args.phot = make_phot(args.phot)[0]
@@ -382,11 +446,23 @@ def main(argv):
 
     args.param = args.param or replaceext(args.phot, PARAMEXT)
 
-    filters = args.filters
-    if args.filters is None:
-        _, filters = parse_pipeline(args.phot)
 
-    if not os.path.isfile(args.param) or args.clobber:
+    if args.filters is None:
+        try:
+            _, filters = parse_pipeline(args.phot)
+        except IndexError:
+            print("Could not read filters from filename")
+            filters = args.filters
+            pass
+    else:
+        filters = args.filters.split(',')
+    if args.hstflag is None:
+        if 'uvis' in args.phot.lower():
+            args.hstflag == 'uvis'
+        elif 'wfc' in args.phot.lower():
+            args.hstflag == 'wfc'
+
+    if not os.path.isfile(args.param) or args.overwrite:
         print('Making param file')
         param_kw = {'imf': args.imf,
                     'bf': args.bf,
@@ -410,11 +486,12 @@ def main(argv):
                     interactive=args.interactive, comp_frac=args.comp_frac,
                     param_kw=param_kw, power_law_imf=power_law_imf,
                     zinc=args.zinc, bright_lim=args.bright_lim,
-                    clobber=args.clobber)
+                    overwrite=args.overwrite, hstflag=args.hstflag,
+                    max_tbins=args.max_tbins)
 
-        match_diagnostic(args.param, args.phot, fake=args.fake)
+        # match_diagnostic(args.param, args.phot, fake=args.fake)
     else:
         print('{} file found, not overwriting'.format(args.param))
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    sys.exit(main())
