@@ -204,44 +204,66 @@ def add_gates(ngates):
     return ''
 
 
-def calcsfh_input_parameter(zinc=False, power_law_imf=True, **params):
+def calcsfh_input_parameter(zinc=False, power_law_imf=True, max_tbins=100,
+                            **params):
     '''
     Returns a formatted string of the calcsfh input parameter file.
-    params is a dictionary to update calcsfh_dict which has most of the same
-    keys as are directly needed in the calcsfh input parameter file.
+    Parameters
+    ----------
+    zinc : bool [False]
+        change the input file for calcsfh -zinc
+    power_law_imf : bool [True]
+        change the input file for calcsfh without -kroupa or -chabrier
+    max_tbins : int [100]
+        maximum number of time steps per input file. Will create more
+        input files, not truncate to five bins.
+        Note: this is independent of calculations with tbin, ntbins, tmin, tmax
+    params : dict
+        Will update calcsfh_dict which has most of the same
+        keys as are directly needed in the calcsfh input parameter file.
+        See templates/calcsfh_input_parameter
 
-    imf dmod0 dmod1 ddmod av0 av1 dav
-    logzmin logzmax dlogz[1]
-    bf bad0 bad1
-    ncmds[2]
-    vstep v-istep fake_sm v-imin v-imax v,i
-    vmin vmax v
-    imin imax i
-    nexclude_gates exclude_gates ninclude_gates include_gates[3]
-    ntbins[4]
-        ...
-    use_bg bg_smooth bg_sample bg_file[5]
+        Time arrays are calculated here:
+        ntbins : int
+            number of time bins, with tmax, tmin will set tbin.
+        tbin : float, or list/array of floats
+            time bin or time bins (see tbreak)
+        tbreak: list/array of ages len(tbreak) + 1
+            break the time binning up for example, 0.05 until 10.0 and
+            0.1 after.
+            tbin = [0.05, 0.1]
+            tbreak = [6.6, 10.0, 10.25]
+        tmax: max age
+        tmin: min age
 
-    [1] if zinc the following is added:
-        logzmin0 logzmin1 logzmax0 logzmax1
-    [2] ncmds > 1 not implemented yet
-    [3] Not implemented yet.
-    [4] The time array is calculated here.
-        Supply minimum log (or linear) age as tmin, maximum log age as tmax and
-        either the number of time bins as ntbins or the length of a time bin as
-        tbin.
+        the rest of the param keys follow calcsfh input parameter keys:
+        imf[1] dmod0 dmod1 ddmod av0 av1 dav
+        logzmin logzmax dlogz[2]
+        bf bad0 bad1
+        ncmds[3]
+        vstep vistep fake_sm vimin vimax v,i
+        vmin vmax v
+        imin imax i
+        nexclude_gates exclude_gates ninclude_gates include_gates[4]
+        ntbins
+            t0 t1
+            ...
+        use_bg bg_smooth bg_sample bg_file
+        [1] imf only if power_law_imf otherwise absent.
+        [2] if zinc the following is added:
+            logzmin0 logzmin1 logzmax0 logzmax1
+        [3] ncmds > 1 not implemented yet
+        [4] gates are not implemented yet.
     '''
 
     param_dict = calcsfh_dict()
     param_dict.update(params)
 
-    possible_filters = match_filters()
-    ohno = 0
+    possible_filters = match_filters()['filters']
     for filt in [param_dict['v'], param_dict['i']]:
-        if filt not in possible_filters['filters']:
-            print('{} not in filter list'.format(filt))
-            ohno += 1
-    assert(ohno == 0), 'Filters need to be in match filter list.'
+        assert(filt in possible_filters), \
+            'Error {0:s} filter not in {1!s}' \
+            .format(filt, possible_filters['filters'])
 
     # the logZ line changes if using -zinc flag
     zincfmt = '{logzmin:.2f} {logzmax:.2f} {dlogz:.2f}'
@@ -289,35 +311,54 @@ def calcsfh_input_parameter(zinc=False, power_law_imf=True, **params):
         if dtarr[0] > 100.:
             dtarr = np.log10(dtarr)
 
-    if param_dict['ntbins'] > 100:
-        print('Warning {} time bins'.format(param_dict['ntbins']))
-
-    param_dict['ntbins'] = len(dtarr) - 1
-
-    # Add background information (if a file is supplied)
-    # This might not be the correct formatting...
-    if param_dict['bg_file'] != '':
-        footer = '{use_bg:d} {bg_smooth:d} {bg_sample:d}{bg_file:s}\n'
+    if len(dtarr) - 1 > max_tbins:
+        dtarrays = []
+        dts = np.array([])
+        j = 0
+        for i, _ in enumerate(dtarr):
+            j += 1
+            dts = np.append(dts, dtarr[i])
+            if j == max_tbins:
+                j = 0
+                dts = np.append(dts, dtarr[i+1])
+                dtarrays.append(dts)
+                dts = np.array([])
+        dtarrays.append(dts)
+        print('Maxing {0:d} parameter files with a max number of {0:d} time bins'.format(len(dts), max_tbins))
     else:
-        footer = '\n'
+        dtarrays = [dtarr]
 
-    fmt = line0
-    fmt += zincfmt
-    fmt += '{bf:.2f} {bad0:.6f} {bad1:.6f}\n'
-    fmt += '{ncmds:d}\n'
-    fmt += '{vstep:.2f} {vistep:.2f} {fake_sm:d} '
-    fmt += '{vimin:.2f} {vimax:.2f} {v:s},{i:s}\n'
-    fmt += '{vmin:.2f} {vmax:.2f} {v:s}\n'
-    fmt += '{imin:.2f} {vmax:.2f} {i:s}\n'
-    fmt += '{nexclude_gates:d} {exclude_gates:s} '
-    fmt += '{ninclude_gates:d} {include_gates:s} \n'
-    #    Metallicity information not yet supported
-    fmt += '{ntbins:d}\n'
-    fmt += ''.join(['   {0:.6f} {1:.6f}\n'.format(i, j) for i, j in
-                    zip(dtarr[:], dtarr[1:])
-                    if np.round(i, 4) != np.round(j, 4)])
-    fmt += footer
-    return fmt.format(**param_dict)
+    fmts = []
+    for dt in dtarrays:
+        param_dict['ntbins'] = len(dt) - 1
+        # Add background information (if a file is supplied)
+        # This might not be the correct formatting...
+        if param_dict['bg_file'] != '':
+            footer = '{use_bg:d} {bg_smooth:d} {bg_sample:d}{bg_file:s}\n'
+        else:
+            footer = '\n'
+
+        fmt = line0
+        fmt += zincfmt
+        fmt += '{bf:.2f} {bad0:.6f} {bad1:.6f}\n'
+        fmt += '{ncmds:d}\n'
+        fmt += '{vstep:.2f} {vistep:.2f} {fake_sm:d} '
+        fmt += '{vimin:.2f} {vimax:.2f} {v:s},{i:s}\n'
+        fmt += '{vmin:.2f} {vmax:.2f} {v:s}\n'
+        fmt += '{imin:.2f} {vmax:.2f} {i:s}\n'
+        fmt += '{nexclude_gates:d} {exclude_gates:s} '
+        fmt += '{ninclude_gates:d} {include_gates:s} \n'
+        #    Metallicity information not yet supported
+        fmt += '{ntbins:d}\n'
+        fmt += ''.join(['   {0:.6f} {1:.6f}\n'.format(i, j) for i, j in
+                        zip(dt[:], dt[1:]) if np.round(i, 4) != np.round(j, 4)])
+        fmt += footer
+        fmts = np.append(fmts, fmt.format(**param_dict))
+
+    if len(dtarrays) == 1:
+        fmts = fmts[0]
+
+    return fmts
 
 
 def make_matchfake(fname):
