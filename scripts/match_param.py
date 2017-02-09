@@ -342,13 +342,15 @@ def match_param(mag1, mag2, filters, param, interactive=False, fake=None,
                                           **template)
 
     param_files = np.atleast_1d(param_files)
+    params = []
     for i, pstr in enumerate(param_files):
         if i == 0:
             fn = param
         else:
-            fn = param.replace(PARAMEXT, '_{0:d}{1:s}'.format(i, PARAMEXT))
+            fn = param.replace(PARAMEXT, '_par{0:d}{1:s}'.format(i, PARAMEXT))
         write_param(fn, pstr)
-    return param
+        params.append(fn)
+    return params
 
 
 def parse_args(argv=None):
