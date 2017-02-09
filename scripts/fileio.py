@@ -255,6 +255,31 @@ def calcsfh_input_parameter(zinc=False, power_law_imf=True, max_tbins=100,
         [3] ncmds > 1 not implemented yet
         [4] gates are not implemented yet.
     '''
+    def formatit(param_dict, line0, zincfmt, dt):
+        param_dict['ntbins'] = len(dt) - 1
+        # Add background information (if a file is supplied)
+        # This might not be the correct formatting...
+        if param_dict['bg_file'] != '':
+            footer = '{use_bg:d} {bg_smooth:d} {bg_sample:d}{bg_file:s}\n'
+        else:
+            footer = '\n'
+
+        fmt = line0
+        fmt += zincfmt
+        fmt += '{bf:.2f} {bad0:.6f} {bad1:.6f}\n'
+        fmt += '{ncmds:d}\n'
+        fmt += '{vstep:.2f} {vistep:.2f} {fake_sm:d} '
+        fmt += '{vimin:.2f} {vimax:.2f} {v:s},{i:s}\n'
+        fmt += '{vmin:.2f} {vmax:.2f} {v:s}\n'
+        fmt += '{imin:.2f} {vmax:.2f} {i:s}\n'
+        fmt += '{nexclude_gates:d} {exclude_gates:s} '
+        fmt += '{ninclude_gates:d} {include_gates:s} \n'
+        #    Metallicity information not yet supported
+        fmt += '{ntbins:d}\n'
+        fmt += ''.join(['   {0:.6f} {1:.6f}\n'.format(i, j) for i, j in
+                        zip(dt[:], dt[1:]) if np.round(i, 4) != np.round(j, 4)])
+        fmt += footer
+        return fmt
 
     param_dict = calcsfh_dict()
     param_dict.update(params)
@@ -324,35 +349,15 @@ def calcsfh_input_parameter(zinc=False, power_law_imf=True, max_tbins=100,
                 dtarrays.append(dts)
                 dts = np.array([])
         dtarrays.append(dts)
-        print('Maxing {0:d} parameter files with a max number of {0:d} time bins'.format(len(dts), max_tbins))
+        print('{0:d} parameter files with a max number of {1:d} time bins each'.format(len(dtarrays), max_tbins))
     else:
         dtarrays = [dtarr]
 
     fmts = []
     for dt in dtarrays:
-        param_dict['ntbins'] = len(dt) - 1
-        # Add background information (if a file is supplied)
-        # This might not be the correct formatting...
-        if param_dict['bg_file'] != '':
-            footer = '{use_bg:d} {bg_smooth:d} {bg_sample:d}{bg_file:s}\n'
-        else:
-            footer = '\n'
-
-        fmt = line0
-        fmt += zincfmt
-        fmt += '{bf:.2f} {bad0:.6f} {bad1:.6f}\n'
-        fmt += '{ncmds:d}\n'
-        fmt += '{vstep:.2f} {vistep:.2f} {fake_sm:d} '
-        fmt += '{vimin:.2f} {vimax:.2f} {v:s},{i:s}\n'
-        fmt += '{vmin:.2f} {vmax:.2f} {v:s}\n'
-        fmt += '{imin:.2f} {vmax:.2f} {i:s}\n'
-        fmt += '{nexclude_gates:d} {exclude_gates:s} '
-        fmt += '{ninclude_gates:d} {include_gates:s} \n'
-        #    Metallicity information not yet supported
-        fmt += '{ntbins:d}\n'
-        fmt += ''.join(['   {0:.6f} {1:.6f}\n'.format(i, j) for i, j in
-                        zip(dt[:], dt[1:]) if np.round(i, 4) != np.round(j, 4)])
-        fmt += footer
+        if len(dt) == 1:
+            continue
+        fmt = formatit(param_dict, line0, zincfmt, dt)
         fmts = np.append(fmts, fmt.format(**param_dict))
 
     if len(dtarrays) == 1:

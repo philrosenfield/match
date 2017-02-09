@@ -139,14 +139,20 @@ def vary_matchparam(param_file, varyarrs=None, power_law_imf=True,
             template[key] = val
             name.append('{0:s}{1:g}'.format(key, val))
 
-        new_param = calcsfh_input_parameter(power_law_imf=power_law_imf,
-                                            **template)
-        new_name = '{0:s}_{1:s}.{2:s}'.format(pname, '_'.join(np.sort(name)), ext)
+        new_params = calcsfh_input_parameter(power_law_imf=power_law_imf,
+                                             **template)
+        new_params = np.atleast_1d(new_params)
 
-        with open(new_name, 'w') as outp:
-            outp.write(new_param)
-        # print('wrote {0:s}'.format(new_name))
-        new_names.append(new_name)
+        for j, new_param in enumerate(new_params):
+            if j == 0:
+                new_name = '{0:s}_{1:s}.{2:s}'.format(pname, '_'.join(np.sort(name)), ext)
+            else:
+                new_name = '{0:s}_{1:s}_par{3:d}.{2:s}'.format(pname, '_'.join(np.sort(name)), ext, j)
+
+            with open(new_name, 'w') as outp:
+                outp.write(new_param)
+                # print('wrote {0:s}'.format(new_name))
+            new_names.append(new_name)
     return new_names
 
 
@@ -232,6 +238,9 @@ def main(argv):
     parser.add_argument('--tmax', type=float, default=10.25,
                         help='max log age')
 
+    parser.add_argument('--max_tbins', type=int, default=100,
+                        help='max number of time bins')
+
     parser.add_argument('--sub', type=str,
                         help='track sub directory')
 
@@ -290,7 +299,7 @@ def main(argv):
         varyarrs['imfarr'] = parse_argrange(imf)
         power_law_imf = True
 
-    cparams = {'tmin': args.tmin, 'tmax': args.tmax}
+    cparams = {'tmin': args.tmin, 'tmax': args.tmax, 'max_tbins': args.max_tbins}
 
     if args.use_bg:
         cparams.update({'use_bg': True, 'bg_file': 'bg.dat', 'bg_smooth': 5})
