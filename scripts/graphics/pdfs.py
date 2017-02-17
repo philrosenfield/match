@@ -282,5 +282,5 @@ def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
             add_inner_title(raxs[-1], '${}$'.format(text), 3, size=None)
         fig.subplots_adjust(bottom=0.22, left=0.05)
         raxs[0].set_ylabel(key2label('Probability'))
-    [ax.locator_params(axis='x', nbins=6) for ax in axs.ravel()]
+    [ax.locator_params(axis='x', nbins=5) for ax in axs.ravel()]
     return fig, raxs
