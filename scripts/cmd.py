@@ -15,6 +15,39 @@ from match.scripts.wrappers.stats import call_stats
 
 __all__ = ['CMD']
 
+def splitcmds(filename, overwrite=False):
+    name, ext = os.path.splitext(filename)
+
+    headlen = 4
+
+    with open(filename, 'r') as inp:
+        lines = [l.strip() for l in inp.readlines()]
+
+    filters = lines[2]
+    _, x, y = np.array(lines[1].split(), dtype=int)
+
+    nfilelines = len(lines) - headlen
+    ncmdlines = x * y
+
+    if ncmdlines != nfilelines:
+        cmd0 = lines[:ncmdlines + headlen]
+        cmd1 = [lines[0]]
+        # more than one cmd.
+        cmd1.extend(lines[ncmdlines + headlen:])
+        filters1 = lines[ncmdlines + headlen:][1]
+        cmd0fn = '{0:s}_{1:s}{2:s}'.format(name, filters, ext)
+        cmd1fn = '{0:s}_{1:s}{2:s}'.format(name, filters1, ext)
+        if overwrite or not os.path.isfile(cmd0fn):
+            with open(cmd0fn, 'w') as outp:
+                outp.write('\n'.join(cmd0))
+        if overwrite or not os.path.isfile(cmd1fn):
+            with open(cmd1fn, 'w') as outp:
+                outp.write('\n'.join(cmd1))
+    else:
+        print('{0:s} appears to be a single cmd, doing nothing.'.format(filename))
+        return filename, filename
+    return cmd0fn, cmd1fn
+
 
 class CMD(object):
     """
@@ -99,7 +132,11 @@ class CMD(object):
         """
         self.nmagbin = len(np.unique(self.cmd['mag']))
         self.ncolbin = len(np.unique(self.cmd['color']))
-        self.data = self.cmd['Nobs'].reshape(self.nmagbin, self.ncolbin)
+        try:
+            self.data = self.cmd['Nobs'].reshape(self.nmagbin, self.ncolbin)
+        except:
+            print('{0:s} Mutliple filtersets not supported, split the .cmd file by hand into seperate files'.format(self.name))
+            sys.exit(1)
         self.model = self.cmd['Nsim'].reshape(self.nmagbin, self.ncolbin)
         self.diff = self.cmd['diff'].reshape(self.nmagbin, self.ncolbin)
         self.sig = self.cmd['sig'].reshape(self.nmagbin, self.ncolbin)
@@ -145,7 +182,7 @@ class CMD(object):
             _ = [grid.axes_all[0].plot(self.cmd['color'][dinds == i],
                                        self.cmd['mag'][dinds == i],
                                        '.', alpha=0.3)
-                 for i in range(len(dinds)) if i > 0]
+                 for i in range(len(dinds)) if i == 0]
 
         for ax in grid.axes_all:
             ax.locator_params(axis='x', nbins=6)
@@ -226,6 +263,9 @@ def main(argv):
     parser.add_argument('-c', '--stats', action='store_true',
                         help='call match/bin/stats and exit')
 
+    parser.add_argument('-s', '--split', action='store_true',
+                        help='split cmd file if it contains more than one CMD')
+
     parser.add_argument('--logcounts', action='store_true',
                         help='use log binning for data and model')
 
@@ -245,6 +285,10 @@ def main(argv):
         call_stats(args.cmdfiles, outdir=args.outdir)
         sys.exit()
 
+    if args.split:
+        cmds = np.unique(np.concatenate([splitcmds(c) for c in args.cmdfiles]))
+        args.cmdfiles = cmds
+
     if args.byfit:
         if args.nmax is None:
             args.nmax = len(args.cmdfiles)
@@ -252,6 +296,7 @@ def main(argv):
                          outdir=args.outdir, logcounts=args.logcounts)
     else:
         for cmdfile in args.cmdfiles:
+            print(cmdfile)
             cmd = CMD(cmdfile)
             cmd.pgcmd(outdir=args.outdir, logcounts=args.logcounts)
 

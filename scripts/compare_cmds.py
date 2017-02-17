@@ -60,6 +60,7 @@ def main(argv=None):
     cmd2 = CMD(args.cmd2)
     fig, ax = comp_cmd(cmd1, cmd2)
     fig.savefig(args.figname)
+    ssp = args.ssp
     if args.ssp is not None:
         ssp = SSP(args.ssp)
     print(diff_(cmd1, cmd2, ssp=ssp))

@@ -27,7 +27,7 @@ class SFH(object):
     load the match sfh solution as a class with attributes set by the
     best fits from the sfh file.
     '''
-    def __init__(self, filename, hmc_file=None, meta_file=None):
+    def __init__(self, filename=None, hmc_file=None, meta_file=None):
         """
         Parameters
         ----------
@@ -39,12 +39,13 @@ class SFH(object):
             data file to only read bestfit line.
 
         """
-        self.base, self.name = os.path.split(filename)
-        self.data = read_binned_sfh(filename, hmc_file)
+        if filename is not None:
+            self.base, self.name = os.path.split(filename)
+            self.data = read_binned_sfh(filename, hmc_file)
 
-        if meta_file is None:
-            meta_file = filename
-        self.load_match_header(meta_file)
+            if meta_file is None:
+                meta_file = filename
+            self.load_match_header(meta_file)
 
     def load_match_header(self, filename):
         '''
@@ -412,7 +413,7 @@ class SFH(object):
             plt.savefig(figname)
         return [ax1, ax2]
 
-def main(argv):
+def main(argv=None):
     """
     Main function for sfh.py plot sfh output from calcsfh, zcombine, or zcmerge
     """
@@ -440,4 +441,4 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    sys.exit(main())
