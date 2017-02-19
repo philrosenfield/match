@@ -2,8 +2,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-
-from ..graphics.graphics import add_inner_title
+import sys
+import argparse
+from .graphics.graphics import add_inner_title
+from .config import EXT
 
 class PopBox(object):
     def __init__(self, filename=None):
@@ -43,7 +45,8 @@ class PopBox(object):
 
     def plot_popbox(self, z=None, ax=None, cmap=plt.cm.Reds, figname=None,
                     clab=None, title=None, cbar=None, clim=None, vmin=None,
-                    vmax=None):
+                    vmax=None, log=True, lognorm=True, extent=None,
+                    interpolation=None):
         """
         Plot population box.
         Paramters
@@ -81,16 +84,38 @@ class PopBox(object):
         ax : axes instance
         (if figname was passed, wrote a figure.)
         """
-        cbar = cbar or ax
         if z is None:
             z = self.sfr.T / 1e-3
             clab = r'$SFR (M_\odot / 10^{-3} {\rm yr})$'
 
+        xlab = r'$\log\ {\rm Age\ (yr)}$'
+        xi = self.lagei[0]
+        xf = self.lagef[-1]
+        if not log:
+            xlab = xlab.replace('\log\ ', '').replace('(yr)}$', '(Gyr)}$')
+            xi = 10 ** (xi - 9)
+            xf = 10 ** (xf - 9)
+
+        if extent is None:
+            extent = [xi, xf, self.mh[0], self.mh[-1]]
+
+        interpolation = interpolation or 'nearest'
+        norm = None
+        if lognorm:
+            from matplotlib.colors import LogNorm
+            norm = LogNorm()
+
+        kw = {'norm': norm, 'vmin': vmin, 'vmax': vmax,
+              'interpolation': interpolation, 'extent': extent}
+
         if ax is None:
             fig, ax = plt.subplots()
+        cbar = cbar or fig
 
-        c = ax.pcolor(self.lagei, self.mh, z, cmap=cmap, vmin=vmin, vmax=vmax)
-        ax.set_xlabel(r'$\log\ {\rm Age}$')
+        # c = ax.pcolor(self.lagei, self.mh, z, cmap=cmap, vmin=vmin, vmax=vmax)
+        c = ax.imshow(z, **kw)
+
+        ax.set_xlabel(xlab)
         ax.set_ylabel(r'${\rm[M/H]}$')
 
         if clab is not None:
@@ -133,9 +158,17 @@ def compare_popboxes(pb1, pb2, titles=None, outfig=None):
         plt.savefig(outfig)
     return grid
 
+
 def main(argv=None):
     """Main function for popbox.py for population boxes from MATCH"""
     parser = argparse.ArgumentParser(description="Plot population boxes")
+
+
+    parser.add_argument('--vminvmax', type=float, nargs=2, default=[1e-8, 10],
+                        help='vmin, vmax passed to imshow with norm')
+
+    parser.add_argument('--lognorm', action='store_true',
+                        help='Scale luminance data with lognormal')
 
     parser.add_argument('popboxes', nargs='*', type=str,
                         help='population box files')
@@ -143,7 +176,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     for popbox in args.popboxes:
         pb = PopBox(popbox)
-        pb.plot_popbox()
+        pb.plot_popbox(figname=popbox + EXT, lognorm=args.lognorm,
+                       vmin=args.vminvmax[0], vmax=args.vminvmax[1])
 
 
 if __name__ == "__main__":
