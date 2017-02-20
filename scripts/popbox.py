@@ -149,7 +149,6 @@ def compare_popboxes(pb1, pb2, titles=None, outfig=None, plot_pbkw=None,
         return (a - b) # / (a + b)
 
     plot_pbkw = plot_pbkw or {}
-    kw = {'lognorm': True, 'vmin': 1e-8, 'vmax': 5}
     kw.update(plot_pbkw)
     gridkw = {'nrows_ncols': (1, 3),
               'axes_pad': 0.7,
@@ -170,13 +169,15 @@ def compare_popboxes(pb1, pb2, titles=None, outfig=None, plot_pbkw=None,
 
     fig = plt.figure(figsize=(12, 3))
     grid = AxesGrid(fig, 111, **gridkw)
-    kw['cmap'] = plt.cm.Blues
-    pb1.plot_popbox(ax=grid[0], title=titles[0], cbar=grid.cbar_axes[0], **kw)
-    kw['cmap'] = plt.cm.Reds
-    pb2.plot_popbox(ax=grid[1], title=titles[1], cbar=grid.cbar_axes[1], **kw)
-    kw['cmap'] = plt.cm.Greys
+    plot_pbkw['cmap'] = plt.cm.Blues
+    pb1.plot_popbox(ax=grid[0], title=titles[0], cbar=grid.cbar_axes[0],
+                    **plot_pbkw)
+    plot_pbkw['cmap'] = plt.cm.Reds
+    pb2.plot_popbox(ax=grid[1], title=titles[1], cbar=grid.cbar_axes[1],
+                    **plot_pbkw)
+    plot_pbkw['cmap'] = plt.cm.Greys
     pb1.plot_popbox(ax=grid[2], title=titles[2], cbar=grid.cbar_axes[2],
-                    z=difgrid.T, **kw)
+                    z=difgrid.T, **plot_pbkw)
 
     if outfig is not None:
         plt.savefig(outfig)
