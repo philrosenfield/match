@@ -112,7 +112,7 @@ class PopBox(object):
 
         kw = {'norm': norm, 'vmin': vmin, 'vmax': vmax,
               'interpolation': interpolation, 'extent': extent,
-              'cmap': cmap}
+              'cmap': cmap, 'origin': 'lower'}
 
         if ax is None:
             fig, ax = plt.subplots()
@@ -149,7 +149,7 @@ def compare_popboxes(pb1, pb2, titles=None, outfig=None, plot_pbkw=None,
         return (a - b) # / (a + b)
 
     plot_pbkw = plot_pbkw or {}
-    kw.update(plot_pbkw)
+
     gridkw = {'nrows_ncols': (1, 3),
               'axes_pad': 0.7,
               'label_mode': "all",
