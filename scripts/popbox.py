@@ -1,5 +1,6 @@
 """Everything Population Box"""
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import AxesGrid
 import numpy as np
 import os
 import sys
@@ -45,7 +46,7 @@ class PopBox(object):
 
     def plot_popbox(self, z=None, ax=None, cmap=plt.cm.Reds, figname=None,
                     clab=None, title=None, cbar=None, clim=None, vmin=None,
-                    vmax=None, log=True, lognorm=True, extent=None,
+                    vmax=None, log=True, lognorm=False, extent=None,
                     interpolation=None):
         """
         Plot population box.
@@ -71,13 +72,17 @@ class PopBox(object):
 
         cbar : axes instance
             axes to plot colorbar (ax by default)
-            useful when using AxisGrid
+            useful when using AxisGrid (pass cbar_axes or get something funky)
 
         clim : tuple or list
             color bar limits
 
-        vmin, vmax : float, float
-            passed to plt.pcolor
+        lognorm : bool
+            Use matplotlib.colors.LogNorm luminance.
+            There seems to be a persistant bug with LogNorm and colorbar.
+
+        kwargs passed to plt.imshow:
+            vmin, vmax, extent, interpolation
 
         Returns
         -------
@@ -106,7 +111,8 @@ class PopBox(object):
             norm = LogNorm()
 
         kw = {'norm': norm, 'vmin': vmin, 'vmax': vmax,
-              'interpolation': interpolation, 'extent': extent}
+              'interpolation': interpolation, 'extent': extent,
+              'cmap': cmap}
 
         if ax is None:
             fig, ax = plt.subplots()
@@ -118,14 +124,16 @@ class PopBox(object):
         ax.set_xlabel(xlab)
         ax.set_ylabel(r'${\rm[M/H]}$')
 
-        if clab is not None:
-            c.set_label(clab)
-
         if cbar is not None:
-            cbar.colorbar(c)
+            cb = cbar.colorbar(c)
+            cb.ax.yaxis.set_visible(False)
+            c.set_visible(True)
 
-        if clim is not None:
-            cbar.set_clim(clim)
+            if clab is not None:
+                cb.set_label_text(clab)
+
+            if clim is not None:
+                cb.set_clim(clim)
 
         if title is not None:
             add_inner_title(ax, title, 4)
@@ -135,7 +143,14 @@ class PopBox(object):
         return ax
 
 
-def compare_popboxes(pb1, pb2, titles=None, outfig=None):
+def compare_popboxes(pb1, pb2, titles=None, outfig=None, plot_pbkw=None,
+                     statistic=None):
+    def dif(a, b):
+        return (a - b) # / (a + b)
+
+    plot_pbkw = plot_pbkw or {}
+    kw = {'lognorm': True, 'vmin': 1e-8, 'vmax': 5}
+    kw.update(plot_pbkw)
     gridkw = {'nrows_ncols': (1, 3),
               'axes_pad': 0.7,
               'label_mode': "all",
@@ -144,16 +159,25 @@ def compare_popboxes(pb1, pb2, titles=None, outfig=None):
               'cbar_mode': "each",
               'cbar_size': "7%",
               'cbar_pad': "2%"}
+
     if titles is None:
         titles = [pb1.name, pb2.name, 'difference']
 
-    difgrid = (pb1.sfr - pb2.sfr) / (pb1.sfr + pb2.sfr)
+    if statistic is None:
+        difgrid = dif(pb1.sfr, pb2.sfr)
+    else:
+        difgrid = statistic(pb1.sfr, pb2.sfr)
+
     fig = plt.figure(figsize=(12, 3))
     grid = AxesGrid(fig, 111, **gridkw)
-    pb1.plot_popbox(ax=grid[0], title=titles[0], cbar=grid.cbar_axes[0])
-    pb2.plot_popbox(ax=grid[1], title=titles[1], cbar=grid.cbar_axes[1])
+    kw['cmap'] = plt.cm.Blues
+    pb1.plot_popbox(ax=grid[0], title=titles[0], cbar=grid.cbar_axes[0], **kw)
+    kw['cmap'] = plt.cm.Reds
+    pb2.plot_popbox(ax=grid[1], title=titles[1], cbar=grid.cbar_axes[1], **kw)
+    kw['cmap'] = plt.cm.Greys
     pb1.plot_popbox(ax=grid[2], title=titles[2], cbar=grid.cbar_axes[2],
-                    z=difgrid.T)
+                    z=difgrid.T, **kw)
+
     if outfig is not None:
         plt.savefig(outfig)
     return grid
@@ -170,14 +194,20 @@ def main(argv=None):
     parser.add_argument('--lognorm', action='store_true',
                         help='Scale luminance data with lognormal')
 
+    parser.add_argument('-c', '--compare', action='store_true',
+                        help='Compare two popboxes')
+
     parser.add_argument('popboxes', nargs='*', type=str,
                         help='population box files')
 
     args = parser.parse_args(argv)
-    for popbox in args.popboxes:
-        pb = PopBox(popbox)
-        pb.plot_popbox(figname=popbox + EXT, lognorm=args.lognorm,
-                       vmin=args.vminvmax[0], vmax=args.vminvmax[1])
+    if args.compare:
+        pass
+    else:
+        for popbox in args.popboxes:
+            pb = PopBox(popbox)
+            pb.plot_popbox(figname=popbox + EXT, lognorm=args.lognorm,
+                           vmin=args.vminvmax[0], vmax=args.vminvmax[1])
 
 
 if __name__ == "__main__":
