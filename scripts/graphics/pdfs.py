@@ -93,7 +93,17 @@ def add_quantiles(SSP, ax, attrs, uvalss=None, probs=None,
         # plot mean or max post prob
         ax.plot(pts[0], pts[1], 'o', color='white', mec='k', mew=1)
 
-    return ax
+    else:
+        if gauss:
+            # over plot Gaussian fit
+            X = uvalss[0]
+            prob = probs[0]
+            # plot the Gaussian 10 steps beyond the calculated limits.
+            dx = 10 * np.diff(X)[0]
+            xx = np.linspace(X.min() - dx, X.max() + dx, 100)
+            ax.plot(xx, g(xx), color='darkred')
+
+    return ax, g
 
 
 def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,

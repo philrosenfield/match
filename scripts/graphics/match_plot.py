@@ -30,7 +30,8 @@ def mpl_hack(ax):
     return
 
 def match_plot(hesslist, extent, labels=None, twobytwo=True, sig=True,
-               xlabel=None, ylabel=None, cmap=None, logcounts=False):
+               xlabel=None, ylabel=None, cmap=None, logcounts=False,
+               photf_pts=None, mist_pts=None, best_list=None):
     '''
     Plot four hess diagrams with indivdual color bars using ImageGrid
     hesslist : list
@@ -51,6 +52,9 @@ def match_plot(hesslist, extent, labels=None, twobytwo=True, sig=True,
         be white.
     logcounts: bool [False]
         pass np.log10(hess) to imshow instead of hess
+    photf_pts: tuple [None]
+        points for overplotting data from a photometry file w/ 
+        format (v-i, v).
     '''
     if twobytwo:
         figsize = [9, 9]
@@ -95,9 +99,21 @@ def match_plot(hesslist, extent, labels=None, twobytwo=True, sig=True,
         if labels is not None:
             _ = add_inner_title(ax, labels[i], loc=1)
 
+            # SSG: Also adding best age & logz:
+            if i ==1:
+                _ = add_inner_title(ax,  r"Age = {:.3e}".format(10**best_list[0]), loc=2)
+                _ = add_inner_title(ax,  r"LogZ = {:.2f}".format(best_list[1]), loc=3)
+
         ax.set_xlim(extent[0], extent[1])
         ax.set_ylim(extent[2], extent[3])
         ax = square_aspect(ax)
+
+        # Can add overplotting stuff here for the hess plots.
+        if photf_pts is not None:
+            ax.scatter(*photf_pts, marker='*', color='g', alpha=0.2, s=2.5)
+        if mist_pts is not None:
+            ax.plot(*mist_pts, color='m', alpha=0.2)
+
     if xlabel is not None:
         ind = 0
         if twobytwo:

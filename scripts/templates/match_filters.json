@@ -16,7 +16,7 @@
        "JWST360M", "JWST405N", "JWST410M", "JWST430M", "JWST444W",
        "JWST460M", "JWST466N", "JWST470N", "JWST480M", "K", "Kp", "Ks",
        "M", "MIPS160", "MIPS24", "MIPS70", "PS_open", "R", "Stromb",
-       "Stromu", "Stromv", "Stromy", "T1", "T2", "U", "UVIS200LP",
+       "Stromu", "Stromv", "Stromy", "T1", "T2", "Tycho_B", "Tycho_V", "U", "UVIS200LP",
        "UVIS218W", "UVIS225W", "UVIS275W", "UVIS280N", "UVIS300X",
        "UVIS336W", "UVIS343N", "UVIS350LP", "UVIS373N", "UVIS390M",
        "UVIS390W", "UVIS395N", "UVIS410M", "UVIS438W", "UVIS467M",
