@@ -24,13 +24,18 @@ def asteca2matchphot(filename):
     return
 
 
-def asteca_fmt(data, filter1, filter2, filterext='VEGA'):
+def asteca_fmt(data, filter1, filter2, filterext='VEGA', crowd=None):
     """ASteCA input format"""
-    idx = np.arange(len(data)) + 1.
     filter1e = '{}ERR'.format(filter1.replace(filterext, ''))
     filter2e = '{}ERR'.format(filter2.replace(filterext, ''))
+    if crowd is not None:
+        filter1c = '{}CROWD'.format(filter1.replace(filterext, ''))
+        filter2c = '{}CROWD'.format(filter2.replace(filterext, ''))
+        inds, = np.nonzero((data[filter1c] < crowd) & (data[filter2c] < crowd))
+        data = data[inds]
     color = data[filter1] - data[filter2]
     colore = np.sqrt(data[filter1e]**2 + data[filter2e]**2)
+    idx = np.arange(len(data)) + 1.
     return np.column_stack([idx, data['RA'], data['DEC'],
                             data[filter1], data[filter1e],
                             color, colore])
