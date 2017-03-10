@@ -64,7 +64,7 @@ def key2label(string, gyr=False):
     """latex labels for different strings"""
     def_fmt = r'$\rm{{{}}}$'
     convert = {'Av': r'$A_V$',
-               'dmod': r'$\mu$',
+               'dmod': r'$\mu_0$',
                'lage': r'$\log\ \rm{Age\ (yr)}$',
                'logZ': r'$\log\ \rm{Z}$',
                'fit': r'$-2 \ln\ \rm{P}$',
