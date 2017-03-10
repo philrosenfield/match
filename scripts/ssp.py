@@ -132,10 +132,10 @@ class SSP(object):
     def quantiles(self, xattr, ux, prob, qs=[0.16, 0.84], res=200, maxp=False,
                   ax=None, k=3):
         """Add quantiles, see .utils.quantiles"""
-        g = utils.quantiles(ux, prob, qs=qs, res=res, maxp=maxp, ax=ax,
+        q = utils.quantiles(ux, prob, qs=qs, res=res, maxp=maxp, ax=ax,
                             k=k)
-        self.__setattr__('{0:s}g'.format(xattr), g)
-        return g
+        self.__setattr__('{0:s}q'.format(xattr), q)
+        return q
 
     def write_posterior(self, filename='post.dat'):
         """write the posterior to a csv"""

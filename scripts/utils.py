@@ -44,16 +44,22 @@ def quantiles(ux, prob, qs=[0.16, 0.84], res=200, maxp=False,
     """
     from scipy.interpolate import splprep, splev
     ((tckp, u), fp, ier, msg) = splprep([ux, prob], k=k, full_output=1)
+
+    if ier != 0:
+        k = 1
+
+        ((tckp, u), fp, ier, msg) = splprep([ux, prob], k=k, full_output=1)
     iux, iprob = splev(np.linspace(0, 1, res), tckp)
 
     fac = np.cumsum(iprob) / np.sum(iprob)
     ipts = [np.argmin(np.abs(fac - q)) for q in qs]
-    g = iux[ipts]
     if maxp:
-        g = np.append(g, iux[np.argmax(iprob)])
+        ipts.append(np.argmax(iprob))
+    g = iux[ipts]
     if ax is not None:
         # useful for debugging or by-eye checking of interpolation
         ax.plot(iux, iprob, color='r')
+        ax.plot(iux[ipts], iprob[ipts], 'o', color='r')
     return g
 
 def fitgauss1D(ux, prob):
@@ -77,12 +83,16 @@ def fitgauss1D(ux, prob):
     from astropy.modeling import models, fitting
     weights = np.ones(len(ux))
     fit_g = fitting.LevMarLSQFitter()
-    g_init = models.Gaussian1D(amplitude=1.,
-                               mean=np.mean(ux),
-                               stddev=np.diff(ux)[0])
+    # g_init = models.Gaussian1D(amplitude=1.,
+    #                           mean=np.mean(ux),
+    #                           stddev=np.diff(ux)[0])
+    deg = 4
+    if deg == len(ux):
+        deg = 2
+    g_init = models.Polynomial1D(degree=deg)
     noweight, = np.nonzero(prob == 2 * np.log(1e-323))
     weights[noweight] = 0.
-    return fit_g(g_init, ux, prob, weights=weights)
+    return fit_g(g_init, ux, prob)#, weights=weights)
 
 
 def lnprob(prob):
