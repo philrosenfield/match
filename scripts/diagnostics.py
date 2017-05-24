@@ -2,11 +2,14 @@ from __future__ import print_function
 import argparse
 import os
 import sys
+import warnings
 
 from .fileio import get_files
-from .graphics import match_diagnostic
-from .utils import check_boundaries
+from .graphics.match_diagnostic import match_diagnostic
+from .check_boundaries import check_boundaries
 from .sfh import SFH
+
+warnings.filterwarnings("ignore")
 
 
 def main(argv):

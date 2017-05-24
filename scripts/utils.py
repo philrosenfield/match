@@ -15,14 +15,14 @@ except SystemError:
 logger = logging.getLogger()
 
 
-__all__ = ['check_boundaries', 'strip_header', 'convertz', 'center_grid',
-           'quantiles', 'fitgauss1D']
+__all__ = ['strip_header', 'convertz', 'center_grid', 'quantiles',
+           'fitgauss1D']
 
 
 def quantiles(ux, prob, qs=[0.16, 0.84], res=200, maxp=False,
               ax=None, k=3):
     """
-    Calculate quantiles, or lines at qs fraction of total area under prob curve.
+    Calculate quantiles, or fraction of total area under prob curve.
 
     Parameters
     ----------
@@ -62,8 +62,11 @@ def quantiles(ux, prob, qs=[0.16, 0.84], res=200, maxp=False,
         ax.plot(iux[ipts], iprob[ipts], 'o', color='r')
     return g
 
+
 def fitgauss1D(ux, prob):
-    """Fit a 1D Gaussian to a marginalized probability
+    """
+    Fit a 1D Gaussian to a marginalized probability.
+
     Parameters
 
     xattr : str
@@ -92,7 +95,7 @@ def fitgauss1D(ux, prob):
     g_init = models.Polynomial1D(degree=deg)
     noweight, = np.nonzero(prob == 2 * np.log(1e-323))
     weights[noweight] = 0.
-    return fit_g(g_init, ux, prob)#, weights=weights)
+    return fit_g(g_init, ux, prob)
 
 
 def lnprob(prob):
@@ -343,59 +346,6 @@ def convertz(z=None, oh=None, mh=None, feh=None, oh_sun=8.76, z_sun=0.01524,
                  [Fe/H] = %.4f
                  [M/H] = %.4f''' % (oh, z, y, x, feh, mh))
     return oh, z, y, x, feh, mh
-
-
-def check_boundaries(param, scrn):
-    """
-    check if the best fit file hits the Av or dmod edge of parameter search
-    space.
-
-    print information to terminal, nothing is printed if dmod and Av are
-    within bounds.
-
-    Parameters
-    ----------
-    param : match parameter file
-    scrn : match console output (saved as a file)
-    """
-    def betweenie(val, upper, lower, retval=0, msg=''):
-        if upper == lower:
-            msg += 'value unchanging'
-        if val >= upper:
-            msg += 'extend boundary higher, %f >= %f\n' % (val, upper)
-            retval += 1
-        if val <= lower:
-            msg += 'extend boundary lower, %f <= %f\n' % (val, lower)
-            retval += 1
-        return retval, msg
-
-    msg = '{0:s} / {1:s}\n'.format(os.path.split(param)[1], os.path.split(scrn)[1])
-    # parse scrn
-    bfit = open(scrn).readlines()[-1]
-    if 'Best' not in bfit:
-        msg += 'error calcsfh not finished'
-        retval = 1
-    else:
-        av, dmod, _ = bfit.split(',')
-        dmod = float(dmod.replace(' dmod=', ''))
-        av = float(av.replace('Best fit: Av=', ''))
-
-        # parse param
-        pars = open(param).readline()
-        try:
-            dmod0, dmod1, ddmod, av0, av1, dav = \
-                np.array(pars.split(), dtype=float)
-        except:
-            imf, dmod0, dmod1, ddmod, av0, av1, dav = \
-                np.array(pars.split(), dtype=float)
-            # print(sys.exc_info()[1], param)
-            # raise
-        retval, msg = betweenie(dmod, dmod1, dmod0, msg=msg)
-        retval, msg = betweenie(av, av1, av0, retval=retval, msg=msg)
-
-    if retval > 0:
-        print(msg)
-    return
 
 
 def float2sci(num):

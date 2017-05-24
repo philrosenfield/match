@@ -6,8 +6,8 @@ import argparse
 import glob
 import numpy as np
 try:
-    from ..scripts.config import match_base
-except:
+    from .scripts.config import match_base
+except ImportError:
     from scripts.config import match_base
 
 
@@ -45,8 +45,8 @@ def filenames_loop(logt0, logt1, dlogt, z0, z1, dz, mod='mod1', quiet=False,
     bmissing = 0
     for logt in np.arange(logt0, logt1, dlogt):
         for z in np.arange(z0, z1, dz):
-            fname = '{}_{:6.4f}_{:6.4f}_{:5.3f}_{:5.3f}'.format(mod, logt,
-                                                              (logt + dlogt), z, dz/2)
+            fname = '{}_{:6.4f}_{:6.4f}_{:5.3f}_{:5.3f}'
+                .format(mod, logt, (logt + dlogt), z, dz/2)
             res = glob.glob(fname)
             if len(res) == 0:
                 if not quiet:

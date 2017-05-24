@@ -13,6 +13,7 @@ from .fileio import filename_data, read_ssp_output, combine_files
 from .cmd import call_pgcmd_byfit
 from .graphics.pdfs import pdf_plot, pdf_plots
 from .wrappers.sspcombine import sspcombine
+from .config import EXT
 
 try:
     import seaborn
@@ -304,26 +305,31 @@ def main(argv=None):
 
     # combine the match ssp output into one file
     if args.format:
-        fname = combine_files(args.fnames, outfile=args.outfile,
-                              best=args.best)
+        fnames = [combine_files(args.fnames, outfile=args.outfile,
+                              best=args.best)]
     # call match/sspcombine
     elif args.sspcombine:
         _ = [sspcombine(f, dry_run=False) for f in args.fnames]
         return
     else:
         # Load one file
-        fname = args.fnames[0]
+        fnames = args.fnames
 
-    # load the combined ssp file or one match ssp output file
-    ssp = SSP(filename=fname, filterby=filtdict)
+    for fname in fnames:
+        # load the combined ssp file or one match ssp output file
+        ssp = SSP(filename=fname, filterby=filtdict)
 
-    # call 1-plotting
-    if args.oned:
-        ssp.pdf_plots(sub=args.sub)
-
-    # call 2-plotting
-    if args.twod:
-        ssp.pdf_plots(sub=args.sub, twod=args.twod)
+        # call 1-plotting
+        if args.oned:
+            fig, raxs = ssp.pdf_plots(sub=args.sub, cmap=plt.cm.Blues)
+            fig.savefig('{:s}_mpdf{:s}'.format(ssp.name, EXT))
+            print('wrote {:s}_mpdf{:s}'.format(ssp.name, EXT))
+        # call 2-plotting
+        if args.twod:
+            fig, raxs = ssp.pdf_plots(sub=args.sub, twod=args.twod,
+                                      cmap=plt.cm.Blues)
+            fig.savefig('{:s}_jmpdf{:s}'.format(ssp.name, EXT))
+            print('wrote {:s}_jmpdf{:s}'.format(ssp.name, EXT))
 
 if __name__ == "__main__":
     sys.exit(main())

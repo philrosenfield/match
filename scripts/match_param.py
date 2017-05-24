@@ -9,7 +9,6 @@ import sys
 import time
 
 import numpy as np
-
 import matplotlib.pylab as plt
 
 from .config import PARAMEXT
@@ -239,7 +238,6 @@ def check_filters(filters, hstflag=None):
     return vfilter, ifilter
 
 
-
 def match_param(mag1, mag2, filters, param, interactive=False, fake=None,
                 comp_frac=0.5, param_kw=None, power_law_imf=False, zinc=False,
                 bright_lim=20., overwrite=False, hstflag=None, max_tbins=100):
@@ -312,19 +310,26 @@ def match_param(mag1, mag2, filters, param, interactive=False, fake=None,
         vimax = np.max(color)
         vmin = np.min(mag1)
         imin = np.min(mag2)
-        if fake is None:
-            vmax = np.max(mag1)
-            imax = np.max(mag2)
-            dove = 'data'
-        else:
-            from .asts import ASTs
-            ast = ASTs(filename=fake, filter1=filters[0], filter2=filters[1])
-            ast.completeness(combined_filters=True, interpolate=True)
-            print('Using {0:f} completeness fraction from {1:s}'
-                  .format(comp_frac, fake))
-            vmax, imax = ast.get_completeness_fraction(comp_frac,
-                                                       bright_lim=bright_lim)
-            dove = 'completeness'
+        vmax = template['vmax']
+        imax = template['imax']
+        dove = 'user input'
+        if vmax is None or imax is None:
+            if fake is not None:
+                from .asts import ASTs
+                ast = ASTs(filename=fake, filter1=filters[0],
+                           filter2=filters[1])
+                ast.completeness(combined_filters=True, interpolate=True)
+                print('Using {0:f} completeness fraction from {1:s}'
+                      .format(comp_frac, fake))
+                vmax, imax = \
+                    ast.get_completeness_fraction(comp_frac,
+                                                  bright_lim=bright_lim)
+                dove = 'completeness'
+            else:
+                vmax = np.max(mag1)
+                imax = np.max(mag2)
+                dove = 'data'
+
         print('From {}: vmax={} imax={}'.format(dove, vmax, imax))
 
     template['vimin'] = vimin
@@ -377,6 +382,12 @@ def parse_args(argv=None):
 
     parser.add_argument('--tmax', type=float, default=10.24,
                         help='max log age [10.24]')
+
+    parser.add_argument('--vmax', type=float, default=None,
+                        help='faint V limit ')
+
+    parser.add_argument('--imax', type=float, default=None,
+                        help='faint I limit')
 
     parser.add_argument('--zinc', action='store_true',
                         help='use zinc [False]')
@@ -432,6 +443,7 @@ def parse_args(argv=None):
 
     return parser.parse_args(argv)
 
+
 def main(argv=None):
     """main function for match_param"""
     args = parse_args(argv)
@@ -447,7 +459,6 @@ def main(argv=None):
     mag2 = mag2[inds]
 
     args.param = args.param or replaceext(args.phot, PARAMEXT)
-
 
     if args.filters is None:
         try:
@@ -478,7 +489,9 @@ def main(argv=None):
                     'ddmod': args.ddmod,
                     'av0': args.av[0],
                     'av1': args.av[1],
-                    'dav': args.dav}
+                    'dav': args.dav,
+                    'vmax': args.vmax,
+                    'imax': args.imax}
 
         power_law_imf = True
         if args.imf is None:

@@ -8,8 +8,15 @@ from .utils import splitext
 from .config import PHOTEXT
 
 
-def match_fmt(data, filter1, filter2):
+def match_fmt(data, filter1, filter2, crowd=None):
     """CALCSFH input format"""
+    if crowd is not None:
+        filterext = filter1.split('_')[1]
+        filter1c = '{}CROWD'.format(filter1.replace(filterext, ''))
+        filter2c = '{}CROWD'.format(filter2.replace(filterext, ''))
+        inds, = np.nonzero((data[filter1c] < crowd) & (data[filter2c] < crowd))
+        data = data[inds]
+
     return np.column_stack([data[filter1], data[filter2]])
 
 
@@ -40,17 +47,19 @@ def asteca_fmt(data, filter1, filter2, filterext='VEGA', crowd=None):
                             data[filter1], data[filter1e],
                             color, colore])
 
-def outputfmt(data, filter1, filter2, asteca=False, filterext='VEGA'):
+def outputfmt(data, filter1, filter2, asteca=False, filterext='VEGA',
+              crowd=None):
     """Choose either ASteCA or MATCH format photometry"""
     if asteca:
-        retdat = asteca_fmt(data, filter1, filter2, filterext=filterext)
+        retdat = asteca_fmt(data, filter1, filter2, filterext=filterext,
+                            crowd=None)
     else:
-        retdat = match_fmt(data, filter1, filter2)
+        retdat = match_fmt(data, filter1, filter2, crowd=None)
     return retdat
 
 
 def make_phot(fitsfile, filterext='VEGA', nexts=2, precision='%.6f',
-              filter2=None, dryrun=False, asteca=False):
+              filter2=None, dryrun=False, asteca=False, crowd=None):
     """Make mag1, mag2 files from fits file"""
     if nexts == 2:
         # e.g., .gst.fits is the extension keep .gst.
@@ -89,10 +98,12 @@ def make_phot(fitsfile, filterext='VEGA', nexts=2, precision='%.6f',
         if asteca:
             final_ext = '.asteca'
         fname = '{}_{}{}{}'.format(pref, filts, ext, final_ext)
+        fname = fname.replace('__', '_')
         if not dryrun:
             wrote = 'wrote'
             np.savetxt(fname, outputfmt(data, filter1, filter2, asteca=asteca,
-                                        filterext=filterext), fmt=precision)
+                                        filterext=filterext, crowd=None),
+                       fmt=precision)
         else:
             wrote = 'would write'
         print('{} {}'.format(wrote, fname))
@@ -117,10 +128,13 @@ def main(argv):
     parser.add_argument('--dryrun', action='store_true',
                         help='only print filename that would be written')
 
+    parser.add_argument('--crowd', type=float,
+                        help='cull fitsfile to this level of crowding')
+
     args = parser.parse_args(argv)
 
     if args.a2m:
-        asteca2matchphot(args.fitsfiles[0])
+        [asteca2matchphot(f) for f in args.fitsfiles]
     else:
         _ = [make_phot(fitsfile, dryrun=args.dryrun, asteca=args.asteca)
              for fitsfile in args.fitsfiles]
