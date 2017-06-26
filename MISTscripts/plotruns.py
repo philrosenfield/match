@@ -12,7 +12,9 @@ import shutil
 import matplotlib.image as mpimg
 import seaborn as sns
 # no seaborn gridlines on plot, and white bg:
-sns.set_style("whitegrid", {'axes.grid' : False})
+sns.set_context('paper')
+sns.set(font='serif')
+sns.set_style("white", {'font.family' : 'serif', 'font.serif': ['Times', 'Palatino', 'serif']})
 plt.axes(frameon=False)
 from MIST_codes.scripts import read_mist_models as rmm
 
@@ -105,22 +107,27 @@ def marginalize(clustername, photobase, jobidstr, outname, params = ['lage', 'vv
     # A plot of the best fit ages found vs. the corresp. v/vcrit values...
     # This is also getting the name of the saved figure for the plot, the matplotlib figure for the plot,
     # the axis object too, the best parameters for each v/vcrit run and the corresp. v/vcrits:
-    vvcritagename, vvcritagefig, vvcritageax, vbests, vvcrits = agevsvvcrit(flist, jobidstr, outpath = plotpath)
+    vvcritagename, vvcritagefig, vvcritageax, bestdict, vvcrits = agevsvvcrit(flist, jobidstr, outpath = plotpath) # vbests, vvcrits
     # Move the best fit ages vs v/vcrit plot:
     shutil.move(os.path.join(os.getcwd(), vvcritagename), os.path.join(outpath, vvcritagename))
 
     # Write a .txt file containing the best fit parameters found, along with their assoc. logP:
-    bestdict = {param: getbest(param, combineddata) for param in params}
+    combo_bestdict = {param: getbest(param, combineddata) for param in params}
     with open(os.path.join(plotpath, 'marginalized_params.txt'), 'w+') as f:
         for i, param in enumerate(params):
             #if param == 'lage':
             #    f.write('Best age: {:.2e}, logP = {:.4f}\n'.format(10**bestlist[i][0], bestlist[i][1]))
             #else:
             #    f.write('Best {:s}: {:.2f}, logP = {:.4f}\n'.format(param, bestlist[i][0], bestlist[i][1]))
-            f.write('Best {:s}: {:.2f}, logP = {:.4f}\n'.format(param, bestdict[param][0], bestdict[param][1]))
+            if param == 'Av':
+                # Converting Av to E(B-V):
+                f.write('Best E(B-V): {:.2f}, logP = {:.4f}\n'.format(combo_bestdict[param][0]/3.1, combo_bestdict[param][1]))
+            else:
+                f.write('Best {:s}: {:.2f}, logP = {:.4f}\n'.format(param, combo_bestdict[param][0], combo_bestdict[param][1]))
 
 
-    return vbests, vvcrits, qdict, bestdict#, vvcritagefig
+    #return vbests, vvcrits, qdict, bestdict#, vvcritagefig
+    return vvcrits, bestdict, qdict, combo_bestdict
 
 def agevsvvcrit(flist, jobarr_id, outpath, ext='.png'):
 
@@ -144,7 +151,6 @@ def agevsvvcrit(flist, jobarr_id, outpath, ext='.png'):
             + bestlst (list, list, float): A list of lists of the best-fit values for log10 age, [Fe/H], distance modulus, and Av.
                                            Elements of each sublist correspond to a particular v/vcrit value.
             + vvcrits (list, float): A list of the v/vcrit values that each element in the aforementioned sublists corresponds to.
-
     """
 
     outnames = flist#[fpath.split('/')[-1].split('.scrn')[0] + '.csv' for fpath in flist]
@@ -154,6 +160,7 @@ def agevsvvcrit(flist, jobarr_id, outpath, ext='.png'):
     bestfehs=[]
     bestdmods=[]
     bestavs=[]
+    best = {}
     
     # For each v/vcrit value, get the best fit age found:
     for i, name in enumerate(outnames):
@@ -185,6 +192,22 @@ def agevsvvcrit(flist, jobarr_id, outpath, ext='.png'):
         # Move the combined file:
         shutil.move(os.path.join(os.getcwd(), name), os.path.join(plotpath, name))
 
+    # sort v/vcrits in ascending order and their best params too:
+    # log10 ages found:
+    bestages = [lage_val for (vvcrit_val, lage_val) in sorted(zip(vvcrits, bestages))]
+    # logZ values found:
+    bestfehs = [logz_val for (vvcrit_val, logz_val) in sorted(zip(vvcrits, bestfehs))]
+    # dmod (fixed) values found:
+    bestdmods = [dmod_val for (vvcrit_val, dmod_val) in sorted(zip(vvcrits, bestdmods))]
+    # E(B-V)s (fixed) found; note: converting from Av to E(B-V):
+    bestebvs = [av_val/3.1 for (vvcrit_val, av_val) in sorted(zip(vvcrits, bestavs))]
+    # Sort the v/vcrits in ascending order:
+    vvcrits = sorted(vvcrits)
+
+    best_dict = {}
+    for i, vvcrit in enumerate(vvcrits):
+        best_dict[vvcrit] = {'lage': bestages[i], 'feh': bestfehs[i], 'dmod': bestdmods[i], 'ebv': bestebvs[i]}
+
     # Make a scatter plot of the best fit ages vs. v/vcrit:
 
     fig = plt.figure()
@@ -196,9 +219,9 @@ def agevsvvcrit(flist, jobarr_id, outpath, ext='.png'):
     savename = jobarr_id + '_BestAgevsVVCrit' + ext
     plt.savefig(savename)
 
-    bestlst = [bestages, bestfehs, bestdmods, bestavs]
+    #bestlst = [bestages, bestfehs, bestdmods, bestavs]
 
-    return savename, fig, ax, bestlst, vvcrits
+    return savename, fig, ax, best_dict, vvcrits#bestlst, vvcrits
 
 def getbest(param, data):
 
@@ -250,7 +273,8 @@ if __name__ == "__main__":
     except IndexError:
         local = False
 
-    vbests, vvcrits, qdict, bfdict = marginalize(sys.argv[1], photbase, sys.argv[3], sys.argv[4], local=local)
+    #vbests, vvcrits, qdict, bfdict = marginalize(sys.argv[1], photbase, sys.argv[3], sys.argv[4], local=local)
+    vvcrits, best_dict, qdict, bfdict = marginalize(sys.argv[1], photbase, sys.argv[3], sys.argv[4], local=local)
     #pdf.savefig(vvcage_fig)
     plt.clf()
     # clearing out pre-existing output files that this script may have produced in prev. runs:
@@ -303,19 +327,19 @@ if __name__ == "__main__":
 
     # sort v/vcrits in ascending order and their best params too:
     # log10 ages found:
-    vbests[0] = [lage_val for (vvcrit_val, lage_val) in sorted(zip(vvcrits, vbests[0]))]
+    #vbests[0] = [lage_val for (vvcrit_val, lage_val) in sorted(zip(vvcrits, vbests[0]))]
     # logZ values found:
-    vbests[1] = [logz_val for (vvcrit_val, logz_val) in sorted(zip(vvcrits, vbests[1]))]
+    #vbests[1] = [logz_val for (vvcrit_val, logz_val) in sorted(zip(vvcrits, vbests[1]))]
     # dmod (fixed) values found:
-    vbests[2] = [dmod_val for (vvcrit_val, dmod_val) in sorted(zip(vvcrits, vbests[2]))]
+    #vbests[2] = [dmod_val for (vvcrit_val, dmod_val) in sorted(zip(vvcrits, vbests[2]))]
     # E(B-V)s (fixed) found:
-    vbests[3] = [av_val/3.1 for (vvcrit_val, av_val) in sorted(zip(vvcrits, vbests[3]))]
+    #vbests[3] = [av_val/3.1 for (vvcrit_val, av_val) in sorted(zip(vvcrits, vbests[3]))]
     # Sort the v/vcrits in ascending order:
-    vvcrits = sorted(vvcrits)
+    #vvcrits = sorted(vvcrits)
 
-    best_dict = {}
-    for i, vvcrit in enumerate(vvcrits):
-        best_dict[vvcrit] = {'lage': vbests[0][i], 'feh': vbests[1][i], 'dmod': vbests[2][i], 'ebv': vbests[3][i]}
+    #best_dict = {}
+    #for i, vvcrit in enumerate(vvcrits):
+    #    best_dict[vvcrit] = {'lage': vbests[0][i], 'feh': vbests[1][i], 'dmod': vbests[2][i], 'ebv': vbests[3][i]}
 
     # Also get the residuals:
     # For overplotting data points, get the data points CMD x, y values from the photometry file:

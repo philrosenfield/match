@@ -13,6 +13,8 @@ from match.scripts.graphics.match_plot import match_plot
 from match.scripts.utils import parse_pipeline
 from match.scripts.wrappers.stats import call_stats
 
+import matplotlib as mpl
+
 __all__ = ['CMD']
 
 def splitcmds(filename, overwrite=False):
@@ -55,7 +57,7 @@ class CMD(object):
     automatically make plots with the same color scale as other MATCH CMD
     files.
     """
-    def __init__(self, filename=None, onlyheader=False):
+    def __init__(self, filename=None, onlyheader=False, params=None):
         if filename is not None:
             self.base, self.name = os.path.split(os.path.abspath(filename))
             self.cmd, self.fit, self.colors, self.yfilter = \
@@ -63,9 +65,15 @@ class CMD(object):
             if not onlyheader:
                 # self.cmd will be an empty array if onlyheader
                 self.load_match_cmd()
+            if params is not None:
+                self.params = params
+                dlage = np.array(sorted(np.unique(params['log10 Age'].values))).diff()[0]
+                dt = 10**(params['log10 Age'] + dlage) - 10**params['log10 Age']
+                self.mass = params['SFR'] * dt
 
     def set_labels(self):
         """Set up list of labels for pgpro"""
+        mpl.rc('text',usetex=True)
         strfmt = r'${{\rm {:s}}}$'
         labels = [strfmt.format(i) for i in ['data', 'model', 'd-m']]
         try:
@@ -74,6 +82,7 @@ class CMD(object):
         except:
             pass
         labels.append(r'$-2\ln P = {:g}$'.format(self.fit))
+        mpl.rc('text',usetex=False)
         return labels
 
     def set_axis_labels(self, ax=None):
