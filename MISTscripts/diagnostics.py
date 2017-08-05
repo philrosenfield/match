@@ -213,7 +213,7 @@ def plotouts(agebin, data='Fakedata', SFRS=['0.01','0.001','0.0001', '0.00001', 
             if maxbestfit < max(agebin):
                 maxbestfit = max(agebin)
 
-        ax.errorbar(starnums, ages, yerr=uncerts, fmt='o', label='SFR = {:s} Msun/yr'.format(sfr))
+        ax.errorbar(starnums, ages, yerr=uncerts, fmt='o', label='SFR = {:s} Msun/yr'.format(sfr), c = 'k')
         loy, upy = ax.get_ylim()
         print(ax.get_ylim())
         if any(1.01*(ages+uncerts) > upy):
@@ -248,8 +248,8 @@ def plotouts(agebin, data='Fakedata', SFRS=['0.01','0.001','0.0001', '0.00001', 
     ax.plot(x, [agebin[0]]*len(x), c='k', ls='--', label='Age bin limits')
     ax.plot(x, [agebin[1]]*len(x), c='k', ls='--')
     ax.fill_between([0, 1e6], agebin[0], agebin[1], alpha=0.4)
-    for binbound in np.arange(8.0, 9.2, 0.02):
-        ax.axhline(y=binbound, xmax=0.1, ls = '--')
+    #for binbound in np.arange(8.0, 9.2, 0.02):
+    #    ax.axhline(y=binbound, xmax=0.1, ls = '--')
 
     print "Mean Fit = {:f}".format(mean)
 
@@ -263,8 +263,9 @@ def plotouts(agebin, data='Fakedata', SFRS=['0.01','0.001','0.0001', '0.00001', 
     elif params=='Av':
         units = ' [dex]'
 
-    ax.set_ylabel(param + units)
-    ax.set_xlabel(u"$log_{10}(N)$") 
+    #ax.set_ylabel(param + units)
+    ax.set_ylabel(r"$log_{10} Age$")
+    ax.set_xlabel(u"$log_{10} N$") 
     #ax.set_ylim([minbestfit-1.5*dminbestfit, maxbestfit+1.5*dmaxbestfit])
     ax.set_xscale('log')
 
@@ -286,10 +287,10 @@ def plotouts(agebin, data='Fakedata', SFRS=['0.01','0.001','0.0001', '0.00001', 
         plot_dir = os.path.join(os.path.join(output_dir, sub), "plots") 
 
     # Plot save file name:
-    if fromfit:
-        save_path = os.path.join(plot_dir, "out_{:s}_{:s}_fromfit.eps".format(param, solution))
-    else:
-        save_path = os.path.join(plot_dir, "out_{:s}_{:s}.eps".format(param, solution))
+   # if fromfit:
+   #     save_path = os.path.join(plot_dir, "out_{:s}_{:s}_fromfit.eps".format(param, solution))
+   # else:
+   #     save_path = os.path.join(plot_dir, "out_{:s}_{:s}.eps".format(param, solution))
 
     # Check if the save path exists and save an image of the plot there:
     if not os.path.isdir(plot_dir):
@@ -297,12 +298,13 @@ def plotouts(agebin, data='Fakedata', SFRS=['0.01','0.001','0.0001', '0.00001', 
         print "Creating plot save directory {:s}.".format(plot_dir)
         os.mkdir(plot_dir)
 
-    ax.set_title(u"{:s} (Best Fit) vs. $log_{{10}}(N)$".format(param))
+    #ax.set_title(u"{:s} (Best Fit) vs. $log_{{10}}(N)$".format(param))
+    #ax.set_title(u"{:s} (Best Fit) vs. $log_{{10}}(N)$".format(param))
     #ax.legend(loc='lower right', prop={'size':10})
-
+    print(save_path)
     if save_path != None:
         print "Saving plot to {:s}.".format(save_path)
-        plt.savefig(save_path)
+        plt.savefig(save_path, dpi=300)
 
     # Display the plot:
     if showplt:

@@ -375,22 +375,22 @@ if __name__ == "__main__":
         isol = rmm.ISOCMD(best_dict[vvcrit]['feh'], vvcrit, ebv=best_dict[vvcrit]['ebv']) #qdict['logZ'][0], float('{:.1f}'.format(qdict['vvcrit'][0]))
         isol.set_isodata(qdict['lage'][0],filters[1], filters[0], dmod=best_dict[vvcrit]['dmod'])
 
-        iso.isoplot(ax, xlim=extent[0:2], ylim=extent[2:], shade = vvcrit)
-        isou.isoplot(ax, xlim=extent[0:2], ylim=extent[2:], shade = vvcrit, alpha=0.6, ls='--')
-        isol.isoplot(ax, xlim=extent[0:2], ylim=extent[2:], shade = vvcrit, alpha=0.6, ls='--')
+        iso.isoplot(ax, xlims=extent[0:2], ylims=extent[2:], shade = vvcrit, label=True)
+        isou.isoplot(ax, xlims=extent[0:2], ylims=extent[2:], shade = vvcrit, alpha=0.6, ls='--')
+        isol.isoplot(ax, xlims=extent[0:2], ylims=extent[2:], shade = vvcrit, alpha=0.6, ls='--')
         #ax.fill_between(iso.x, isol.y, isou.y)
 
         # all best isochrones
-        iso.isoplot(allax, xlim=extent[0:2], ylim=extent[2:], shade = vvcrit, legloc='upper right')
+        iso.isoplot(allax, xlims=extent[0:2], ylims=extent[2:], shade = vvcrit, legloc='upper right')
 
-        ax.scatter(*photf_pts, lw=0, c='r')
+        ax.scatter(*photf_pts, lw=0, s=8, c='r')
         #if j == 0:
         #    allax.scatter(*photf_pts, lw=0, c='r')
             #isou.isoplot(allax, xlim=extent[0:2], ylim=extent[2:], shade = vvcrit, alpha=0.6, ls='--', c='k')
             #isol.isoplot(allax, xlim=extent[0:2], ylim=extent[2:], shade = vvcrit, alpha=0.6, ls='--', c='k')
 
         savename = os.path.join(plotpath, 'cmd_vvcrit{:.1f}_m2lnP{:.2f}.png'.format(vvcrit, a_cmd.fit))  
-        fig.savefig(savename)
+        fig.savefig(savename, dpi=300)
         mist_pts = [(isol.x, isol.y), (iso.x, iso.y), (isou.x, isou.y)]
 
         a_cmd.pgcmd(photf_pts=photf_pts, mist_pts=mist_pts, best_list=best_dict[vvcrit].values())
@@ -403,7 +403,7 @@ if __name__ == "__main__":
 
     # For plotting all best fits together:
     #=======================================================
-    allax.scatter(*photf_pts, lw=0, c='r')
+    allax.scatter(*photf_pts, lw=0, s=8, c='r')
 
     # older age isochrone:
     isou = rmm.ISOCMD(qdict['logZ'][1], bestvvc, ebv=best_dict[bestvvc]['ebv']) #qdict['logZ'][1], float('{:.1f}'.format(qdict['vvcrit'][1]))
@@ -412,10 +412,10 @@ if __name__ == "__main__":
     isol = rmm.ISOCMD(qdict['logZ'][0], bestvvc, ebv=best_dict[bestvvc]['ebv']) #qdict['logZ'][0], float('{:.1f}'.format(qdict['vvcrit'][0]))
     isol.set_isodata(qdict['lage'][0],filters[1], filters[0], dmod=best_dict[bestvvc]['dmod'])
 
-    isou.isoplot(allax, xlim=extent[0:2], ylim=extent[2:], shade = bestvvc, alpha=0.6, ls='--', c='k')
-    isol.isoplot(allax, xlim=extent[0:2], ylim=extent[2:], shade = bestvvc, alpha=0.6, ls='--', c='k')
+    isou.isoplot(allax, xlims=extent[0:2], ylims=extent[2:], shade = bestvvc, alpha=0.6, ls='--', c='k')
+    isol.isoplot(allax, xlims=extent[0:2], ylims=extent[2:], shade = bestvvc, alpha=0.6, ls='--', c='k')
 
     savename = os.path.join(plotpath, 'cmdall_bestvvcrit{:.1f}.png'.format(bestvvc))
-    allfig.savefig(savename)
+    allfig.savefig(savename, dpi=300)
     allfig.clf()
     #=========================================================
