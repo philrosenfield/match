@@ -6,7 +6,7 @@ from .graphics import (corner_setup, fix_diagonal_axes, key2label,
 
 
 def add_quantiles(SSP, ax, attrs, uvalss=None, probs=None,
-                  twod=False, gauss=False):
+                  twod=False, gauss=False, interpolate=True):
     """
     Add some lines!
 
@@ -66,7 +66,8 @@ def add_quantiles(SSP, ax, attrs, uvalss=None, probs=None,
                 SSP.fitgauss1D(attr, uvals, prob)
                 # go with quantiles (default 0.16, 0.84)
                 # g = SSP.quantiles(attr, uvals, prob, maxp=True, k=1, ax=ax)
-            q = SSP.quantiles(attr, uvals, prob, maxp=True, k=1)
+            q = SSP.quantiles(attr, uvals, prob, maxp=True, k=1,
+                              interpolate=interpolate)
 
         try:
             lines = [g.mean, g.mean + g.stddev / 2, g.mean - g.stddev / 2]
@@ -97,7 +98,8 @@ def add_quantiles(SSP, ax, attrs, uvalss=None, probs=None,
 
 def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
              truth=None, cmap=None, plt_kw=None, X=None, prob=None,
-             logp=True, quantile=False, gauss1D=False, plotfit=False):
+             logp=True, quantile=False, gauss1D=False, plotfit=False,
+             interpolateq=True):
     """Plot -2 ln P vs marginalized attributes
 
     SSP : SSP class instance
@@ -163,7 +165,7 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
 
         if quantile:
             ax = add_quantiles(SSP, ax, xattr, uvalss=[X], probs=[prob],
-                               gauss=gauss1D)
+                               gauss=gauss1D, interpolate=interpolateq)
 
         ax.set_xlim(X.min(), X.max())
         # yaxis max is the larger of 10% higher than the max val or current ylim.
@@ -202,7 +204,8 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
         # ax = square_aspect(ax)
 
         if quantile:
-            add_quantiles(SSP, ax, [xattr, yattr], twod=True, gauss=gauss1D)
+            add_quantiles(SSP, ax, [xattr, yattr], twod=True, gauss=gauss1D,
+                          interpolate=interpolateq)
 
         ax.set_xlim(X.min(), X.max())
         ax.set_ylim(Y.min(), Y.max())
@@ -238,14 +241,15 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
 
 def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
               text=None, cmap=None, fig=None, axs=None, frompost=False,
-              logp=True, gauss1D=False, quantile=False):
+              logp=True, gauss1D=False, quantile=True, interpolateq=True):
     """Call pdf_plot for a list of xattr and yattr"""
     text = text or ''
     sub = sub or ''
     truth = truth or {}
     marginals = marginals or SSP._getmarginals()
     pstr = ''
-    plkw = {'logp': logp, 'gauss1D': gauss1D, 'quantile': quantile}
+    plkw = {'logp': logp, 'gauss1D': gauss1D, 'quantile': quantile,
+            'interpolateq': interpolateq}
 
     if logp:
         pstr = '\ln\ '

@@ -20,7 +20,7 @@ __all__ = ['strip_header', 'convertz', 'center_grid', 'quantiles',
 
 
 def quantiles(ux, prob, qs=[0.16, 0.84], res=200, maxp=False,
-              ax=None, k=3):
+              ax=None, k=3, interpolate=True):
     """
     Calculate quantiles, or fraction of total area under prob curve.
 
@@ -42,14 +42,17 @@ def quantiles(ux, prob, qs=[0.16, 0.84], res=200, maxp=False,
     -------
     interpolated ux evaluated at qs
     """
-    from scipy.interpolate import splprep, splev
-    ((tckp, u), fp, ier, msg) = splprep([ux, prob], k=k, full_output=1)
-
-    if ier != 0:
-        k = 1
-
+    if interpolate:
+        from scipy.interpolate import splprep, splev
         ((tckp, u), fp, ier, msg) = splprep([ux, prob], k=k, full_output=1)
-    iux, iprob = splev(np.linspace(0, 1, res), tckp)
+
+        if ier != 0:
+            k = 1
+
+            ((tckp, u), fp, ier, msg) = splprep([ux, prob], k=k, full_output=1)
+        iux, iprob = splev(np.linspace(0, 1, res), tckp)
+    else:
+        iux, iprob = ux, prob
 
     fac = np.cumsum(iprob) / np.sum(iprob)
     ipts = [np.argmin(np.abs(fac - q)) for q in qs]
@@ -60,6 +63,7 @@ def quantiles(ux, prob, qs=[0.16, 0.84], res=200, maxp=False,
         # useful for debugging or by-eye checking of interpolation
         ax.plot(iux, iprob, color='r')
         ax.plot(iux[ipts], iprob[ipts], 'o', color='r')
+    print('quantiles {} are actually at {}'.format(qs, fac[ipts]))
     return g
 
 

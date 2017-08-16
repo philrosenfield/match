@@ -131,10 +131,10 @@ class SSP(object):
         return g
 
     def quantiles(self, xattr, ux, prob, qs=[0.16, 0.84], res=200, maxp=False,
-                  ax=None, k=3):
+                  ax=None, k=3, interpolate=True):
         """Add quantiles, see .utils.quantiles"""
         q = utils.quantiles(ux, prob, qs=qs, res=res, maxp=maxp, ax=ax,
-                            k=k)
+                            k=k, interpolate=interpolate)
         self.__setattr__('{0:s}q'.format(xattr), q)
         return q
 
