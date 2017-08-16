@@ -247,6 +247,7 @@ def call_pgcmd_byfit(cmdfns, nmax=5, outdir=None, logcounts=False):
         cmd = CMD(cmd)
         cmd.pgcmd(figname='{}{}{}'.format(cmd.name, jstr, EXT),
                   outdir=outdir, logcounts=logcounts)
+                   # twobytwo=False, sig=False)
     return
 
 

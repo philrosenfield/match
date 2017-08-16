@@ -2,7 +2,8 @@ from __future__ import print_function, absolute_import
 import matplotlib.pyplot as plt
 import numpy as np
 from .graphics import (corner_setup, fix_diagonal_axes, key2label,
-                       add_inner_title)
+                       add_inner_title, square_aspect)
+
 
 def add_quantiles(SSP, ax, attrs, uvalss=None, probs=None,
                   twod=False, gauss=False):
@@ -56,24 +57,23 @@ def add_quantiles(SSP, ax, attrs, uvalss=None, probs=None,
             # for second loop 1D
             continue
         # look up value
-        gatr = '{:s}g'.format(attr)
-        if not hasattr(SSP, gatr):
+        qatr = '{:s}q'.format(attr)
+        if hasattr(SSP, qatr):
+            q = SSP.__getattribute__(qatr)
+        else:
             if gauss:
                 # fit 1D Gaussian
-                g = SSP.fitgauss1D(attr, uvals, prob)
-            else:
+                SSP.fitgauss1D(attr, uvals, prob)
                 # go with quantiles (default 0.16, 0.84)
                 # g = SSP.quantiles(attr, uvals, prob, maxp=True, k=1, ax=ax)
-                g = SSP.quantiles(attr, uvals, prob, maxp=True, k=1)
-        else:
-            g = SSP.__getattribute__(gatr)
+            q = SSP.quantiles(attr, uvals, prob, maxp=True, k=1)
 
-        if gauss:
+        try:
             lines = [g.mean, g.mean + g.stddev / 2, g.mean - g.stddev / 2]
-        else:
+        except:
             # if maxp=False when SSP.quantiles called
             # this will raise a value error because g will be length 2.
-            lines = [g[2], g[0], g[1]]
+            lines = [q[2], q[0], q[1]]
         lstys = ['-', '--', '--']
 
         if twod:
@@ -81,8 +81,8 @@ def add_quantiles(SSP, ax, attrs, uvalss=None, probs=None,
                 lines = [g.mean + g.stddev / 2, g.mean - g.stddev / 2]
                 pts.append(g.mean)
             else:
-                lines = [g[0], g[1]]
-                pts.append(g[2])
+                lines = [q[0], q[1]]
+                pts.append(q[2])
             lstys = ['--', '--']
 
         # plot.
@@ -91,21 +91,13 @@ def add_quantiles(SSP, ax, attrs, uvalss=None, probs=None,
     if twod:
         # plot mean or max post prob
         ax.plot(pts[0], pts[1], 'o', color='white', mec='k', mew=1)
-    else:
-        if gauss:
-            # over plot Gaussian fit
-            X = uvalss[0]
-            prob = probs[0]
-            # plot the Gaussian 10 steps beyond the calculated limits.
-            dx = 10 * np.diff(X)[0]
-            xx = np.linspace(X.min() - dx, X.max() + dx, 100)
-            ax.plot(xx, g(xx), color='darkred')
+
     return ax
 
 
 def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
              truth=None, cmap=None, plt_kw=None, X=None, prob=None,
-             logp=True, quantile=False, gauss1D=False):
+             logp=True, quantile=False, gauss1D=False, plotfit=False):
     """Plot -2 ln P vs marginalized attributes
 
     SSP : SSP class instance
@@ -136,12 +128,18 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
     ax : plt.Axes
         new or updated axes instance
     """
-    plt_kw = plt_kw or {'lw': 4, 'color': 'k'}
+    plt_kw = plt_kw or {}
+    def_kw = {'lw': 4, 'color': 'k'}
+    def_kw.update(plt_kw)
+    plt_kw = def_kw
+
     cmap = cmap or plt.cm.viridis_r
+
     sub = sub or ''
     truth = truth or {}
     do_cbar = False
     pstr = ''
+
     if logp:
         pstr = '\ln\ '
 
@@ -157,29 +155,55 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
                 return ax
             X, prob = SSP.marginalize(xattr, log=logp)
             SSP.build_posterior(xattr, X, prob)
+
+        if gauss1D:
+            gx = SSP.fitgauss1D(xattr, X, prob)
+
         l = ax.plot(X, prob, **plt_kw)
 
-        if gauss1D or quantile:
+        if quantile:
             ax = add_quantiles(SSP, ax, xattr, uvalss=[X], probs=[prob],
                                gauss=gauss1D)
+
         ax.set_xlim(X.min(), X.max())
         # yaxis max is the larger of 10% higher than the max val or current ylim.
         ymax = np.max([prob.max() + (prob.max() * 0.1), ax.get_ylim()[1]])
         ax.set_ylim(prob.min(), ymax)
+
+        if gauss1D and plotfit:
+            # over plot Gaussian fit
+            # plot the Gaussian 10 steps beyond the calculated limits.
+            dx = 10 * np.diff(X)[0]
+            xx = np.linspace(X.min() - dx, X.max() + dx, 100)
+            ax.plot(xx, gx(xx), color='darkred')
 
         if save:
             ptype = 'marginal'
             # ax.set_ylabel(key2label('fit'))
             ax.set_ylabel(key2label(pstr+'Probability'))
     else:
+
         # plot type is joint probability.
         # Attribute1 vs Attribute2 colored by fit
         if not SSP.vdict[xattr] or not SSP.vdict[yattr]:
             return ax
+
         [X, Y], prob = SSP.marginalize(xattr, yattr=yattr, log=logp)
+
+        if gauss1D:
+            gy = SSP.fitgauss1D(yattr, Y, prob)
+
         l = ax.pcolor(X, Y, prob, cmap=cmap)
-        if gauss1D or quantile:
+        # use imshow instead of pcolor, has strange aspect ratio...
+        # ux = SSP.__getattribute__('u{0:s}'.format(xattr))
+        # uy = SSP.__getattribute__('u{0:s}'.format(yattr))
+        # l = ax.imshow(prob.T, extent=[ux[0], ux[-1], uy[0], uy[-1]], cmap=cmap,
+        #               origin='lower')
+        # ax = square_aspect(ax)
+
+        if quantile:
             add_quantiles(SSP, ax, [xattr, yattr], twod=True, gauss=gauss1D)
+
         ax.set_xlim(X.min(), X.max())
         ax.set_ylim(Y.min(), Y.max())
 
@@ -193,10 +217,10 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
             ax.set_ylabel(key2label(yattr, gyr=SSP.gyr))
 
         if yattr in truth:
-            ax.axhline(truth[yattr], color='k', lw=3)
+            ax.axhline(truth[yattr], color='darkred', lw=3, zorder=0)
 
     if xattr in truth:
-        ax.axvline(truth[xattr], color='k', lw=3)
+        ax.axvline(truth[xattr], color='darkred', lw=3, zorder=0)
 
     if save:
         ax.set_xlabel(key2label(xattr, gyr=SSP.gyr))
@@ -254,11 +278,11 @@ def pdf_plots(SSP, marginals=None, sub=None, twod=False, truth=None,
 
                 if c == 0:
                     # left most column
-                    ax.set_ylabel(key2label(my))
+                    ax.set_ylabel(key2label(my, gyr=SSP.gyr))
 
                 if r == ndim - 1:
                     # bottom row
-                    ax.set_xlabel(key2label(mx))
+                    ax.set_xlabel(key2label(mx, gyr=SSP.gyr))
         [ax.locator_params(axis='y', nbins=6) for ax in axs.ravel()]
         fix_diagonal_axes(raxs, ndim)
     else:

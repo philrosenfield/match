@@ -518,9 +518,9 @@ class ASTs(object):
             _, axs = plt.subplots(ncols=2, figsize=(12, 6))
 
         axs[0].plot(self.mag1[self.rec], self.mag1diff[self.rec], '.',
-                    color='k', alpha=0.5)
+                    color='k', alpha=0.5, rasterized=True)
         axs[1].plot(self.mag2[self.rec], self.mag2diff[self.rec], '.',
-                    color='k', alpha=0.5)
+                    color='k', alpha=0.5, rasterized=True)
 
         xlab = r'${{\rm Input}}\ {}$'
 

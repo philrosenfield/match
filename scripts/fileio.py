@@ -6,6 +6,10 @@ import glob
 import sys
 import logging
 
+import numpy as np
+
+from .config import SCRNEXT
+
 yeahpd = True
 try:
     import pandas as pd
@@ -13,9 +17,6 @@ except ImportError:
     print('some SSP functions (combine_files) will not work without pandas')
     yeahpd = False
 
-import numpy as np
-
-from .config import SCRNEXT
 
 logger = logging.getLogger()
 
@@ -63,6 +64,7 @@ def add_filename_info_to_file(fname, best=False):
     if not yeahpd:
         print('Need pandas to add columns to a DataFrame')
         return []
+
     def getheader(infile):
         """
         get the length of the header
@@ -276,8 +278,10 @@ def calcsfh_input_parameter(zinc=False, power_law_imf=True, max_tbins=100,
         fmt += '{ninclude_gates:d} {include_gates:s} \n'
         #    Metallicity information not yet supported
         fmt += '{ntbins:d}\n'
-        fmt += ''.join(['   {0:.6f} {1:.6f}\n'.format(i, j) for i, j in
-                        zip(dt[:], dt[1:]) if np.round(i, 4) != np.round(j, 4)])
+        fmt += ''.join(['   {0:.6f} {1:.6f}\n'
+                        .format(i, j)
+                        for i, j in zip(dt[:], dt[1:])
+                        if np.round(i, 4) != np.round(j, 4)])
         fmt += footer
         return fmt
 
@@ -349,7 +353,8 @@ def calcsfh_input_parameter(zinc=False, power_law_imf=True, max_tbins=100,
                 dtarrays.append(dts)
                 dts = np.array([])
         dtarrays.append(dts)
-        print('{0:d} parameter files with a max number of {1:d} time bins each'.format(len(dtarrays), max_tbins))
+        print('{0:d} parameter files with a max number of {1:d} time bins each'
+              .format(len(dtarrays), max_tbins))
     else:
         dtarrays = [dtarr]
 
@@ -433,17 +438,17 @@ def read_ssp_output(filename, names=None):
     if filename.endswith('.csv'):
         # combined file of many calcsfh outputs
         data = pd.read_csv(filename)
-        try:
-            ibest, = np.where(data['Av'] == 'Best')
-            data = data.drop(ibest)
-        except TypeError:
-            print('{}: no "Best fit" string'.format(filename))
-            ibest = []
-
     else:
         # one calcsfh output
         data = pd.read_table(filename, delim_whitespace=True, skiprows=10,
                              names=names, skipfooter=1, engine='python')
+    try:
+        ibest, = np.where(data['Av'] == 'Best')
+        data = data.drop(ibest)
+    except TypeError:
+        print('{}: no "Best fit" string'.format(filename))
+        ibest = []
+
     return data
 
 
