@@ -292,7 +292,7 @@ def parse_argrange(strarr):
 
 
 def convertz(z=None, oh=None, mh=None, feh=None, oh_sun=8.76, z_sun=0.01524,
-             y0=.2485, dy_dz=1.80):
+             y0=.2485, dy_dz=1.80, y=None):
     '''
     input:
     metallicity as z
@@ -319,7 +319,8 @@ def convertz(z=None, oh=None, mh=None, feh=None, oh_sun=8.76, z_sun=0.01524,
         z = z_sun * 10**feh
 
     oh = feh + oh_sun
-    y = y0 + dy_dz * z
+    if y is None:
+        y = y0 + dy_dz * z
     x = 1. - z - y
     if mh is None:
         mh = np.log10((z / x) / 0.0207)
