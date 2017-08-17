@@ -5,27 +5,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import pylab as pyl
+from plotruns import marginalize
+from fileio import *
+from read_fake import *
+from read_phot import *
 
-def get_workdir(data='Fakedata'):
-
-    # Environment path to /n/home12/sgossage/match2.6
-    matchdir_envkey = 'MATCH_DIR'
-    matchdir = os.environ.get(matchdir_envkey)
-
-    if matchdir != None:
-
-        mistdir = os.path.join(matchdir, "MIST")
-    
-        # returns the path to the work directory...e.g. match2.6/MIST/Hyades:
-        return  os.path.join(mistdir, data) 
-    
-    else:
-        print "MATCH_DIR environment variable (path to e.g. ../matchx.xx, where x.xx = version #) not set.)"
-        return
-
-def readssp(data='Fakedata', SFR='0.001', solution='single', fromfit=False, param='age', sub=None):
+def readssp(data='Fakedata', SFR='0.001', solution='single', fromfit=False, param='age', photfn=None, sub=None):
 
     workdir = get_workdir(data)
+
+    if param=='lage':
+        param = 'age'
 
     # The photometry directory is used to count the number of stars used; the ssp output directory
     # is used to extract the solutions found by MATCH.
@@ -42,7 +32,8 @@ def readssp(data='Fakedata', SFR='0.001', solution='single', fromfit=False, para
     #os.chdir(sfrdir)
     os.chdir(photdir)
     #if not bins:
-    photfn = "SFR{:s}_logZ0.05.phot".format(SFR)
+    if photfn is None:
+        photfn = "SFR{:s}_logZ0.05.phot".format(SFR)
     #else:
     #    photfn = "SFR{:s}_logZ0.05_dmag{:.2f}_dcol{:.2f}.phot".format(SFR, bins[0], bins[1])
 
@@ -65,7 +56,12 @@ def readssp(data='Fakedata', SFR='0.001', solution='single', fromfit=False, para
 
     badi = []
     # Look through all files at the current SFR:
-    for f in sspfiles:
+    print(sspfiles) #debug
+    for j, f in enumerate(sspfiles):
+        # only plotting the v/vcrit = 0.0 solutions with this if statement.
+        if 'vvcrit0.0' not in f:
+            continue
+        print(f)
         # Figure out which file matches the current jobid:
         # Open the file:
         currf = open(f)
@@ -92,7 +88,7 @@ def readssp(data='Fakedata', SFR='0.001', solution='single', fromfit=False, para
                     elif ('\n' == line) & inblock:
                         # If there is no solution from fit:
                         print "**No solution from fit in {:s}; it will be excluded.**".format(f)
-                        badi.append(f)
+                        badi.append(j)
                         inblock = False
                         break
             continue
@@ -114,7 +110,7 @@ def readssp(data='Fakedata', SFR='0.001', solution='single', fromfit=False, para
                     elif ('\n' == line) & inblock:
                         # If there is no solution from fit:
                         print "**No solution from fit in {:s}; it will be excluded.**".format(f)
-                        badi.append(f)
+                        badi.append(j)
                         inblock = False
                         break
             continue
@@ -146,7 +142,7 @@ def readssp(data='Fakedata', SFR='0.001', solution='single', fromfit=False, para
 
                 elif k == len(lines)-1:
                     print "**No solution from fit in {:s}; it will be excluded.**".format(f)
-                    badi.append(f)
+                    badi.append(j)
                     inblock = False
                     break
             continue
@@ -155,12 +151,13 @@ def readssp(data='Fakedata', SFR='0.001', solution='single', fromfit=False, para
     # switch back to the work directory and return the found solutions and uncertainties, along with star number used
     # in finding the respective solutions:
     os.chdir(workdir)
-    print('!')
-    for i, badindex in enumerate(badi):
-        del uncerts[badindex - i]
-        del ages[badindex - i]
-        del starnums[badindex - i]
-
+    print('*')
+    print(badi)
+    #for i, badindex in enumerate(badi):
+        #del uncerts[badindex - i]#uncerts[badindex - i]
+        #del ages[badindex - i]#ages[badindex - i]
+        #del starnums[badindex]#starnums[badindex - i]
+    print('**')
     starnums = np.array([starnum]*len(ages))
     return np.array(starnums), np.array(ages), np.array(uncerts)
 
@@ -171,19 +168,30 @@ def file_len(fname):
             pass
     return i + 1
 
-def plotouts(agebin, data='Fakedata', SFRS=['0.01','0.001','0.0001', '0.00001', '0.000007', '0.000005', '0.000001'],
-             solution='single', fromfit=False, param='age', sub=None, showplt=True, save_path=None):
+#SFRS=['0.01','0.001','0.0001', '0.00001', '0.000007', '0.000005', '0.000001']
+def plotouts(params, data='Fakedata', SFRS=['0.01','0.001'], vvcs=[None],
+             jobid='12345678', local=True, solution='single', fromfit=False, sub=None, showplt=True, save_path=None, debug=False, marg=True):
 
     """
        X binlst may be unecessary; its useage was meant to showcase how different bin sizes may affect things.
+
+       params given as a dic
     """
 
     print ""
-
+    vvcs = vvcs*len(SFRS)
     # Close pre-existing figures:
     plt.close("all")
     fig = plt.figure(figsize=(16,9))
-    ax = fig.add_subplot(111)
+    subplt_n = int('1{:d}1'.format(len(params)))
+    axes = []
+    #ax = fig.add_subplot(111)
+
+    # sys.argv[x] = cluster name, photometry file, job array slurm id, outputfilename, bluer band filter, redder band filter.
+    #if photbase != None:
+    #    vvcrits, best_dict, qdict, bfdict = marginalize('Fakedata', photbase, jobid, '12345678.csv', local=local)
+    #    print(qdict)
+    #    print(bfdict)
 
     # mean is initialized to 0; this will be the mean of the best fits across all sfrs eventually.
     mean = 0
@@ -192,84 +200,99 @@ def plotouts(agebin, data='Fakedata', SFRS=['0.01','0.001','0.0001', '0.00001', 
     # Loop through the specified sfrs:
     for i, sfr in enumerate(SFRS):
 
+        if vvcs[i] == None:
+            photname_base = 'SFR{:s}_logZ0.05_dmag0.10_dcol0.05'.format(sfr)
+        else:
+            photname_base = 'SFR{:s}_logZ0.05_dmag0.10_dcol0.05_vvc{:s}'.format(sfr, vvcs[i])
         # get the number of stars (N), age (or other param) best fits, and associated uncertainties:
         print(sfr)
-        starnums, ages, uncerts = readssp(data, sfr, solution, fromfit, param, sub)
+        if marg:
+            vvcrits, best_dict, qdict, bfdict = marginalize('Fakedata', photname_base, jobid, '12345678.csv', local=local, saveagevsvvc=False, debug=debug)
+
+        starnum = file_len(get_photof(photname_base))
+
+        # starnum in certain cut...
+        phot_vmi, phot_v = get_mags(photname_base, vcuts=[7, 3])
+        print('NUM CUT: {:d}'.format(len(phot_v)))
+
         # Convert age (or other parameter) from log to linear:
-        linages = [10**age for age in ages]
-        # Plot the best fits vs. N for this sfr:
-        print(ages)
-        if minbestfit > min(ages):
-            minbestfit = min(ages)
-            min_inds = np.where(ages == minbestfit)[0]
-            dminbestfit = max([uncerts[i] for i in min_inds])
-            if minbestfit > min(agebin):
-                minbestfit = min(agebin)
+        #linages = [10**age for age in ages]
 
-        if maxbestfit < max(ages):
-            maxbestfit = max(ages)
-            max_inds = np.where(ages == maxbestfit)[0]
-            dmaxbestfit = max([uncerts[i] for i in max_inds])
-            if maxbestfit < max(agebin):
-                maxbestfit = max(agebin)
+        # valid params are: lage, logZ, vvcrit
+        for j, param in enumerate(params):
 
-        ax.errorbar(starnums, ages, yerr=uncerts, fmt='o', label='SFR = {:s} Msun/yr'.format(sfr), c = 'k')
-        loy, upy = ax.get_ylim()
-        print(ax.get_ylim())
-        if any(1.01*(ages+uncerts) > upy):
-            upy = max(1.01*(ages+uncerts))
-        elif any(0.99*(ages-uncerts) < loy):
-            loy = min(0.99*(ages-uncerts))
-        ax.set_ylim([loy, upy])
+            if not marg:
+                starnums, ages, uncerts = readssp(data, sfr, solution, fromfit, param, photfn='{:s}.phot'.format(photname_base), sub=sub)
+                print(ages)
 
-        print "Plotted {:d} points.".format(len(ages))
-        print "SFR = {:s} ({:d} stars)".format(sfr, starnums[0])
-        print "scatter (std.dev. of best fits): {:f}".format(np.std(ages))
-        print "mean uncert: {:f}".format(np.mean(uncerts))
-        print "scatter / mean uncert: {:f}".format(np.std(ages)/np.mean(uncerts))
+            if marg:
+                best=qdict[param][2]
+                lerr=[best - qdict[param][0]]
+                uerr=[qdict[param][1] - best]
+            try:
+                ax = axes[j]
+            except IndexError:
+                ax = fig.add_subplot(subplt_n)
+                axes.append(ax)
+                subplt_n += 1
+
+            if marg:
+                ax.errorbar(starnum, best, yerr=[lerr,uerr], fmt='o', c = 'k')
+                _ = plt_truth(ax, photname_base, param, vvc=vvcs[i])
+            else:
+                ax.errorbar(starnums, ages, yerr=uncerts, fmt='o', c = 'k')
+                _ = plt_truth(ax, photname_base, param, vvc=vvcs[i])
+
+            if param=='lage':
+                ax.set_ylabel(r"$log Age$")
+            elif param=='logZ':
+                ax.set_ylabel(r"$[Fe/H]$")
+                #ax.set_ylim([0.00, 0.09])
+            elif param=='vvcrit':
+                ax.set_ylabel(r"$\frac{\Omega}{\Omega_c}$")
+
+            ax.set_xlabel(u"$log N$") 
+            #ax.set_ylim([minbestfit-1.5*dminbestfit, maxbestfit+1.5*dmaxbestfit])
+            ax.set_xscale('log')
+
+        #loy, upy = ax.get_ylim()
+        #if any(1.01*(ages+uncerts) > upy):
+        #    upy = max(1.01*(ages+uncerts))
+        #elif any(0.99*(ages-uncerts) < loy):
+        #    loy = min(0.99*(ages-uncerts))
+        #ax.set_ylim([loy, upy])
+
+        #print "Plotted {:d} points.".format(len(ages))
+        print "SFR = {:s} ({:d} stars)".format(sfr, starnum)
+        #print "scatter (std.dev. of best fits): {:f}".format(np.std(ages))
+        #print "mean uncert: {:f}".format(np.mean(uncerts))
+        #print "scatter / mean uncert: {:f}".format(np.std(ages)/np.mean(uncerts))
 
         # Keep tabs on the mean best fit for each SFR
-        sfr_bestfitmean = np.log10(sum(linages)/len(ages))
-        mean += sfr_bestfitmean
+        #sfr_bestfitmean = np.log10(sum(linages)/len(ages))
+        #mean += sfr_bestfitmean
 
         print "=====================================================" 
 
+    plt.tight_layout()
     # "True" age value calculated as the average age of the age bin (in which star formation takes place).
-    truth = np.log10((10**agebin[0] + 10**agebin[1])/2.0)
+    #truth = np.log10((10**agebin[0] + 10**agebin[1])/2.0)
 
     # Take mean of the best fit ages across all SFRS involved:
-    mean = mean / len(SFRS)
+    #mean = mean / len(SFRS)
 
-    x = np.linspace(0, 1e6, 1e2)
+    #x = np.linspace(0, 1e6, 1e2)
     # Plot the mean of the best fits as a horizontal line
     #ax.plot(x, [mean]*len(x), label='Mean of best fits')
     # Plot the "truth" as another horizontal line:
-    ax.plot(x, [truth]*len(x), c='k', label='Truth')
-    ax.plot(x, [agebin[0]]*len(x), c='k', ls='--', label='Age bin limits')
-    ax.plot(x, [agebin[1]]*len(x), c='k', ls='--')
-    ax.fill_between([0, 1e6], agebin[0], agebin[1], alpha=0.4)
+    #ax.plot(x, [truth]*len(x), c='k', label='Truth')
+    #ax.plot(x, [agebin[0]]*len(x), c='k', ls='--', label='Age bin limits')
+    #ax.plot(x, [agebin[1]]*len(x), c='k', ls='--')
+    #ax.fill_between([0, 1e6], agebin[0], agebin[1], alpha=0.4)
     #for binbound in np.arange(8.0, 9.2, 0.02):
     #    ax.axhline(y=binbound, xmax=0.1, ls = '--')
 
-    print "Mean Fit = {:f}".format(mean)
-
-    if param=='age':
-        units = u" [$log_{10}$ yr]"
-    elif param=='logZ':
-        units = ' [dex]'
-        ax.set_ylim([0.00, 0.06])
-    elif param=='dmod':
-        units = ' [pc]?'
-    elif params=='Av':
-        units = ' [dex]'
-
-    #ax.set_ylabel(param + units)
-    ax.set_ylabel(r"$log_{10} Age$")
-    ax.set_xlabel(u"$log_{10} N$") 
-    #ax.set_ylim([minbestfit-1.5*dminbestfit, maxbestfit+1.5*dmaxbestfit])
-    ax.set_xscale('log')
-
-    
+    #print "Mean Fit = {:f}".format(mean)
 
     # alternate scaling
     #if param == 'age':
@@ -309,7 +332,5 @@ def plotouts(agebin, data='Fakedata', SFRS=['0.01','0.001','0.0001', '0.00001', 
     # Display the plot:
     if showplt:
         plt.show()
-     
-    print ""
 
     return
