@@ -7,7 +7,7 @@ __pycache__/
 MISTscripts/backup
 
 # Ipython notebooks
-*.ipynb
+MISTscripts/*.ipynb
 
 # Shell scripts
 *.sh
