@@ -4,6 +4,7 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 import numpy as np
 from .graphics import square_aspect, zeroed_cmap, add_inner_title
 
+import matplotlib as mpl
 
 def setup_imgrid(figsize=[12, 3], nrows=1, ncols=4):
     """Default settings to initialize match_plot"""
@@ -57,7 +58,7 @@ def match_plot(hesslist, extent, labels=None, twobytwo=True, sig=True,
         format (v-i, v).
     '''
     if twobytwo:
-        figsize = [9, 9]
+        figsize = [15, 15]
         nrows = 2
         ncols = 2
     else:
@@ -82,7 +83,7 @@ def match_plot(hesslist, extent, labels=None, twobytwo=True, sig=True,
                 if i == 0:
                     colors = plt.cm.Blues
                 if i == 1:
-                    colors = plt.cm.Reds
+                    colors = plt.cm.Greys
                 # colors = plt.cm.get_cmap('binary', 11)
         else:
             if isinstance(cmap, list):
@@ -96,23 +97,31 @@ def match_plot(hesslist, extent, labels=None, twobytwo=True, sig=True,
                         interpolation="nearest", cmap=colors)
         mpl_hack(ax)
         ax.cax.colorbar(img)
+        mpl.rc('text',usetex=True)
         if labels is not None:
             _ = add_inner_title(ax, labels[i], loc=1)
 
             # SSG: Also adding best age & logz:
             if i ==1:
+                print(best_list)
                 _ = add_inner_title(ax,  r"Age = {:.3e}".format(10**best_list[0]), loc=2)
-                _ = add_inner_title(ax,  r"LogZ = {:.2f}".format(best_list[1]), loc=3)
-
+                _ = add_inner_title(ax,  r"LogZ = {:.2f}".format(best_list[3]), loc=3)
+        mpl.rc('text', usetex=False)
         ax.set_xlim(extent[0], extent[1])
         ax.set_ylim(extent[2], extent[3])
         ax = square_aspect(ax)
 
         # Can add overplotting stuff here for the hess plots.
         if photf_pts is not None:
-            ax.scatter(*photf_pts, marker='*', color='g', alpha=0.2, s=2.5)
+            ax.scatter(*photf_pts, color='r', lw=0, alpha=0.4, s=10, zorder=9999)
         if mist_pts is not None:
-            ax.plot(*mist_pts, color='m', alpha=0.2)
+            try:
+                mist_pts[0][0]
+                for n, ptset in enumerate(mist_pts):
+                    ls = '-' if n%2 else '--'
+                    ax.plot(*ptset, color='g', alpha=0.8, ls = ls)
+            except IndexError:
+                ax.plot(*mist_pts, color='g', alpha=0.8)
 
     if xlabel is not None:
         ind = 0

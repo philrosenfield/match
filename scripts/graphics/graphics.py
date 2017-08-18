@@ -13,6 +13,8 @@ try:
 except ImportError:
     pass
 
+import matplotlib as mpl
+
 
 def corner_setup(ndim):
     """
@@ -182,6 +184,7 @@ def add_inner_title(ax, title, loc, size=None):
     '''
     from matplotlib.patheffects import withStroke
     from matplotlib.offsetbox import AnchoredText
+    mpl.rc('text',usetex=True)
 
     if size is None:
         size = dict(size=plt.rcParams['legend.fontsize'])
@@ -190,10 +193,11 @@ def add_inner_title(ax, title, loc, size=None):
     ax.add_artist(anct)
     anct.txt._text.set_path_effects([withStroke(foreground="w", linewidth=3)])
     anct.patch.set_alpha(0.5)
+    mpl.rc('text',usetex=False)
     return anct
 
-
-def zeroed_cmap(hess, cmap1=plt.cm.Reds_r, cmap2=plt.cm.Blues, dfrac=0.05,
+#cmap1=plt.cm.Reds_r, cmap2=plt.cm.Blues,
+def zeroed_cmap(hess, cmap1=plt.cm.Greys_r, cmap2=plt.cm.Blues, dfrac=0.05,
                 transparent=False):
     """make a diverging color map with white set to 0.0"""
     fhess = hess[np.isfinite(hess)]
