@@ -1,7 +1,16 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
-*.py[cod]
+*.py[cod~]
 *$py.class
+
+# Backupdir
+MISTscripts/backup
+
+# Ipython notebooks
+*.ipynb
+
+# Shell scripts
+*.sh
 
 # C extensions
 *.so
