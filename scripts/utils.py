@@ -62,32 +62,16 @@ def quantiles(ux, prob, qs=[0.16, 0.84], res=200, maxp=False,
     g = iux[ipts]
 
     # is there a proble if the probability is given in ln P???
-    print(prob)
     from scipy.interpolate import splprep, splev
     ((tckp, u), fp, ier, msg) = splprep([ux, prob], k=k, full_output=1)
     # iux: interpolated ux vector; iprob: interpolated assoc. prob.
     iux, iprob = splev(np.linspace(0, 1, res), tckp) #np.linspace(0, 1, res)
-    print('*&*&')
-    print(u)
     fac = np.cumsum(iprob) / np.sum(iprob) # contains the fraction of probability per each element.
-    print(np.where(np.abs(fac - qs[1]) == np.min(np.abs(fac - qs[1])))) #
-    print(np.where(np.abs(fac - qs[0]) == np.min(np.abs(fac - qs[0])))) #
     ipts = [np.argmin(np.abs(fac - q)) for q in qs]
     g = iux[ipts] #iux[ipts]
     if maxp:
-        print(np.where(iprob == np.max(iprob))) #
         g = np.append(g, iux[np.argmax(iprob)]) # iux[np.argmax(iprob)]
-        print("iux max = {:f} (prob = {:f})".format(iux[np.argmax(iprob)], iprob[np.argmax(iprob)])) #
-        print("ux max = {:f} (prob = {:f})".format(ux[np.argmax(prob)], prob[np.argmax(prob)])) #
-        print("Out of bounds?") #
-        if g[2] < g[0] or g[2] > g[1]: #
-            print('YES') #
-            print(fac) #
-            print(iprob) #
-            print(iux) #
-        else: #
-            print('NO') #
->>>>>>> minor updates
+
     if ax is not None:
         # useful for debugging or by-eye checking of interpolation
         ax.plot(iux, iprob, color='r')

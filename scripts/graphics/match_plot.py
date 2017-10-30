@@ -74,54 +74,8 @@ def match_plot(hesslist, extent, labels=None, twobytwo=True, sig=True,
     grid = setup_imgrid(figsize=figsize, nrows=nrows, ncols=ncols)
 
     for i, (ax, hess) in enumerate(zip(grid, hesslist)):
-        if cmap is None:
-            if i > 1:
-                # bottom row: diff, sig
-                colors = zeroed_cmap(hess)
-            else:
-                # first row: data, model. White will be on the left of color bar
-                if i == 0:
-                    colors = plt.cm.Blues
-                if i == 1:
-                    colors = plt.cm.Greys
-                # colors = plt.cm.get_cmap('binary', 11)
-        else:
-            if isinstance(cmap, list):
-                colors = cmap[i]
-            else:
-                colors = cmap
-        if logcounts:
-            hess = np.log10(hess)
-
-        img = ax.imshow(hess, origin='upper', extent=extent,
-                        interpolation="nearest", cmap=colors)
-        mpl_hack(ax)
-        ax.cax.colorbar(img)
-        mpl.rc('text',usetex=True)
-        if labels is not None:
-            _ = add_inner_title(ax, labels[i], loc=1)
-
-            # SSG: Also adding best age & logz:
-            if i ==1:
-                print(best_list)
-                _ = add_inner_title(ax,  r"Age = {:.3e}".format(10**best_list[0]), loc=2)
-                _ = add_inner_title(ax,  r"LogZ = {:.2f}".format(best_list[3]), loc=3)
-        mpl.rc('text', usetex=False)
-        ax.set_xlim(extent[0], extent[1])
-        ax.set_ylim(extent[2], extent[3])
-        ax = square_aspect(ax)
-
-        # Can add overplotting stuff here for the hess plots.
-        if photf_pts is not None:
-            ax.scatter(*photf_pts, color='r', lw=0, alpha=0.4, s=10, zorder=9999)
-        if mist_pts is not None:
-            try:
-                mist_pts[0][0]
-                for n, ptset in enumerate(mist_pts):
-                    ls = '-' if n%2 else '--'
-                    ax.plot(*ptset, color='g', alpha=0.8, ls = ls)
-            except IndexError:
-                ax.plot(*mist_pts, color='g', alpha=0.8)
+        ax = hessimg(ax = ax, hess = hess, extent=extent, labels = labels, photf_pts = photf_pts,
+                mist_pts = mist_pts, best_list = best_list, cmap = cmap, logcounts = logcounts, ax_i = i)
 
     if xlabel is not None:
         ind = 0
@@ -133,3 +87,69 @@ def match_plot(hesslist, extent, labels=None, twobytwo=True, sig=True,
         _ = [ax.set_ylabel(ylabel) for ax in grid.axes_column[0]]
 
     return grid
+
+def hessimg(ax, hess, extent, labels=None, photf_pts=None, 
+            mist_pts=None, best_list=None, cmap=None, ax_i=0,
+            logcounts=False):
+    
+    """
+       Draws a hess diagrams to a given axis.
+    """
+
+    i = ax_i
+
+    if cmap is None:
+        if i > 1:
+            # bottom row: diff, sig
+            colors = zeroed_cmap(hess)
+        else:
+            # first row: data, model. White will be on the left of color bar
+            if i == 0:
+                colors = plt.cm.Blues
+            if i == 1:
+                colors = plt.cm.Greys
+            # colors = plt.cm.get_cmap('binary', 11)
+    else:
+        if isinstance(cmap, list):
+            colors = cmap[i]
+        else:
+            colors = cmap
+    if logcounts:
+        hess = np.log10(hess)
+
+    img = ax.imshow(hess, origin='upper', extent=extent,
+                    interpolation="nearest", cmap=colors)
+    mpl_hack(ax)
+    ax.cax.colorbar(img)
+    mpl.rc('text',usetex=True)
+    if labels is not None:
+        _ = add_inner_title(ax, labels[i], loc=1)
+
+        # SSG: Also adding best age & logz (to model plot):
+        if i ==1:
+            #print(best_list)
+            _ = add_inner_title(ax,  r"Age = {:.3e}".format(10**best_list[0]), loc=2)
+            _ = add_inner_title(ax,  r"LogZ = {:.2f}".format(best_list[1]), loc=3)
+
+    mpl.rc('text', usetex=False)
+    ax.set_xlim(extent[0], extent[1])
+    ax.set_ylim(extent[2], extent[3])
+    ax = square_aspect(ax)
+
+    # Can add overplotting stuff here for the hess plots.
+    if photf_pts is not None:
+        ax.scatter(*photf_pts, color='r', lw=0, alpha=0.4, s=10, zorder=9999)
+    print(mist_pts)
+    if mist_pts is not None:
+        # if there are multiple sets of points to plot for the
+        # mist model...
+        print(mist_pts)
+        try:
+            mist_pts[0][0]
+            for n, ptset in enumerate(mist_pts):
+                ls = '-' if n%2 else '--'
+                ax.plot(*ptset, color='g', alpha=0.8, ls = ls)
+        except IndexError:
+            ax.plot(*mist_pts, color='g', alpha=0.8)
+
+    return ax

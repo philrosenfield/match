@@ -73,15 +73,15 @@ def add_quantiles(SSP, ax, attrs, uvalss=None, probs=None,
 
                 #g = SSP.quantiles(attr, uvals, prob, maxp=True, k=1, ax=ax)
                 # [2] is 'best'; [0] is lower, [1] upper quant.
-        else:
-            g = SSP.__getattribute__(gatr)
+        #else:
+        #    g = SSP.__getattribute__(gatr)
 
         try:
             lines = [g.mean, g.mean + g.stddev / 2, g.mean - g.stddev / 2]
         except:
             # if maxp=False when SSP.quantiles called
             # this will raise a value error because g will be length 2.
-        lines = [g[2], g[0], g[1]]
+            lines = [g[2], g[0], g[1]]
         lstys = ['-', '--', '--']
 
         if twod:
@@ -182,9 +182,10 @@ def pdf_plot(SSP, xattr, yattr=None, ax=None, sub=None, save=False,
         l = ax.plot(X, prob, **plt_kw)
 
         if quantile:
-            ax = add_quantiles(SSP, ax, xattr, uvalss=[X], probs=[prob],
+            ax, g = add_quantiles(SSP, ax, xattr, uvalss=[X], probs=[prob],
                                gauss=gauss1D, interpolate=interpolateq, debug=debug)
 
+        print(ax)
         ax.set_xlim(X.min(), X.max())
         # yaxis max is the larger of 10% higher than the max val or current ylim.
         ymax = np.max([prob.max() + (prob.max() * 0.1), ax.get_ylim()[1]])
