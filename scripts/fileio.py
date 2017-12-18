@@ -292,7 +292,7 @@ def calcsfh_input_parameter(zinc=False, power_law_imf=True, max_tbins=100,
     for filt in [param_dict['v'], param_dict['i']]:
         assert(filt in possible_filters), \
             'Error {0:s} filter not in {1!s}' \
-            .format(filt, possible_filters['filters'])
+            .format(filt, possible_filters)
 
     # the logZ line changes if using -zinc flag
     zincfmt = '{logzmin:.2f} {logzmax:.2f} {dlogz:.2f}'
