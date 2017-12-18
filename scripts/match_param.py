@@ -15,12 +15,12 @@ from .config import PARAMEXT
 from .fileio import read_calcsfh_param, calcsfh_input_parameter, match_filters
 from .utils import replaceext, parse_pipeline
 from .match_phot import make_phot
-from .graphics import match_diagnostic
+from .graphics.match_diagnostic import match_diagnostic
 
 
 def move_on(okay, msg='0 to move on: '):
     """read and return raw input"""
-    okay = int(raw_input(msg))
+    okay = int(input(msg))
     time.sleep(1)
     return okay
 
@@ -504,9 +504,9 @@ def main(argv=None):
                     overwrite=args.overwrite, hstflag=args.hstflag,
                     max_tbins=args.max_tbins)
 
-        # match_diagnostic(args.param, args.phot, fake=args.fake)
     else:
         print('{} file found, not overwriting'.format(args.param))
 
+    match_diagnostic(args.param, args.phot, fake=args.fake)
 if __name__ == "__main__":
     sys.exit(main())
