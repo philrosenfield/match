@@ -122,7 +122,9 @@ def ast_correct_starpop(sgal, fake_file=None, outfile=None, overwrite=False,
         axs[1].plot(mag2[rec], mag2diff[rec], '.', **plt_kw)
         if 'label' in plt_kw.keys():
             [ax.legend(loc=0, frameon=False) for ax in axs]
-        plt.savefig(replace_ext(outfile, '_ast_correction{}'.format(EXT)))
+        outfig = replace_ext(outfile, '_ast_correction{}'.format(EXT))
+        plt.savefig(outfig)
+        print('wrote {0:s}'.format(outfig))
     return cor_mag1, cor_mag2
 
 
@@ -563,7 +565,7 @@ class ASTs(object):
     def add_complines(self, ax, fracs, cmd=False, get_cfrac_kw=None,
                       yaxis='I'):
         """add verticle lines to a plot at given completeness fractions"""
-        get_comp_frac_kw = get_comp_frac_kw or {}
+        get_cfrac_kw = get_cfrac_kw or {}
         if not isinstance(fracs, list):
             fracs = list(fracs)
 
@@ -582,7 +584,7 @@ class ASTs(object):
                                       (self.filter1, self.filter2)):
                     lab = lblfmt.format(frac=frac, filt=filt, comp=comp)
                     ax.vlines(comp, 0, 1, label=lab,
-                              color=next(ax._get_lines.color_cycle))
+                              color=ax._get_lines.get_next_color())
         plt.legend(loc='lower left', frameon=False)
         return ax
 
@@ -591,7 +593,7 @@ def main(argv):
     desc = "Calculate completeness fraction, make AST plots"
     parser = argparse.ArgumentParser(description=desc)
 
-    parser.add_argument('-c', '--comp_frac', type=float, default=0.9,
+    parser.add_argument('-c', '--comp_frac', type=float, default=None,
                         help='completeness fraction to calculate')
 
     parser.add_argument('-p', '--makeplots', action='store_true',
@@ -610,13 +612,14 @@ def main(argv):
         ast = ASTs(fake)
         ast.completeness(combined_filters=True, interpolate=True,
                          binsize=0.15)
-        comp1, comp2 = \
-            ast.get_completeness_fraction(args.comp_frac,
-                                          bright_lim=args.bright_mag)
-        print('{} {} completeness fraction:'.format(fake, args.comp_frac))
-        print('{0:20s} {1:.4f} {2:.4f}'.format(ast.target, comp1, comp2))
+        if args.comp_frac is not None:
+            comp1, comp2 = \
+                ast.get_completeness_fraction(args.comp_frac,
+                                              bright_lim=args.bright_mag)
+            print('{} {} completeness fraction:'.format(fake, args.comp_frac))
+            print('{0:20s} {1:.4f} {2:.4f}'.format(ast.target, comp1, comp2))
 
-        if args.makeplots:
+        if args.makeplots or args.plot_fracs is not None:
             comp_name = os.path.join(ast.base,
                                      '{}_comp{}'.format(ast.name, EXT))
             ast_name = os.path.join(ast.base, '{}_ast{}'.format(ast.name, EXT))
@@ -627,10 +630,12 @@ def main(argv):
                 ast.add_complines(ax, fracs,
                                   get_cfrac_kw={'bright_lim': args.bright_mag})
             plt.savefig(comp_name)
+            print('write {0:s}'.format(comp_name))
             plt.close()
 
             ast.magdiff_plot()
             plt.savefig(ast_name)
+            print('write {0:s}'.format(ast_name))
             plt.close()
 
 

@@ -54,7 +54,7 @@ def match_plot(hesslist, extent, labels=None, twobytwo=True, sig=True,
     logcounts: bool [False]
         pass np.log10(hess) to imshow instead of hess
     photf_pts: tuple [None]
-        points for overplotting data from a photometry file w/ 
+        points for overplotting data from a photometry file w/
         format (v-i, v).
     '''
     if twobytwo:
@@ -72,10 +72,11 @@ def match_plot(hesslist, extent, labels=None, twobytwo=True, sig=True,
         hesslist = hesslist[:-1]
 
     grid = setup_imgrid(figsize=figsize, nrows=nrows, ncols=ncols)
-
     for i, (ax, hess) in enumerate(zip(grid, hesslist)):
-        ax = hessimg(ax = ax, hess = hess, extent=extent, labels = labels, photf_pts = photf_pts,
-                mist_pts = mist_pts, best_list = best_list, cmap = cmap, logcounts = logcounts, ax_i = i)
+        ax = hessimg(ax=ax, hess=hess, extent=extent, labels=labels,
+                     photf_pts=photf_pts, mist_pts=mist_pts,
+                     best_list=best_list, cmap=cmap, logcounts=logcounts,
+                     ax_i=i)
 
     if xlabel is not None:
         ind = 0
@@ -88,10 +89,10 @@ def match_plot(hesslist, extent, labels=None, twobytwo=True, sig=True,
 
     return grid
 
-def hessimg(ax, hess, extent, labels=None, photf_pts=None, 
+def hessimg(ax, hess, extent, labels=None, photf_pts=None,
             mist_pts=None, best_list=None, cmap=None, ax_i=0,
             logcounts=False):
-    
+
     """
        Draws a hess diagrams to a given axis.
     """
@@ -126,10 +127,12 @@ def hessimg(ax, hess, extent, labels=None, photf_pts=None,
         _ = add_inner_title(ax, labels[i], loc=1)
 
         # SSG: Also adding best age & logz (to model plot):
-        if i ==1:
+        if i ==1 and mist_pts is not None:
             #print(best_list)
-            _ = add_inner_title(ax,  r"Age = {:.3e}".format(10**best_list[0]), loc=2)
-            _ = add_inner_title(ax,  r"LogZ = {:.2f}".format(best_list[1]), loc=3)
+            _ = add_inner_title(ax,
+                                r"Age = {:.3e}".format(10**best_list[0]), loc=2)
+            _ = add_inner_title(ax,
+                                r"LogZ = {:.2f}".format(best_list[1]), loc=3)
 
     mpl.rc('text', usetex=False)
     ax.set_xlim(extent[0], extent[1])
@@ -139,7 +142,7 @@ def hessimg(ax, hess, extent, labels=None, photf_pts=None,
     # Can add overplotting stuff here for the hess plots.
     if photf_pts is not None:
         ax.scatter(*photf_pts, color='r', lw=0, alpha=0.4, s=10, zorder=9999)
-    print(mist_pts)
+    # print(mist_pts)
     if mist_pts is not None:
         # if there are multiple sets of points to plot for the
         # mist model...

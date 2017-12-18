@@ -308,7 +308,7 @@ def main(argv):
     else:
         for cmdfile in args.cmdfiles:
             print(cmdfile)
-            cmd = CMD(cmdfile)
+            cmd = CMD(filename=cmdfile)
             cmd.pgcmd(outdir=args.outdir, logcounts=args.logcounts)
 
 if __name__ == "__main__":
