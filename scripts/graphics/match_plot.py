@@ -72,6 +72,7 @@ def match_plot(hesslist, extent, labels=None, twobytwo=True, sig=True,
         hesslist = hesslist[:-1]
 
     grid = setup_imgrid(figsize=figsize, nrows=nrows, ncols=ncols)
+
     for i, (ax, hess) in enumerate(zip(grid, hesslist)):
         ax = hessimg(ax=ax, hess=hess, extent=extent, labels=labels,
                      photf_pts=photf_pts, mist_pts=mist_pts,
@@ -127,10 +128,12 @@ def hessimg(ax, hess, extent, labels=None, photf_pts=None,
         _ = add_inner_title(ax, labels[i], loc=1)
 
         # SSG: Also adding best age & logz (to model plot):
-        if i ==1 and mist_pts is not None:
+        if i == 1 and mist_pts is not None:
             #print(best_list)
+            assert best_list is not None, 'Need best_list for labels'
             _ = add_inner_title(ax,
-                                r"Age = {:.3e}".format(10**best_list[0]), loc=2)
+                                r"Age = {:.3e}".format(10 ** best_list[0]),
+                                loc=2)
             _ = add_inner_title(ax,
                                 r"LogZ = {:.2f}".format(best_list[1]), loc=3)
 

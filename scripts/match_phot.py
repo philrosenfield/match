@@ -54,7 +54,7 @@ def outputfmt(data, filter1, filter2, asteca=False, filterext='VEGA',
         retdat = asteca_fmt(data, filter1, filter2, filterext=filterext,
                             crowd=None)
     else:
-        retdat = match_fmt(data, filter1, filter2, crowd=None)
+        retdat = match_fmt(data, filter1, filter2, crowd=crowd)
     return retdat
 
 
@@ -102,7 +102,7 @@ def make_phot(fitsfile, filterext='VEGA', nexts=2, precision='%.6f',
         if not dryrun:
             wrote = 'wrote'
             np.savetxt(fname, outputfmt(data, filter1, filter2, asteca=asteca,
-                                        filterext=filterext, crowd=None),
+                                        filterext=filterext, crowd=crowd),
                        fmt=precision)
         else:
             wrote = 'would write'
@@ -136,7 +136,8 @@ def main(argv):
     if args.a2m:
         [asteca2matchphot(f) for f in args.fitsfiles]
     else:
-        _ = [make_phot(fitsfile, dryrun=args.dryrun, asteca=args.asteca)
+        _ = [make_phot(fitsfile, dryrun=args.dryrun, asteca=args.asteca,
+                       crowd=args.crowd)
              for fitsfile in args.fitsfiles]
 
 if __name__ == "__main__":

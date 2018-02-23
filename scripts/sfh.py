@@ -22,12 +22,29 @@ def quadriture(x):
     return np.sqrt(np.sum(x * x))
 
 
+def match27filereader(filename, hmc_file=None):
+    """
+    Before running zcombine ... good for a first look, not for anything else.
+    """
+    with open(filename) as inp:
+        lines = [l.strip() for l in inp.readlines() if len(l.strip()) > 0]
+    metadata = lines[0]
+    ntbins, nzbins, ncmds, nbgs = np.array(lines[1].split(), dtype=int)
+    nheader = 2
+    nfooter = len(lines) - nheader - ntbins * nzbins
+    names = ['lagei', 'lagef', 'sfr', 'nstars', 'logZ', 'dmod']
+    data = np.genfromtxt(filename, skip_header=nheader, skip_footer=nfooter,
+                         names=names)
+    return data.view(np.recarray)
+
+
 class SFH(object):
     '''
     load the match sfh solution as a class with attributes set by the
     best fits from the sfh file.
     '''
-    def __init__(self, filename=None, hmc_file=None, meta_file=None):
+    def __init__(self, filename=None, hmc_file=None, meta_file=None,
+                 filereader=read_binned_sfh):
         """
         Parameters
         ----------
@@ -41,11 +58,12 @@ class SFH(object):
         """
         if filename is not None:
             self.base, self.name = os.path.split(filename)
-            self.data = read_binned_sfh(filename, hmc_file)
+            self.data = filereader(filename, hmc_file)
 
             if meta_file is None:
                 meta_file = filename
-            self.load_match_header(meta_file)
+            if filereader == read_binned_sfh:
+                self.load_match_header(meta_file)
 
     def load_match_header(self, filename):
         '''
@@ -161,34 +179,36 @@ class SFH(object):
         eplt_kw.update({'linestyle': 'None'})
 
         lages, sfrs = self.plot_bins(offset=sfr_offset)
-        rlages, (rsfrs, sfr_merrs, sfr_perrs) = \
-            self.plot_bins(err=True, offset=sfr_offset)
+        if errors:
+            rlages, (rsfrs, sfr_merrs, sfr_perrs) = \
+                self.plot_bins(err=True, offset=sfr_offset)
 
-        rlages = np.append(self.data['lagei'], self.data['lagef'][-1])
-        rlages = rlages[:-1] + np.diff(rlages) / 2.
-        rsfrs = self.data['sfr'] * sfr_offset
-        rsfr_merrs = self.data['sfr_errm'] * sfr_offset
-        rsfr_perrs = self.data['sfr_errp'] * sfr_offset
+            rlages = np.append(self.data['lagei'], self.data['lagef'][-1])
+            rlages = rlages[:-1] + np.diff(rlages) / 2.
+            rsfrs = self.data['sfr'] * sfr_offset
+            rsfr_merrs = self.data['sfr_errm'] * sfr_offset
+            rsfr_perrs = self.data['sfr_errp'] * sfr_offset
+            rlages = 10 ** (rlages - 9.)
 
-        lages = 10 ** (lages - 9.)
-        rlages = 10 ** (rlages - 9.)
+        # lages = 10 ** (lages - 9.)
 
         if val != 'sfr':
             lages, vals = self.plot_bins(val=val, convertz=convertz)
             # mask values with no SF
             isfr, = np.nonzero(sfrs == 0)
             vals[isfr] = np.nan
-            if self.flag != 'setz':
-                rlages, (rvals, val_merrs, val_perrs) = \
-                    self.plot_bins(val=val, err=True)
-                # mask values with no SF
-                irsfr, = np.nonzero(rsfrs == 0)
-                val_merrs[irsfr] = 0.
-                val_perrs[irsfr] = 0.
-                if np.sum(val_merrs) == 0 or np.sum(val_perrs) == 0:
+            if errors:
+                if self.flag != 'setz':
+                    rlages, (rvals, val_merrs, val_perrs) = \
+                        self.plot_bins(val=val, err=True)
+                    # mask values with no SF
+                    irsfr, = np.nonzero(rsfrs == 0)
+                    val_merrs[irsfr] = 0.
+                    val_perrs[irsfr] = 0.
+                    if np.sum(val_merrs) == 0 or np.sum(val_perrs) == 0:
+                        errors = False
+                else:
                     errors = False
-            else:
-                errors = False
             if 'mh' in val:
                 if ylabel is not None:
                     ylabel = r'$\rm{[M/H]}$'
@@ -198,14 +218,16 @@ class SFH(object):
             ylabel = r'$SFR\ %s\ (\rm{M_\odot/yr})$' % \
                      float2sci(1. / sfr_offset).replace('$', '')
             vals = sfrs
-            rvals = rsfrs
-            val_merrs = rsfr_merrs
-            val_perrs = rsfr_perrs
-        if ax is None:
+            if errors:
+                rvals = rsfrs
+                val_merrs = rsfr_merrs
+                val_perrs = rsfr_perrs
+        if ax is None or xlabel is not None:
             _, ax = plt.subplots()
             xlabel = r'$\log Age\ \rm{(yr)}$'
 
         ax.plot(lages, vals, **plt_kw)
+        ax.set_xlim(6.5, 10.25)
         if errors:
             ax.errorbar(rlages, rvals, yerr=[val_merrs, val_perrs], **eplt_kw)
 
@@ -216,14 +238,12 @@ class SFH(object):
         return ax
 
     def plot_csfr(self, ax=None, errors=True, plt_kw={}, fill_between_kw={},
-                  xlim=None, ylim=(-0.01, 1.01), data=True):
+                  xlim=None, ylim=(-0.01, 1.01), data=True, save=True):
         '''cumulative sfr plot from match'''
-        one_off = False
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 8))
             plt.subplots_adjust(right=0.95, left=0.1, bottom=0.1, top=0.95)
             ax.tick_params(direction='in')
-            one_off = True
 
         fill_between_kw = dict({'alpha': 1, 'color': 'gray'},
                                **fill_between_kw)
@@ -256,7 +276,7 @@ class SFH(object):
         ax.set_ylim(ylim)
         # ax.set_xscale('log')
         # ax.xaxis.set_major_locator(LogNLocator)
-        if one_off:
+        if save:
             ax.set_xlabel('$\\rm{Star\ Formation\ Time\ (Gyr)}$', fontsize=20)
             ax.set_ylabel('$\\rm{Culmulative\ Star\ Formation}$', fontsize=20)
             plt.legend(loc=0, frameon=False)
@@ -394,24 +414,23 @@ class SFH(object):
 
         return fracsfr, fracsfr_errp, fracsfr_errm
 
-    def sfh_plot(self, axs=None):
+    def sfh_plot(self, axs=None, save=True, **kwargs):
         from matplotlib.ticker import NullFormatter
 
         if axs is None:
-            save=True
-            _, (ax1, ax2) = plt.subplots(nrows=2)
+            _, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
         else:
-            save=False
             ax1, ax2 = axs
-        self.age_plot(ax=ax1)
-        self.age_plot(val='mh', convertz=False, ax=ax2)
-        ax1.xaxis.set_major_formatter(NullFormatter())
+        ax1 = self.age_plot(ax=ax1, **kwargs)
+        ax2 = self.age_plot(val='mh', convertz=False, ax=ax2, **kwargs)
+        # ax1.xaxis.set_major_formatter(NullFormatter())
         plt.subplots_adjust(hspace=0.1)
         if save:
             figname = os.path.join(self.base, self.name + EXT)
             print('wrote {}'.format(figname))
             plt.savefig(figname)
         return [ax1, ax2]
+
 
 def main(argv=None):
     """
@@ -426,16 +445,25 @@ def main(argv=None):
                         help='overlay on one plot')
 
     args = parser.parse_args(argv)
+
+    colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
     axs = None
     axp = None
-    for sfh_file in args.sfh_files:
+    plt_kw = {}
+    save = False
+
+    for i, sfh_file in enumerate(args.sfh_files):
         msfh = SFH(sfh_file)
         if not args.oneplot:
             axs = None
             axp = None
+        else:
+            plt_kw['color'] = colors[i]
         if len(msfh.data) != 0:
-            axs = msfh.sfh_plot(axs=axs)
-            axp = msfh.plot_csfr(ax=axp)
+            if len(args.sfh_files) - 1 == i:
+                save = True
+            axs = msfh.sfh_plot(axs=axs, plt_kw=plt_kw, save=save)
+            # axp = msfh.plot_csfr(ax=axp, plt_kw=plt_kw, save=save)
             # dic = msfh.param_table()
             # print(dic['fmt'].format(**dic))
 

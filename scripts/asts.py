@@ -205,8 +205,13 @@ class ASTs(object):
             self.data = fits.getdata(filename)
             self.mag1 = self.data['{}_IN'.format(self.filter1)]
             self.mag2 = self.data['{}_IN'.format(self.filter2)]
-            mag1out = self.data['{}{}'.format(self.filter1, self.filt_extra)]
-            mag2out = self.data['{}{}'.format(self.filter2, self.filt_extra)]
+            try:
+                mag1out = self.data['{}{}'.format(self.filter1, self.filt_extra)]
+                mag2out = self.data['{}{}'.format(self.filter2, self.filt_extra)]
+            except KeyError:
+                mag1out = self.data['{}_OUT'.format(self.filter1)]
+                mag2out = self.data['{}_OUT'.format(self.filter2)]
+
             self.mag1diff = self.mag1 - mag1out
             self.mag2diff = self.mag2 - mag2out
 

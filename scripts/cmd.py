@@ -158,7 +158,8 @@ class CMD(object):
         # self.max_sig = np.nanmax(np.abs(self.sig))
 
     def pgcmd(self, labels=None, outdir=None, logcounts=False, figname=None,
-              twobytwo=True, sig=True, photf_pts=None, mist_pts=None, best_list=None):
+              twobytwo=True, sig=True, photf_pts=None, mist_pts=None,
+              best_list=None):
         '''produce the image that pgcmd.pro makes
         enhances graphics.match_plot.match_plot:
             automatic titles for each panel
@@ -180,11 +181,11 @@ class CMD(object):
             hesses[1] = np.log10(hesses[1])
 
         xlabel, ylabel = self.set_axis_labels()
-
+        
         grid = match_plot(hesses, self.extent, labels=labels, ylabel=ylabel,
-                          xlabel=xlabel, twobytwo=twobytwo, sig=sig, photf_pts=photf_pts,
-                          mist_pts=mist_pts, best_list=best_list)
-
+                          xlabel=xlabel, twobytwo=twobytwo, sig=sig,
+                          photf_pts=photf_pts, mist_pts=mist_pts,
+                          best_list=best_list)
         gates = self.cmd['gate']
         ugates = np.unique(gates)
         if len(ugates) > 1:

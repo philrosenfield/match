@@ -118,6 +118,32 @@ def add_filename_info_to_file(fname, best=False):
     return df
 
 
+def fake_param_fmt(power_law_imf=False, fake=True):
+    """
+    I donno... without Ntbins and age binning I think this is stupid.
+    Does not allow for -diskav or -mag or anything besides trying to reproduce
+    the cmds used in calcsfh.
+
+    IMF (m-M)o Av Zspread BF dmag_min
+    Vstep V-Istep fake_sm V-Imin V-Imax V,I  (per CMD)
+    Vmin Vmax V                              (per filter)
+    Imin Imax I                              (per filter)
+
+    NOT INCLUDED:
+    Ntbins
+      To Tf SFR Z ^see below^ (for each time bin)
+
+    FROM README :
+     dmag_min is the minimum good output-input magnitude in the
+     fake star results; usually -0.75 (the recovered star is twice as bright
+     as the input star) is a good value (-1.50 would match identically the
+     value used by calcsfh).
+    """
+    return ['%(dmod).3f %(av).3f %(dlogz).3f %(bf).3f %(dmag_min).3f',
+            '%(vstep).2f %(vistep).2f %(fake_sm)i %(vimin).2f %(vimax).2f %(v)s,%(i)s',
+            '%(vmin).2f %(vmax).2f %(v)s',
+            '%(imin).2f %(imax).2f %(i)s']
+
 def filename_data(fname, ext=None, skip=2, delimiter='_', exclude='imf'):
     """
     return a dictionary of key and values from a filename.

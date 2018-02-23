@@ -149,7 +149,8 @@ def stitch_cmap(cmap1, cmap2, stitch_frac=0.5, dfrac=0.001, transparent=False):
 
     def new_seg(color):
         """combine left and right segments"""
-        seg = left(cmap1._segmentdata[color]) + right(cmap2._segmentdata[color])
+        seg = left(cmap1._segmentdata[color]) + \
+            right(cmap2._segmentdata[color])
         return seg
 
     rgb = ['blue', 'red', 'green']
@@ -184,7 +185,7 @@ def add_inner_title(ax, title, loc, size=None):
     '''
     from matplotlib.patheffects import withStroke
     from matplotlib.offsetbox import AnchoredText
-    mpl.rc('text',usetex=True)
+    mpl.rc('text', usetex=True)
 
     if size is None:
         size = dict(size=plt.rcParams['legend.fontsize'])
@@ -193,11 +194,10 @@ def add_inner_title(ax, title, loc, size=None):
     ax.add_artist(anct)
     anct.txt._text.set_path_effects([withStroke(foreground="w", linewidth=3)])
     anct.patch.set_alpha(0.5)
-    mpl.rc('text',usetex=False)
+    mpl.rc('text', usetex=False)
     return anct
 
-#cmap1=plt.cm.Reds_r, cmap2=plt.cm.Blues,
-# dfrac = 0.05 default
+
 def zeroed_cmap(hess, cmap1=plt.cm.Greys_r, cmap2=plt.cm.Blues, dfrac=0.001,
                 transparent=False):
     """make a diverging color map with white set to 0.0"""

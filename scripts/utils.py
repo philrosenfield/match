@@ -42,7 +42,6 @@ def quantiles(ux, prob, qs=[0.16, 0.84], res=200, maxp=False,
     -------
     interpolated ux evaluated at qs
     """
-
     if interpolate:
         from scipy.interpolate import splprep, splev
         ((tckp, u), fp, ier, msg) = splprep([ux, prob], k=k, full_output=1)
@@ -60,18 +59,6 @@ def quantiles(ux, prob, qs=[0.16, 0.84], res=200, maxp=False,
     if maxp:
         ipts.append(np.argmax(iprob))
     g = iux[ipts]
-
-    # is there a proble if the probability is given in ln P???
-    from scipy.interpolate import splprep, splev
-    ((tckp, u), fp, ier, msg) = splprep([ux, prob], k=k, full_output=1)
-    # iux: interpolated ux vector; iprob: interpolated assoc. prob.
-    iux, iprob = splev(np.linspace(0, 1, res), tckp) #np.linspace(0, 1, res)
-    fac = np.cumsum(iprob) / np.sum(iprob) # contains the fraction of probability per each element.
-    ipts = [np.argmin(np.abs(fac - q)) for q in qs]
-    g = iux[ipts] #iux[ipts]
-    if maxp:
-        g = np.append(g, iux[np.argmax(iprob)]) # iux[np.argmax(iprob)]
-
     if ax is not None:
         # useful for debugging or by-eye checking of interpolation
         ax.plot(iux, iprob, color='r')

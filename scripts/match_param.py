@@ -439,7 +439,7 @@ def parse_args(argv=None):
                         help=('maximum time bins per param file '
                               '(would create more parameter files)'))
 
-    parser.add_argument('phot', type=str, help='photometry file match or fits')
+    parser.add_argument('--phot', type=str, help='photometry file match or fits')
 
     return parser.parse_args(argv)
 
@@ -508,5 +508,7 @@ def main(argv=None):
         print('{} file found, not overwriting'.format(args.param))
 
     match_diagnostic(args.param, args.phot, fake=args.fake)
+
+
 if __name__ == "__main__":
     sys.exit(main())
