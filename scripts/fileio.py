@@ -206,7 +206,7 @@ def read_fake(filename):
     return data
 
 
-def read_match_cmd(filename, onlyheader=False):
+def read_match_cmd(filename, onlyheader=False, ymag='V'):
     '''read MATCH .cmd file'''
     if not filename.endswith('.cmd'):
         print('Warning: {} might not be a .cmd file'.format(filename))
@@ -215,6 +215,9 @@ def read_match_cmd(filename, onlyheader=False):
     if not onlyheader:
         cmd = np.genfromtxt(filename, skip_header=4, names=names,
                             invalid_raise=False)
+        if ymag != 'V':
+            imag = cmd['mag'] - cmd['color']
+            cmd['mag'] = imag
     with open(filename, 'r') as inp:
         header = [next(inp).strip() for _ in range(4)]
     fit = float(header[0].split()[0])
