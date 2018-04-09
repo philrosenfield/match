@@ -17,6 +17,7 @@ import matplotlib as mpl
 
 __all__ = ['CMD']
 
+
 def splitcmds(filename, overwrite=False):
     name, ext = os.path.splitext(filename)
 
@@ -57,23 +58,27 @@ class CMD(object):
     automatically make plots with the same color scale as other MATCH CMD
     files.
     """
-    def __init__(self, filename=None, onlyheader=False, params=None):
+
+    def __init__(self, filename=None, onlyheader=False, params=None, ymag='V'):
         if filename is not None:
             self.base, self.name = os.path.split(os.path.abspath(filename))
-            self.cmd, self.fit, self.colors, self.yfilter = \
-                read_match_cmd(filename, onlyheader=onlyheader)
+            (self.cmd, self.fit, self.colors, self.yfilter,
+             self.ncmd, self.nmagbin, self.ncolbin) = \
+                read_match_cmd(filename, onlyheader=onlyheader, ymag=ymag)
             if not onlyheader:
                 # self.cmd will be an empty array if onlyheader
                 self.load_match_cmd()
             if params is not None:
                 self.params = params
-                dlage = np.array(sorted(np.unique(params['log10 Age'].values))).diff()[0]
-                dt = 10**(params['log10 Age'] + dlage) - 10**params['log10 Age']
+                dlage = np.array(
+                    sorted(np.unique(params['log10 Age'].values))).diff()[0]
+                dt = 10**(params['log10 Age'] + dlage) - \
+                    10**params['log10 Age']
                 self.mass = params['SFR'] * dt
 
     def set_labels(self):
         """Set up list of labels for pgpro"""
-        mpl.rc('text',usetex=True)
+        mpl.rc('text', usetex=True)
         strfmt = r'${{\rm {:s}}}$'
         labels = [strfmt.format(i) for i in ['data', 'model', 'd-m']]
         try:
@@ -82,12 +87,14 @@ class CMD(object):
         except:
             pass
         labels.append(r'$-2\ln P = {:g}$'.format(self.fit))
-        mpl.rc('text',usetex=False)
+        mpl.rc('text', usetex=False)
         return labels
 
     def set_axis_labels(self, ax=None):
-        xlabel = r'$\rm{{{}}}$'.format(self.colors.replace('WFC', 'F').replace('UVIS', 'F'))
-        ylabel = r'$\rm{{{}}}$'.format(self.yfilter.replace('WFC', 'F').replace('UVIS', 'F'))
+        xlabel = r'$\rm{{{}}}$'.format(
+            self.colors.replace('WFC', 'F').replace('UVIS', 'F'))
+        ylabel = r'$\rm{{{}}}$'.format(
+            self.yfilter.replace('WFC', 'F').replace('UVIS', 'F'))
         if ax is not None:
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
@@ -139,19 +146,15 @@ class CMD(object):
         pgcmd needs hesses and extent. Optional are max_* which set the vmins
         and vmaxs.
         """
-        self.nmagbin = len(np.unique(self.cmd['mag']))
-        self.ncolbin = len(np.unique(self.cmd['color']))
-        try:
-            self.data = self.cmd['Nobs'].reshape(self.nmagbin, self.ncolbin)
-        except:
-            print('{0:s} Mutliple filtersets not supported, split the .cmd file by hand into seperate files'.format(self.name))
-            sys.exit(1)
-        self.model = self.cmd['Nsim'].reshape(self.nmagbin, self.ncolbin)
-        self.diff = self.cmd['diff'].reshape(self.nmagbin, self.ncolbin)
-        self.sig = self.cmd['sig'].reshape(self.nmagbin, self.ncolbin)
-        self.hesses = [self.data, self.model, self.diff, self.sig]
+        assert self.ncmd == 1, \
+            '{0:s} Mutliple CMDs not supported, use splitcmds'.format(self.name)
+        self.data=self.cmd['Nobs'].reshape(self.nmagbin, self.ncolbin)
+        self.model=self.cmd['Nsim'].reshape(self.nmagbin, self.ncolbin)
+        self.diff=self.cmd['diff'].reshape(self.nmagbin, self.ncolbin)
+        self.sig=self.cmd['sig'].reshape(self.nmagbin, self.ncolbin)
+        self.hesses=[self.data, self.model, self.diff, self.sig]
 
-        self.extent = [np.min(self.cmd['color']), np.max(self.cmd['color']),
+        self.extent=[np.min(self.cmd['color']), np.max(self.cmd['color']),
                        np.max(self.cmd['mag']), np.min(self.cmd['mag'])]
         # self.max_counts = np.nanmax(np.concatenate([self.data, self.model]))
         # self.max_diff = np.nanmax(np.abs(self.diff))
@@ -181,7 +184,7 @@ class CMD(object):
             hesses[1] = np.log10(hesses[1])
 
         xlabel, ylabel = self.set_axis_labels()
-        
+
         grid = match_plot(hesses, self.extent, labels=labels, ylabel=ylabel,
                           xlabel=xlabel, twobytwo=twobytwo, sig=sig,
                           photf_pts=photf_pts, mist_pts=mist_pts,
@@ -224,7 +227,8 @@ def sortbyfit(cmdfns, onlyheader=False):
 
     retv = np.array(cmdfns)
     if isinstance(cmdfns[0], str):
-        cmds = np.array([CMD(cmdfn, onlyheader=onlyheader) for cmdfn in cmdfns])
+        cmds = np.array([CMD(cmdfn, onlyheader=onlyheader)
+                         for cmdfn in cmdfns])
     else:
         cmds = cmdfns
 
@@ -258,7 +262,7 @@ def call_pgcmd_byfit(cmdfns, nmax=5, outdir=None, logcounts=False):
         cmd = CMD(cmd)
         cmd.pgcmd(figname='{}{}{}'.format(cmd.name, jstr, EXT),
                   outdir=outdir, logcounts=logcounts)
-                   # twobytwo=False, sig=False)
+        # twobytwo=False, sig=False)
     return
 
 
@@ -311,6 +315,7 @@ def main(argv):
             print(cmdfile)
             cmd = CMD(filename=cmdfile)
             cmd.pgcmd(outdir=args.outdir, logcounts=args.logcounts)
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])

@@ -219,12 +219,17 @@ def read_match_cmd(filename, onlyheader=False, ymag='V'):
         if ymag != 'V':
             imag = cmd['mag'] - cmd['color']
             cmd['mag'] = imag
+
     with open(filename, 'r') as inp:
         header = [next(inp).strip() for _ in range(4)]
     fit = float(header[0].split()[0])
     colors = header[2]
-    yfilter = header[-1]
-    return cmd, fit, colors, yfilter
+    ncmd, nmagbin, ncolbin = np.array(header[1].split(), dtype=int)
+    if ymag != 'V':
+        yfilter = header[2].split('-')[1]
+    else:
+        yfilter = header[-1]
+    return cmd, fit, colors, yfilter, ncmd, nmagbin, ncolbin
 
 
 def add_gates(ngates):
