@@ -7,6 +7,7 @@ import sys
 import logging
 
 import numpy as np
+from astropy.table import Table
 
 from .config import SCRNEXT
 
@@ -409,6 +410,7 @@ def make_matchfake(fname):
         tbl = Table.read(fname, format='fits')
     except:
         logger.error('problem with {}'.format(fname))
+        raise
         return
     filters = [f for f in fname.split('_') if f.startswith('F')]
     pref = fname.split('F')[0]
@@ -436,7 +438,7 @@ def make_matchfake(fname):
         np.savetxt(fout, np.column_stack((mag1in, mag2in, mag1diff, mag2diff)),
                    fmt='%.4f')
         logger.info('wrote {}'.format(fout))
-    return
+    return fout
 
 
 def calcsfh_dict():
